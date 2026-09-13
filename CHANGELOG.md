@@ -4,21 +4,22 @@
 
 ### Added
 
-- **Clock size** slider for the iOS clock, in Wallpaper & style → Clock →
-  Style. Six steps, each taller than the last: the numerals move along Roboto
-  Flex's own weight and width axes to a bolder, condensed cut, so strokes stay
-  even at every size, and only a little of the height (at most 1.6 times) comes
-  from stretching them vertically, with horizontal strokes thinned by as much
-  as the stretch adds. The colon stays round. The
-  picker's preview follows the slider as it moves, and the chosen step is
-  stored with the clock setting, so it survives reboots and the slider reopens
-  on it.
+- **Font** slider for the iOS clock, in Wallpaper & style → Clock → Style:
+  Roboto Flex or Inter 4.1, the open font closest to SF Pro, bundled under the
+  SIL Open Font License. The preview switches as the slider moves.
+- **Clock size** slider for the iOS clock, in Wallpaper & style → Clock → Size,
+  under the Large switch. Six steps, each taller than the last: the numerals
+  move to a bolder cut, so strokes stay even at every size, and only a little
+  of the height comes from stretching them vertically. The colon stays round
+  and centred between the digits. The preview follows the slider as it moves,
+  and Apply stores the size and the font together with the clock setting, so
+  choosing one keeps the other.
 - With notifications showing, the iOS clock is the time alone at the smallest
   size step, with Pixel's date and weather line centred below it, spaced
   evenly between the clock and the notifications.
 - The picker's preview no longer draws Pixel's date line over the large iOS
   clock; it matches the lock screen, where the clock writes its own date.
-- The picker's slider is labelled "Clock size" for this module's clocks and
+- The picker's Style slider is labelled "Font" for this module's clocks and
   keeps Google's "Clock face width" for Google's own.
 - GitHub Actions workflow that runs the project checks and unit tests, builds a
   signed release APK, and attaches it to a GitHub Release for `v*` tags.

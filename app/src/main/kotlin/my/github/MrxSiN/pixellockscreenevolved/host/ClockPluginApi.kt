@@ -34,6 +34,14 @@ internal class ClockPluginApi(private val classLoader: ClassLoader) {
 
     private val availableClocksField = registryType.getDeclaredField("availableClocks").accessible()
     private val registryContextField = registryType.getDeclaredField("context").accessible()
+    private val registrySettingsField = registryType.getDeclaredField("settings").accessible()
+
+    /**
+     * Where Wallpaper & style's registry stores a clock setting: every write the
+     * picker makes goes through it, and it writes its argument. SystemUI's
+     * registry never writes, and has none.
+     */
+    val applySettings: Method? = registryType.declaredMethods.firstOrNull { it.name == "applySettings" }
 
     private val metadataType = load("$CLOCKS.ClockMetadata")
     private val metadataConstructor = metadataType.getConstructor(STRING, BOOLEAN, STRING)
@@ -50,13 +58,15 @@ internal class ClockPluginApi(private val classLoader: ClassLoader) {
     private val axisStyleType = load("$CLOCKS.ClockAxisStyle")
     private val axisStyleConstructor = axisStyleType.getConstructor(Map::class.java)
     private val axisStyleGet = axisStyleType.getMethod("get", STRING)
+    private val axisStylePut = axisStyleType.getMethod("put", STRING, Float::class.java)
     val presetGroupType: Class<*> = load("$CLOCKS.AxisPresetConfig\$Group")
     private val presetGroupConstructor = presetGroupType.getConstructor(List::class.java, Drawable::class.java)
     private val presetGroupPresets = presetGroupType.getMethod("getPresets")
     private val presetConfigType = load("$CLOCKS.AxisPresetConfig")
     private val indexedStyleType = load("$CLOCKS.AxisPresetConfig\$IndexedStyle")
     private val presetConfigConstructor = presetConfigType.getConstructor(List::class.java, indexedStyleType)
-    private val presetConfigFindStyle = presetConfigType.getMethod("findStyle", axisStyleType)
+    private val indexedStyleConstructor =
+        indexedStyleType.getConstructor(Int::class.java, Int::class.java, axisStyleType)
     private val pickerConfigConstructor = load("$CLOCKS.ClockPickerConfig")
         .getConstructor(STRING, STRING, STRING, Drawable::class.java, BOOLEAN, List::class.java, presetConfigType)
     private val eventListenersConstructor = load("$CLOCKS.ClockEventListeners").getConstructor()
@@ -115,39 +125,49 @@ internal class ClockPluginApi(private val classLoader: ClassLoader) {
     )
 
     /**
-     * How Wallpaper & style lists [style]. A resizable style also lists one
-     * axis preset per size step, which the picker draws as a stepped slider,
-     * set to the step [settings] already holds.
+     * How Wallpaper & style lists [style]. A style with several fonts also
+     * lists one axis preset per font, which the picker draws as a stepped
+     * slider, set to the font [settings] already holds. The current preset is
+     * picked by font alone, because the stored axes also hold the size.
      */
     fun pickerConfig(style: ClockStyle, context: Context, settings: Any): Any {
         val thumbnail = style.createThumbnail(context)
-        val presets = if (style.isResizable) sizePresets(thumbnail, axes(settings)) else null
+        val fontCount = style.fontNames.size
+        val presets = if (fontCount > 1) {
+            fontPresets(thumbnail, fontCount, ClockAxes.fontIndexOf(axis(settings, ClockAxes.FONT_KEY), fontCount))
+        } else {
+            null
+        }
         return pickerConfigConstructor.newInstance(
             style.id, style.name, style.description, thumbnail, true, emptyList<Any>(), presets,
         )
     }
 
-    private fun sizePresets(icon: Drawable, chosen: Any?): Any {
-        val styles = ClockSizePresets.values.map { axisStyleConstructor.newInstance(ClockSizePresets.axesOf(it)) }
+    private fun fontPresets(icon: Drawable, fontCount: Int, current: Int): Any {
+        val styles = List(fontCount) { axisStyleConstructor.newInstance(ClockAxes.fontPreset(it)) }
         val groups = listOf(presetGroupConstructor.newInstance(styles, icon))
-        val unset = presetConfigConstructor.newInstance(groups, null)
-        val current = chosen?.let { presetConfigFindStyle.invoke(unset, it) }
-        return presetConfigConstructor.newInstance(groups, current)
+        return presetConfigConstructor.newInstance(groups, indexedStyleConstructor.newInstance(0, current, styles[current]))
     }
 
-    /** The chosen size step held in [settings], or null when none was stored. */
-    fun sizeStep(settings: Any): Float? = axes(settings)?.let(::sizeStepOf)
+    /** The value [settings] stores for [key], or null when it stores none. */
+    fun axis(settings: Any, key: String): Float? = settingsAxes.invoke(settings)?.let { axisOf(it, key) }
 
-    /** The size step held in a `ClockAxisStyle`, or null when it holds none. */
-    fun sizeStepOf(axisStyle: Any): Float? = axisStyleGet.invoke(axisStyle, ClockSizePresets.AXIS_KEY) as Float?
+    /** The value a `ClockAxisStyle` holds for [key], or null when it holds none. */
+    fun axisOf(axisStyle: Any, key: String): Float? = axisStyleGet.invoke(axisStyle, key) as Float?
 
-    /** Whether a preset group is the size steps this module lists. */
-    fun isSizePresetGroup(group: Any): Boolean {
+    /** Writes [key] into the axes [settings] carries, in place. */
+    fun putAxis(settings: Any, key: String, value: Float) {
+        settingsAxes.invoke(settings)?.let { axisStylePut.invoke(it, key, value) }
+    }
+
+    /** Whether a preset group is the font presets this module lists. */
+    fun isFontPresetGroup(group: Any): Boolean {
         val firstPreset = (presetGroupPresets.invoke(group) as List<*>).firstOrNull() ?: return false
-        return sizeStepOf(firstPreset) != null
+        return axisOf(firstPreset, ClockAxes.FONT_KEY) != null
     }
 
-    private fun axes(settings: Any): Any? = settingsAxes.invoke(settings)
+    /** The setting a registry holds now, or null before it has read one. */
+    fun registrySettings(registry: Any): Any? = registrySettingsField.get(registry)
 
     fun eventListeners(): Any = eventListenersConstructor.newInstance()
 

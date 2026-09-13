@@ -16,8 +16,8 @@ import my.github.MrxSiN.pixellockscreenevolved.core.Logger
  */
 interface Hooks {
 
-    /** Runs [before] ahead of every call to [method], then lets the call proceed. */
-    fun before(method: Method, before: (thisObject: Any?) -> Unit)
+    /** Runs [before] with each call's arguments ahead of every call to [method], then lets the call proceed. */
+    fun before(method: Method, before: (thisObject: Any?, args: List<Any?>) -> Unit)
 
     /** Lets every call to [method] run, then runs [after] with its arguments. */
     fun after(method: Method, after: (thisObject: Any?, args: List<Any?>) -> Unit)
@@ -29,9 +29,9 @@ class XposedHooks(
     private val logger: Logger,
 ) : Hooks {
 
-    override fun before(method: Method, before: (thisObject: Any?) -> Unit) {
+    override fun before(method: Method, before: (thisObject: Any?, args: List<Any?>) -> Unit) {
         xposed.hook(method).intercept { chain ->
-            guarded(method) { before(chain.thisObject) }
+            guarded(method) { before(chain.thisObject, chain.args) }
             chain.proceed()
         }
         logger.info("Hooked ${method.declaringClass.simpleName}.${method.name}")

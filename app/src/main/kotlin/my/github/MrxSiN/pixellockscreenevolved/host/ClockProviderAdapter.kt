@@ -13,6 +13,7 @@ internal class ClockProviderAdapter(
     private val proxies: InterfaceProxy,
     private val styles: List<ClockStyle>,
     private val registryContext: Context,
+    private val onClockCreated: (ClockControllerAdapter) -> Unit = {},
 ) {
 
     fun create(): Any = proxies.create(
@@ -29,7 +30,9 @@ internal class ClockProviderAdapter(
     )
 
     private fun createClock(context: Context, settings: Any): Any? =
-        styleFor(settings)?.let { ClockControllerAdapter(api, proxies, it, context, settings).create() }
+        styleFor(settings)?.let { style ->
+            ClockControllerAdapter(api, proxies, style, context, settings).also(onClockCreated).create()
+        }
 
     private fun styleFor(settings: Any): ClockStyle? {
         val id = api.clockId(settings)

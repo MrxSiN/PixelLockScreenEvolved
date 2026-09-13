@@ -32,6 +32,13 @@ interface ClockStyle {
      */
     val isResizable: Boolean get() = false
 
+    /**
+     * The fonts a person can choose between, in slider order, or none when the
+     * style has one. The faces of a style with several implement
+     * [FontChoosingClockFace].
+     */
+    val fontNames: List<String> get() = emptyList()
+
     fun createFace(context: Context, size: FaceSize): ClockFace
 
     /** The small picture Wallpaper & style shows for this style in its list. */

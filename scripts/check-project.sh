@@ -30,7 +30,8 @@ grep -q 'availableClocks' "$SRC/host/ClockPluginApi.kt"
 
 # Stored keys: renaming either resets every device that stored it.
 grep -q 'id: String = "PIXEL_LOCK_SCREEN_EVOLVED_IOS"' "$SRC/clock/ios/IosClockStyle.kt"
-grep -q 'AXIS_KEY = "PIXEL_LOCK_SCREEN_EVOLVED_SIZE"' "$SRC/host/ClockSizePresets.kt"
+grep -q 'SIZE_KEY = "PIXEL_LOCK_SCREEN_EVOLVED_SIZE"' "$SRC/host/ClockAxes.kt"
+grep -q 'FONT_KEY = "PIXEL_LOCK_SCREEN_EVOLVED_FONT"' "$SRC/host/ClockAxes.kt"
 
 # R8 rewrites Kotlin class names written as strings to the module's own shrunk
 # copy of Kotlin, so a host lookup must never name a kotlin.* class.
@@ -38,8 +39,12 @@ grep -q 'AXIS_KEY = "PIXEL_LOCK_SCREEN_EVOLVED_SIZE"' "$SRC/host/ClockSizePreset
 
 # Pure logic stays free of Android so it can be unit tested.
 ! grep -qE '^import android' "$SRC/clock/ios/IosTimeText.kt"
-! grep -qE '^import android' "$SRC/host/ClockSizePresets.kt"
+! grep -qE '^import android' "$SRC/host/ClockAxes.kt"
 ! grep -qE '^import android' "$SRC/clock/ios/IosClockScale.kt"
+
+# Bundled fonts ship with their licence.
+[ -f "$ROOT/app/src/main/assets/fonts/InterVariable.ttf" ]
+[ -f "$ROOT/app/src/main/assets/fonts/Inter-LICENSE.txt" ]
 
 # The module has no screen of its own.
 ! grep -q '<activity' "$ROOT/app/src/main/AndroidManifest.xml"

@@ -20,8 +20,8 @@ import android.graphics.drawable.Drawable
 internal class IosClockThumbnail(context: Context) : Drawable() {
 
     private val paint = Paint(Paint.ANTI_ALIAS_FLAG).apply {
-        typeface = IosClockTypography.timeTypeface
-        fontVariationSettings = IosClockScale.variationFor(size = 0f, stretch = 1f)
+        typeface = RobotoFlexNumerals.typeface
+        fontVariationSettings = RobotoFlexNumerals.variationFor(size = 0f, stretch = 1f)
         letterSpacing = IosClockTypography.TIME_LETTER_SPACING
         textAlign = Paint.Align.CENTER
         color = themeColor(context)

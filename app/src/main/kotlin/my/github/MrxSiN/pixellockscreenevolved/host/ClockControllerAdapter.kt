@@ -26,8 +26,17 @@ internal class ClockControllerAdapter(
     private val faces = listOf(large, small)
 
     init {
-        val sizeStep = api.sizeStep(settings)
-        faces.forEach { it.setSizeStep(sizeStep) }
+        val font = api.axis(settings, ClockAxes.FONT_KEY)
+        val sizeStep = api.axis(settings, ClockAxes.SIZE_KEY)
+        faces.forEach {
+            it.setFont(font)
+            it.setSizeStep(sizeStep)
+        }
+    }
+
+    /** Shows [step] on the large face at once, as the picker's size slider moves. */
+    fun previewSizeStep(step: Float) {
+        large.setSizeStep(step)
     }
 
     /** Anything that changes how the time is written redraws both faces. */
@@ -74,6 +83,7 @@ internal class ClockControllerAdapter(
         proxies = proxies,
         face = style.createFace(context, size),
         size = size,
+        fontCount = style.fontNames.size,
         context = context,
         initialTheme = initialTheme,
     )

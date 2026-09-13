@@ -8,10 +8,11 @@ import my.github.MrxSiN.pixellockscreenevolved.core.AndroidLogger
 import my.github.MrxSiN.pixellockscreenevolved.core.Logger
 import my.github.MrxSiN.pixellockscreenevolved.hook.Hooks
 import my.github.MrxSiN.pixellockscreenevolved.hook.HostPatch
+import my.github.MrxSiN.pixellockscreenevolved.hook.ModuleFontSource
 import my.github.MrxSiN.pixellockscreenevolved.hook.XposedHooks
 import my.github.MrxSiN.pixellockscreenevolved.host.ClockRegistryInjector
 import my.github.MrxSiN.pixellockscreenevolved.host.KeyguardDateRow
-import my.github.MrxSiN.pixellockscreenevolved.host.PickerSizeLabel
+import my.github.MrxSiN.pixellockscreenevolved.host.PickerClockPatches
 
 /**
  * Module entry point.
@@ -20,7 +21,7 @@ import my.github.MrxSiN.pixellockscreenevolved.host.PickerSizeLabel
  * the clock styles: SystemUI draws the lock screen clock and its preview, and
  * Wallpaper & style keeps its own registry to list the clocks on offer.
  * SystemUI also lines its date row up under the small clock, and the picker
- * labels its size slider.
+ * gets the font and size sliders.
  */
 class PixelLockScreenEvolvedModule : XposedModule() {
 
@@ -41,11 +42,14 @@ class PixelLockScreenEvolvedModule : XposedModule() {
             .forEach { it.install(param.classLoader) }
     }
 
-    private fun patchesFor(packageName: String, hooks: Hooks, logger: Logger): List<HostPatch> = buildList {
-        add(ClockRegistryInjector(hooks, ClockStyles.all, logger))
-        when (packageName) {
-            SYSTEMUI_PACKAGE -> add(KeyguardDateRow(hooks, ClockStyles.all, logger))
-            PICKER_PACKAGE -> add(PickerSizeLabel(hooks, logger))
+    private fun patchesFor(packageName: String, hooks: Hooks, logger: Logger): List<HostPatch> {
+        val styles = ClockStyles.all(ModuleFontSource(this, logger))
+        return when (packageName) {
+            SYSTEMUI_PACKAGE -> listOf(
+                ClockRegistryInjector(hooks, styles, logger),
+                KeyguardDateRow(hooks, styles, logger),
+            )
+            else -> listOf(PickerClockPatches(hooks, styles, logger))
         }
     }
 

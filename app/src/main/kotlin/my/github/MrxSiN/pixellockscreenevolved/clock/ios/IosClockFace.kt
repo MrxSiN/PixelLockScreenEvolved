@@ -13,25 +13,27 @@ import android.widget.TextView
 import java.util.Calendar
 import java.util.Locale
 
+import my.github.MrxSiN.pixellockscreenevolved.clock.FontChoosingClockFace
 import my.github.MrxSiN.pixellockscreenevolved.clock.ResizableClockFace
 
 /**
  * The iOS clock: the date over a large, centred time.
  *
- * Both SystemUI faces are this drawing, shown at the size the host decides;
- * [showsDate] leaves the date out where SystemUI writes its own. The date keeps
- * its classic size however large the time grows, as on iOS.
+ * Both SystemUI faces are this drawing, shown at the size and in the font the
+ * host decides from [fonts]; [showsDate] leaves the date out where SystemUI
+ * writes its own. The date keeps its classic size however large the time
+ * grows, as on iOS.
  */
 internal class IosClockFace(
     private val context: Context,
+    private val fonts: List<IosNumeralFont>,
     showsDate: Boolean,
-) : ResizableClockFace {
+) : ResizableClockFace, FontChoosingClockFace {
 
-    private val timeView = IosTimeView(context)
+    private val timeView = IosTimeView(context, fonts.first())
 
     private val dateView: TextView? = if (showsDate) {
         TextView(context).apply {
-            typeface = IosClockTypography.dateTypeface
             includeFontPadding = false
             maxLines = 1
             gravity = Gravity.CENTER
@@ -60,6 +62,7 @@ internal class IosClockFace(
     override val drawsDate: Boolean = showsDate
 
     init {
+        setFont(0)
         setColor(Color.WHITE)
         refresh()
     }
@@ -89,6 +92,15 @@ internal class IosClockFace(
 
     override fun setSize(size: Float) {
         timeView.setSize(size)
+    }
+
+    override fun setFont(index: Int) {
+        val font = fonts[index.coerceIn(0, fonts.lastIndex)]
+        timeView.setFont(font)
+        dateView?.apply {
+            typeface = font.dateTypeface
+            fontVariationSettings = font.dateVariation
+        }
     }
 
     private companion object {

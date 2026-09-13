@@ -15,10 +15,12 @@ import my.github.MrxSiN.pixellockscreenevolved.hook.HostPatch
  * them, SystemUI draws the chosen one, and the preview renders it. Nothing is
  * written anywhere, so turning the module off falls back to the default clock.
  */
-class ClockRegistryInjector(
+internal class ClockRegistryInjector(
     private val hooks: Hooks,
     private val styles: List<ClockStyle>,
     private val logger: Logger,
+    private val onRegistry: (registry: Any) -> Unit = {},
+    private val onClockCreated: (ClockControllerAdapter) -> Unit = {},
 ) : HostPatch {
 
     override fun install(classLoader: ClassLoader) {
@@ -30,13 +32,14 @@ class ClockRegistryInjector(
         }
         val proxies = InterfaceProxy(classLoader, logger)
 
-        hooks.before(api.registerListeners) { registry ->
+        hooks.before(api.registerListeners) { registry, _ ->
             inject(api, proxies, requireNotNull(registry))
         }
     }
 
     private fun inject(api: ClockPluginApi, proxies: InterfaceProxy, registry: Any) {
-        val provider = ClockProviderAdapter(api, proxies, styles, api.registryContext(registry)).create()
+        onRegistry(registry)
+        val provider = ClockProviderAdapter(api, proxies, styles, api.registryContext(registry), onClockCreated).create()
         val clocks = api.availableClocks(registry)
 
         for (style in styles) {

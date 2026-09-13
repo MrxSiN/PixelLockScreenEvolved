@@ -1,12 +1,14 @@
 # Pixel Lock Screen Evolved v0.2.0
 
-Adds a **Clock size** slider to the iOS lock screen clock.
+Adds **Font** and **Clock size** sliders to the iOS lock screen clock.
 
-Open Wallpaper & style → Clock, choose the iOS clock, and drag the slider under
-the clock list. It has six steps, each taller than the last, in bolder
-and more condensed numerals with even strokes at every size. With notifications showing, the clock drops to
-the smallest step, with Pixel's date and weather centred below it. The preview follows the slider as you drag, and Apply puts it on the lock
-screen and the always-on display.
+Open Wallpaper & style → Clock and choose the iOS clock. The Style tab's slider
+picks the font: Roboto Flex or Inter, the open font closest to SF Pro. The Size
+tab's slider has six steps, each taller than the last, in bolder numerals with
+even strokes at every size. With notifications showing, the clock drops to the
+smallest step, with Pixel's date and weather centred below it. The preview
+follows both sliders as you drag, and Apply puts them on the lock screen and
+the always-on display.
 
 ## Requirements
 
@@ -17,7 +19,8 @@ screen and the always-on display.
 
 ## Changes
 
-- Clock size slider for the iOS clock, labelled "Clock size" in the picker
+- Font slider (Roboto Flex or Inter) in the Style tab
+- Clock size slider in the Size tab
 - Smallest step while notifications are showing
 - The iOS time is set in Roboto Flex; the date sits closer to the time
 - Signed release builds from GitHub Actions

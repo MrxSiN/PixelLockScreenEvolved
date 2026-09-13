@@ -5,6 +5,7 @@ import android.content.Context
 
 import my.github.MrxSiN.pixellockscreenevolved.clock.ClockFace
 import my.github.MrxSiN.pixellockscreenevolved.clock.FaceSize
+import my.github.MrxSiN.pixellockscreenevolved.clock.FontChoosingClockFace
 import my.github.MrxSiN.pixellockscreenevolved.clock.ResizableClockFace
 
 /**
@@ -20,6 +21,7 @@ internal class ClockFaceAdapter(
     proxies: InterfaceProxy,
     private val face: ClockFace,
     private val size: FaceSize,
+    private val fontCount: Int,
     private val context: Context,
     initialTheme: Any,
 ) {
@@ -62,7 +64,7 @@ internal class ClockFaceAdapter(
             "charge" to IgnoreCall,
             "fold" to IgnoreCall,
             "onFidgetTap" to IgnoreCall,
-            "onFontAxesChanged" to { args -> setSizeStep(api.sizeStepOf(requireNotNull(args[0]))) },
+            "onFontAxesChanged" to { args -> setAxes(requireNotNull(args[0])) },
             "onPickerCarouselSwiping" to IgnoreCall,
             "onPositionAnimated" to IgnoreCall,
         ),
@@ -102,13 +104,27 @@ internal class ClockFaceAdapter(
     }
 
     /**
+     * Shows what a `ClockAxisStyle` chooses. The picker passes only the axes it
+     * is changing, so an axis the style does not hold is left as it is.
+     */
+    private fun setAxes(axisStyle: Any) {
+        api.axisOf(axisStyle, ClockAxes.FONT_KEY)?.let(::setFont)
+        api.axisOf(axisStyle, ClockAxes.SIZE_KEY)?.let(::setSizeStep)
+    }
+
+    /**
      * Shows the size step the picker or the clock setting chose on the large
-     * face; the small face keeps [ClockSizePresets.SMALL_CLOCK_STEP]. A face
-     * that cannot be resized has nothing to change.
+     * face; the small face keeps [ClockAxes.SMALL_CLOCK_SIZE_STEP]. A face that
+     * cannot be resized has nothing to change.
      */
     fun setSizeStep(step: Float?) {
-        val shown = if (size == FaceSize.SMALL) ClockSizePresets.SMALL_CLOCK_STEP else step
-        (face as? ResizableClockFace)?.setSize(ClockSizePresets.sizeOf(shown))
+        val shown = if (size == FaceSize.SMALL) ClockAxes.SMALL_CLOCK_SIZE_STEP else step
+        (face as? ResizableClockFace)?.setSize(ClockAxes.sizeOf(shown))
+    }
+
+    /** Shows the font a stored font value chooses; a face with one font has nothing to change. */
+    fun setFont(value: Float?) {
+        (face as? FontChoosingClockFace)?.setFont(ClockAxes.fontIndexOf(value, fontCount))
     }
 
     fun setDoze(fraction: Float) {

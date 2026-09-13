@@ -6,7 +6,7 @@ Everything below was read off a Pixel 8 Pro running Android 17
 `/system_ext/priv-app/WallpaperPickerGoogleRelease/WallpaperPickerGoogleRelease.apk`
 and dumping them with `dexdump`. Re-verify these signatures before targeting a
 newer build. Every clock plugin lookup lives in `host/ClockPluginApi.kt`; the
-picker's slider binding is in `host/PresetSliderApi.kt` and `host/PickerSizeLabel.kt`.
+picker's sheet and slider lookups are in `host/PickerSliderApi.kt`.
 
 Framework: Vector (JingMatrix/Vector) v2.2, modern libxposed API 102.
 
@@ -95,7 +95,7 @@ override what SystemUI set. The small clock's height is SystemUI's
 its own date and weather line on the lock screen. The picker preview does not
 consult it, so the preview still shows that line.
 
-## Size slider
+## Style tab: font slider
 
 The picker has no free-form axis slider for clocks. It draws a stepped slider
 for any clock whose `ClockPickerConfig` carries an `AxisPresetConfig`:
@@ -106,21 +106,18 @@ ClockPickerConfig(String id, String name, String description, Drawable thumbnail
                   AxisPresetConfig presetConfig)
 AxisPresetConfig(List<AxisPresetConfig$Group> groups, AxisPresetConfig$IndexedStyle current)
                  findStyle(ClockAxisStyle) IndexedStyle
+AxisPresetConfig$IndexedStyle(int groupIndex, int presetIndex, ClockAxisStyle style)
 AxisPresetConfig$Group(List<ClockAxisStyle> presets, Drawable icon)
-ClockAxisStyle(Map<String, Float>), get(String) Float
+ClockAxisStyle(Map<String, Float>), get(String) Float, put(String, float)
 ClockSettings.getAxes() ClockAxisStyle
 ```
 
 `ClockPickerViewModel.axisPresetsSliderViewModel` builds a
 `ClockAxisPresetSliderViewModel(valueTo = presets.size - 1, onSliderStopTrackingTouch)`
-for the current group; tapping the selected clock again cycles groups. While the
-slider moves, `ThemePickerCustomizationOptionsBinder` calls
-`ClockAnimations.onFontAxesChanged(preset)` on both faces of the picker's own
-preview clock. Apply writes the preset into the setting's `axes`
-(`{"key":"PIXEL_LOCK_SCREEN_EVOLVED_SIZE","value":5},{"key":"wdth","value":120}`), and SystemUI builds the
-clock again with those settings. `DefaultClockProvider.getClockPickerConfig`
-sets `current` with `findStyle(settings axes)`, which is what places the slider
-on the stored step when the picker reopens.
+for the current group. While the slider moves, the picker calls
+`ClockAnimations.onFontAxesChanged(preset)` on both faces of its preview clock.
+The module's presets are one per font (`PIXEL_LOCK_SCREEN_EVOLVED_FONT`), and
+`current` is built from the stored font so the slider reopens on it.
 
 The slider's label is `layout/floating_sheet_clock_style_content.xml`'s
 `id/clock_face_width_label`, fixed to `string/clock_face_width` ("Clock face
@@ -131,6 +128,49 @@ argument is the slider view model and whose `$axisPresetSlider` field is the
 `onSliderStopTrackingTouch`, found by field type. Only this binder class name
 is R8-generated; if it moves, the slider still works under Google's label.
 
+## Size tab: size slider
+
+`ClockFloatingSheetBinder.bind(view, ...)` (4 parameters) binds every tab of the
+clock sheet once. The Size tab, `id/clock_floating_sheet_size_content`, is a
+ConstraintLayout holding a title, a description and a switch, centred
+vertically. The module inflates `floating_sheet_clock_style_content`, takes its
+`clock_face_width_container` row (label and `Slider`), gives the views new ids
+and adds the row below `clock_style_clock_size_description`.
+
+Material is shrunk in the picker, so the slider is configured through
+`BaseSlider` fields: `valueFrom`, `valueTo`, `stepSize`, `dirtyConfig = true`,
+then `setValuesInternal(ArrayList)`. Listeners go into `changeListeners` as a
+proxy of `BaseOnChangeListener.onValueChange(BaseSlider, float, boolean)`.
+Colours are copied from the Style tab's slider before each draw:
+`trackColorActive/Inactive`, `tickColorActive/Inactive`, the four track and
+tick `Paint`s, and `defaultThumbDrawable.drawableState.fillColor`
+(`MaterialShapeDrawable.setFillColor`, only when it differs, since setting it
+redraws).
+
+Tabs are shown by toggling visibility inside `floating_sheet_content_container`,
+whose height is animated to the tab's value in the static
+`ClockFloatingSheetBinder._clockFloatingSheetHeights`, a `StateFlowImpl` of
+`ClockFloatingSheetHeightsViewModel(Integer clockStyleContentHeight,
+Integer clockColorContentHeight, Integer clockSizeContentHeight,
+Integer axisPresetSliderHeight)`, measured once. Measuring the ConstraintLayout
+again does not count the added row, and letting the content fill the container
+re-centres the original rows (which feeds back into the height). So the module
+reserves the row's height as the content's bottom padding
+(`clipToPadding = false`), pins the row's height, and writes the total into
+`clockSizeContentHeight` with `updateState(null, new)`.
+
+Moving the slider resizes every preview clock the picker has built. The picker
+writes settings only through `ClockRegistry.applySettings(ClockSettings)`, with
+the axes of the Style slider's preset. The module hooks it before it runs and
+puts `PIXEL_LOCK_SCREEN_EVOLVED_FONT`, `PIXEL_LOCK_SCREEN_EVOLVED_SIZE` and
+`wdth = 120` into the argument's axes, keeping the stored value for whatever
+this write did not choose:
+
+```
+{"key":"PIXEL_LOCK_SCREEN_EVOLVED_FONT","value":1},{"key":"wdth","value":120},
+{"key":"PIXEL_LOCK_SCREEN_EVOLVED_SIZE","value":4}
+```
+
 ## Date line beside or below the small clock
 
 `KeyguardClockViewModel.shouldDateWeatherBeBelowSmallClock` is true when the
@@ -138,7 +178,8 @@ stored clock setting's axes hold `wdth >= 110` (Google's wide Flex clocks);
 otherwise it asks `isFontAndDisplaySizeBreaking` (screen width and font scale).
 When false, `SmartspaceSection` puts `date_smartspace_view` beside the small
 clock, which for a centred, full-width clock is off the right edge of the
-screen. Every size preset therefore also stores `wdth = 120`. The
+screen. Every setting the module stores for its clocks therefore also holds
+`wdth = 120`. The
 `hasCustomWeatherDataDisplay` face flag only hides that line beside the large
 clock; SystemUI always shows it with the small clock, so the small face leaves
 out its own date.
@@ -173,3 +214,13 @@ is divided by the stretch so horizontal strokes keep their weight.
 
 Android sets `opsz` from the text size when a variation leaves it out, so the
 stroke would change with size. The module always sets it.
+
+Inter 4.1 (`assets/fonts/InterVariable.ttf`, from the official rsms/inter
+release, SIL OFL 1.1) is the second font: the closest open design to SF Pro,
+which cannot be redistributed. It has `opsz` 14-32 and `wght` 100-900 and no
+width axis, so its numerals grow in weight only and stretch vertically by at
+most 1.25. It is loaded from the module's own APK through
+`PackageManager.getResourcesForApplication(moduleApplicationInfo).assets`.
+
+R8 rewrites string literals naming `kotlin.*` classes in the release build, so
+methods taking a `Continuation` are found by name and parameter count instead.

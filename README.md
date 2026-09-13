@@ -9,10 +9,12 @@ render on the lock screen, in the picker preview and on the always-on display.
 - **iOS** — the date over a large, centred time pinned under the status bar.
   12-hour time without AM/PM or a leading zero; 24-hour time padded.
 
-  **Clock size** slider (Wallpaper & style → Clock → Style, under the clock
-  list): six steps, each taller than the last. The numerals get bolder and more
-  condensed as they grow, with even strokes at every size, and fill the
-  screen's width at the largest. With notifications showing, the clock is the
+  **Font** slider (Wallpaper & style → Clock → Style): Roboto Flex or Inter,
+  the open font closest to Apple's SF Pro.
+
+  **Clock size** slider (Wallpaper & style → Clock → Size): six steps, each
+  taller than the last. The numerals get bolder as they grow, with even strokes
+  at every size, and fill the screen's width at the largest. With notifications showing, the clock is the
   time alone at the smallest step, with Pixel's date and weather
   centred below.
 
@@ -39,6 +41,7 @@ Logs: `adb logcat -s PixelLockScreenEvolved`.
 1. Implement `clock.ClockStyle` (and a `ClockFace`) in its own package under `clock/`.
 2. List it in `clock.ClockStyles.all`.
 3. For a size slider, set `isResizable = true` and make its faces `ResizableClockFace`.
+4. For a font slider, list `fontNames` and make its faces `FontChoosingClockFace`.
 
 Nothing in `host/` changes: it adapts any `ClockStyle` to SystemUI's clock
 plugin interfaces. See `HOOK_NOTES.md` for the SystemUI internals involved.

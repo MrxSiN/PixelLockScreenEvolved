@@ -10,7 +10,7 @@ import my.github.MrxSiN.pixellockscreenevolved.clock.ios.IosClockStyle
  */
 object ClockStyles {
 
-    val all: List<ClockStyle> = listOf(
-        IosClockStyle,
+    fun all(fonts: FontSource): List<ClockStyle> = listOf(
+        IosClockStyle(fonts),
     )
 }
