@@ -10,10 +10,10 @@ render on the lock screen, in the picker preview and on the always-on display.
   12-hour time without AM/PM or a leading zero; 24-hour time padded.
 
   **Clock size** slider (Wallpaper & style → Clock → Style, under the clock
-  list): six steps. Each is taller than the last, in the same bold numerals:
-  the time grows until it fills the screen's width, then is stretched
-  vertically without getting any thinner. With notifications showing, the
-  clock is the time alone at the smallest step, with Pixel's date and weather
+  list): six steps, each taller than the last. The numerals get bolder and more
+  condensed as they grow, with even strokes at every size, and fill the
+  screen's width at the largest. With notifications showing, the clock is the
+  time alone at the smallest step, with Pixel's date and weather
   centred below.
 
 ## Requirements

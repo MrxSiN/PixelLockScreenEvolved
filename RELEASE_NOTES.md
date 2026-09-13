@@ -3,9 +3,8 @@
 Adds a **Clock size** slider to the iOS lock screen clock.
 
 Open Wallpaper & style → Clock, choose the iOS clock, and drag the slider under
-the clock list. It has six steps, each taller than the last in the same bold
-numerals: the time grows until it fills the screen's width, then stretches
-upwards without getting thinner. With notifications showing, the clock drops to
+the clock list. It has six steps, each taller than the last, in bolder
+and more condensed numerals with even strokes at every size. With notifications showing, the clock drops to
 the smallest step, with Pixel's date and weather centred below it. The preview follows the slider as you drag, and Apply puts it on the lock
 screen and the always-on display.
 

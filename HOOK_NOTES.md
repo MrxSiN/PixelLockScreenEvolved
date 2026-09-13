@@ -164,12 +164,12 @@ while its clock is previewed large.
 Roboto Flex (`/system/fonts/RobotoFlex-Regular.ttf`, family `roboto-flex`) has
 the registered axes `wght` 100-1000 and `wdth` 25-151 and the parametric axes
 `XTRA` 323-603 (counter width), `XOPQ` 27-175 (vertical stroke), `YOPQ` 25-135
-(horizontal stroke) and `YTFI` 560-788 (figure height). Larger sizes change
-nothing about the shape: the module keeps `opsz 144, wght 600, wdth 100,
-XTRA 468, XOPQ 96` at every size, sets the time as large as the height and the screen
-width allow, and stretches the numerals vertically for the rest. `YOPQ` is
-divided by the stretch (down to its minimum of 25) so horizontal strokes keep
-their weight.
+(horizontal stroke) and `YTFI` 560-788 (figure height). Larger sizes move from
+`wght 600, wdth 100` to `wght 700, wdth 25`, the font's own designed cuts, so
+strokes stay even; the time is set as large as the height and the screen width
+allow, and is stretched vertically by at most 1.6 for the rest. Past that a
+stretched diagonal (the stem of a 7) reads clearly thinner than a bar. `YOPQ`
+is divided by the stretch so horizontal strokes keep their weight.
 
 Android sets `opsz` from the text size when a variation leaves it out, so the
 stroke would change with size. The module always sets it.

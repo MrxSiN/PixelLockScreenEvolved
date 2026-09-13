@@ -9,22 +9,26 @@ class IosClockScaleTest {
     private val numeral = 0.7f
 
     @Test
-    fun unstretchedTimeKeepsTheFontShape() {
+    fun smallestIsTheClassicCut() {
         assertEquals(
-            "'opsz' 144, 'wght' 600, 'wdth' 100, 'XTRA' 468, 'XOPQ' 96, 'YOPQ' 79.0",
-            IosClockScale.variationFor(stretch = 1f),
+            "'opsz' 144, 'wght' 600.0, 'wdth' 100.0, 'YOPQ' 79.0",
+            IosClockScale.variationFor(size = 0f, stretch = 1f),
+        )
+    }
+
+    @Test
+    fun largestIsBolderAndCondensed() {
+        assertEquals(
+            "'opsz' 144, 'wght' 700.0, 'wdth' 25.0, 'YOPQ' 79.0",
+            IosClockScale.variationFor(size = 1f, stretch = 1f),
         )
     }
 
     @Test
     fun stretchThinsOnlyTheHorizontalStrokes() {
         assertEquals(
-            "'opsz' 144, 'wght' 600, 'wdth' 100, 'XTRA' 468, 'XOPQ' 96, 'YOPQ' 39.5",
-            IosClockScale.variationFor(stretch = 2f),
-        )
-        assertEquals(
-            "'opsz' 144, 'wght' 600, 'wdth' 100, 'XTRA' 468, 'XOPQ' 96, 'YOPQ' 25.0",
-            IosClockScale.variationFor(stretch = 10f),
+            "'opsz' 144, 'wght' 700.0, 'wdth' 25.0, 'YOPQ' 49.375",
+            IosClockScale.variationFor(size = 1f, stretch = 1.6f),
         )
     }
 
@@ -36,17 +40,15 @@ class IosClockScaleTest {
     }
 
     @Test
-    fun aTimeTooWideForItsHeightIsStretchedNotSqueezed() {
+    fun aWideTimeIsStretchedOnlyUpToTheCap() {
         val fit = IosClockScale.fit(size = 1f, shortSide, numeral, widthPerTextSize = 2.3f)
         assertEquals(920f / 2.3f, fit.textSize, 1e-3f)
-        assertEquals(880f, fit.textSize * numeral * fit.stretch, 1e-2f)
+        assertEquals(1.6f, fit.stretch, 0f)
     }
 
     @Test
-    fun sizesOutsideTheRangeAreClamped() {
-        assertEquals(
-            IosClockScale.fit(size = 1f, shortSide, numeral, widthPerTextSize = 2f),
-            IosClockScale.fit(size = 4f, shortSide, numeral, widthPerTextSize = 2f),
-        )
+    fun aTimeThatNeedsLittleStretchGetsExactlyThat() {
+        val fit = IosClockScale.fit(size = 1f, shortSide, numeral, widthPerTextSize = 1.1f)
+        assertEquals(880f, fit.textSize * numeral * fit.stretch, 1e-2f)
     }
 }

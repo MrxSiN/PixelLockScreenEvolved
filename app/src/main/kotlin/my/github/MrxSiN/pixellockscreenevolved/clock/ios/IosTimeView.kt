@@ -90,7 +90,7 @@ internal class IosTimeView(context: Context) : View(context) {
 
     /** Sets the text size and stretch for the current size and text. */
     private fun relayout() {
-        paint.fontVariationSettings = IosClockScale.variationFor(1f)
+        paint.fontVariationSettings = IosClockScale.variationFor(size, stretch = 1f)
         paint.textSize = PROBE_SIZE
         paint.getTextBounds(NUMERALS, 0, NUMERALS.length, bounds)
 
@@ -102,7 +102,7 @@ internal class IosTimeView(context: Context) : View(context) {
         )
         stretch = fit.stretch
         paint.textSize = fit.textSize
-        paint.fontVariationSettings = IosClockScale.variationFor(stretch)
+        paint.fontVariationSettings = IosClockScale.variationFor(size, stretch)
 
         paint.getTextBounds(NUMERALS, 0, NUMERALS.length, bounds)
         numeralTop = bounds.top.toFloat()

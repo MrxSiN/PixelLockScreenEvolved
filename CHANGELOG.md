@@ -5,11 +5,11 @@
 ### Added
 
 - **Clock size** slider for the iOS clock, in Wallpaper & style → Clock →
-  Style. Six steps, each taller than the last in the same bold numerals: the
-  time grows until it fills the screen's width, then is stretched vertically.
-  The font's weight, width and strokes never change, so the largest clock is
-  as heavy as the smallest; horizontal strokes are thinned on Roboto Flex's
-  axis by as much as the stretch thickens them, and the colon stays round. The
+  Style. Six steps, each taller than the last: the numerals move along Roboto
+  Flex's own weight and width axes to a bolder, condensed cut, so strokes stay
+  even at every size, and only a little of the height (at most 1.6 times) comes
+  from stretching them vertically, with horizontal strokes thinned by as much
+  as the stretch adds. The colon stays round. The
   picker's preview follows the slider as it moves, and the chosen step is
   stored with the clock setting, so it survives reboots and the slider reopens
   on it.
