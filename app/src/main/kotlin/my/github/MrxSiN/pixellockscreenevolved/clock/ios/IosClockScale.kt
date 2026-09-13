@@ -1,83 +1,68 @@
 package my.github.MrxSiN.pixellockscreenevolved.clock.ios
 
+import kotlin.math.max
+import kotlin.math.min
+
 /**
- * How the iOS numerals change shape from the smallest size to the largest.
+ * How the iOS numerals grow from the smallest size to the largest.
  *
- * iOS grows its lock screen clock by making the numerals taller, and the taller
- * they get the lighter and narrower they are, until the largest size is a row
- * of thin, straight-sided figures. Roboto Flex gets there in two moves: its
- * parametric axes narrow the counters and thin the strokes, and the drawing is
- * then stretched vertically. Horizontal strokes are thinned further than
- * vertical ones beforehand, so after the stretch every stroke is the same
- * weight, as on iOS. Kept free of Android so the curve can be unit tested.
+ * The font keeps its shape at every size: the same weight, the same width and
+ * the same stroke. A larger size is a taller clock, not a thinner one. The time
+ * is set as large as the height and the screen width allow, and whatever height
+ * the width does not allow is reached by stretching the numerals vertically.
+ * Stretching would thicken the horizontal strokes by the same factor, so those
+ * are thinned beforehand on Roboto Flex's horizontal-stroke axis and every
+ * stroke keeps its weight. Kept free of Android so the curve can be unit tested.
  */
 internal object IosClockScale {
 
-    /**
-     * Roboto Flex axis values at the smallest size, the classic iOS clock.
-     *
-     * `opsz` is always set: left out, Android sets it from the text size, and
-     * at these sizes that is the largest optical size, whose hairline strokes
-     * are nothing like iOS.
-     */
-    private val SMALLEST = mapOf(
-        "opsz" to 144f,
-        "wght" to 600f,
-        "wdth" to 100f,
-        "XTRA" to 468f,
-        "XOPQ" to 96f,
-        "YOPQ" to 79f,
-    )
-
-    /**
-     * Roboto Flex axis values at the largest size, before the stretch. Found by
-     * measuring rendered numerals: strokes 7% of the numeral height, heavy
-     * enough to hold up at full height, and horizontal strokes as heavy as
-     * vertical ones once stretched.
-     */
-    private val LARGEST = mapOf(
-        "opsz" to 14f,
-        "wght" to 500f,
-        "wdth" to 50f,
-        "XTRA" to 468f,
-        "XOPQ" to 110f,
-        "YOPQ" to 40f,
-    )
-
-    /** Width over height of a "9" at the largest size, the iOS proportion. */
-    private const val LARGEST_NINE_ASPECT = 0.26f
-
-    /** Text size of the smallest clock, against the screen's short side. */
-    const val SMALLEST_TEXT_TO_SHORT_SIDE = 0.26f
+    /** Numeral height of the smallest clock, against the screen's short side. */
+    private const val SMALLEST_NUMERAL_TO_SHORT_SIDE = 0.30f
 
     /** Numeral height of the largest clock, against the screen's short side. */
-    const val LARGEST_NUMERAL_TO_SHORT_SIDE = 0.88f
+    private const val LARGEST_NUMERAL_TO_SHORT_SIDE = 0.88f
 
     /** Widest the time may be, against the screen's short side. */
-    const val MAX_WIDTH_TO_SHORT_SIDE = 0.92f
+    private const val MAX_WIDTH_TO_SHORT_SIDE = 0.92f
 
-    /** Font variation settings at [size], from 0 for smallest to 1 for largest. */
-    fun variationAt(size: Float): String {
-        val t = size.coerceIn(0f, 1f)
-        return SMALLEST.keys.joinToString(", ") { axis ->
-            "'$axis' ${lerp(SMALLEST.getValue(axis), LARGEST.getValue(axis), t)}"
-        }
+    /** Roboto Flex horizontal stroke as the font draws it, and the thinnest it goes. */
+    private const val HORIZONTAL_STROKE = 79f
+    private const val THINNEST_HORIZONTAL_STROKE = 25f
+
+    /**
+     * The font's shape, fixed at every size. `opsz` is always set: left out,
+     * Android sets it from the text size, which changes the stroke with size.
+     */
+    private const val SHAPE = "'opsz' 144, 'wght' 600, 'wdth' 100, 'XTRA' 468, 'XOPQ' 96"
+
+    /**
+     * Font variation settings for numerals drawn [stretch] times taller than
+     * designed: the fixed shape, with horizontal strokes thinned by the stretch.
+     */
+    fun variationFor(stretch: Float): String {
+        val horizontal = max(THINNEST_HORIZONTAL_STROKE, HORIZONTAL_STROKE / max(1f, stretch))
+        return "$SHAPE, 'YOPQ' $horizontal"
     }
 
     /**
-     * Vertical stretch at [size] for numerals whose "9" is [naturalNineAspect]
-     * wide for its height as the font draws it. The aspect narrows from the
-     * font's own at the smallest size to the iOS one at the largest, and never
-     * widens: a font already narrower than iOS is left unstretched.
+     * Text size and vertical stretch for the time at [size], from 0 for the
+     * smallest to 1 for the largest.
+     *
+     * [numeralPerTextSize] is the numeral height per pixel of text size and
+     * [widthPerTextSize] the width of this particular time per pixel of text
+     * size, both as the font draws them unstretched.
      */
-    fun stretchAt(size: Float, naturalNineAspect: Float): Float {
-        val target = lerp(naturalNineAspect, LARGEST_NINE_ASPECT, size.coerceIn(0f, 1f))
-        return (naturalNineAspect / target).coerceAtLeast(1f)
+    fun fit(size: Float, shortSide: Float, numeralPerTextSize: Float, widthPerTextSize: Float): Fit {
+        val t = size.coerceIn(0f, 1f)
+        val numeral = shortSide * (SMALLEST_NUMERAL_TO_SHORT_SIDE +
+            (LARGEST_NUMERAL_TO_SHORT_SIDE - SMALLEST_NUMERAL_TO_SHORT_SIDE) * t)
+
+        val byHeight = numeral / numeralPerTextSize
+        val byWidth = shortSide * MAX_WIDTH_TO_SHORT_SIDE / widthPerTextSize
+        val textSize = min(byHeight, byWidth)
+        return Fit(textSize = textSize, stretch = max(1f, numeral / (textSize * numeralPerTextSize)))
     }
 
-    /** Numeral height at [size], between the two ends, in the ends' unit. */
-    fun numeralHeightAt(size: Float, smallest: Float, largest: Float): Float =
-        lerp(smallest, largest, size.coerceIn(0f, 1f))
-
-    private fun lerp(from: Float, to: Float, t: Float): Float = from + (to - from) * t
+    /** The text size to set, and how much taller than that to draw the numerals. */
+    data class Fit(val textSize: Float, val stretch: Float)
 }

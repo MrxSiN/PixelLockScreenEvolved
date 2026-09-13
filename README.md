@@ -10,10 +10,11 @@ render on the lock screen, in the picker preview and on the always-on display.
   12-hour time without AM/PM or a leading zero; 24-hour time padded.
 
   **Clock size** slider (Wallpaper & style → Clock → Style, under the clock
-  list): seven steps from the classic iOS clock up to the tall, narrow numerals
-  of the largest iOS lock screen clock. With notifications showing, the clock
-  is the time alone at the second step, with Pixel's date and weather centred
-  below.
+  list): six steps. Each is taller than the last, in the same bold numerals:
+  the time grows until it fills the screen's width, then is stretched
+  vertically without getting any thinner. With notifications showing, the
+  clock is the time alone at the smallest step, with Pixel's date and weather
+  centred below.
 
 ## Requirements
 

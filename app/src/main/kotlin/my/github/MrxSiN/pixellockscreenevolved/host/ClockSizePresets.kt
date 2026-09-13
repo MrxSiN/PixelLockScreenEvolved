@@ -18,14 +18,14 @@ internal object ClockSizePresets {
     const val AXIS_KEY = "PIXEL_LOCK_SCREEN_EVOLVED_SIZE"
 
     /** Stops on the slider, the smallest size first. */
-    const val STEPS = 7
+    const val STEPS = 6
 
     /**
-     * The step the small clock is always shown at, the second on the slider.
+     * The step the small clock is always shown at, the smallest on the slider.
      * The small clock shares the lock screen with notifications, so it keeps
      * one modest size whatever was chosen for the large clock.
      */
-    const val SMALL_CLOCK_STEP = 1f
+    const val SMALL_CLOCK_STEP = 0f
 
     /** The stored value of each step, in slider order. */
     val values: List<Float> = List(STEPS) { it.toFloat() }

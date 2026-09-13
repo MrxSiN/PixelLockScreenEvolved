@@ -7,10 +7,9 @@ import android.graphics.Rect
 import android.view.View
 
 import kotlin.math.ceil
-import kotlin.math.sqrt
 
 /**
- * The iOS time, drawn at any size from the classic clock to the tallest.
+ * The iOS time, drawn at any size from the smallest clock to the tallest.
  *
  * A TextView cannot stretch its glyphs vertically or keep a colon round while
  * the digits around it stretch, so the time draws itself: the digits through a
@@ -33,7 +32,7 @@ internal class IosTimeView(context: Context) : View(context) {
     private var size = 0f
     private var stretch = 1f
 
-    /** Numeral box in font units, relative to the baseline, before the stretch. */
+    /** Numeral box relative to the baseline, before the stretch. */
     private var numeralTop = 0f
     private var numeralBottom = 0f
 
@@ -78,14 +77,10 @@ internal class IosTimeView(context: Context) : View(context) {
         if (colon >= 0) drawColon(canvas, x + paint.measureText(text, 0, colon))
     }
 
-    /**
-     * Two round dots where the font's colon would sit once stretched. They
-     * shrink as the numerals stretch, so they stay about as wide as a stroke
-     * instead of outweighing the thin figures beside them.
-     */
+    /** Two round dots, the font's own size, where its colon would sit once stretched. */
     private fun drawColon(canvas: Canvas, left: Float) {
         paint.getTextBounds(COLON_TEXT, 0, 1, bounds)
-        val radius = bounds.width() / 2f / sqrt(stretch)
+        val radius = bounds.width() / 2f
         val centreX = left + bounds.exactCenterX()
         val upper = (bounds.top + radius - numeralTop) * stretch
         val lower = (bounds.bottom - radius - numeralTop) * stretch
@@ -93,26 +88,21 @@ internal class IosTimeView(context: Context) : View(context) {
         canvas.drawCircle(centreX, lower, radius, paint)
     }
 
-    /**
-     * Sets the font shape and size for the current size and text, shrinking the
-     * whole time rather than squeezing it if it would run past the screen.
-     */
+    /** Sets the text size and stretch for the current size and text. */
     private fun relayout() {
-        paint.fontVariationSettings = IosClockScale.variationAt(0f)
-        val smallestNumeral = IosClockScale.SMALLEST_TEXT_TO_SHORT_SIDE * shortSide * numeralRatio()
+        paint.fontVariationSettings = IosClockScale.variationFor(1f)
+        paint.textSize = PROBE_SIZE
+        paint.getTextBounds(NUMERALS, 0, NUMERALS.length, bounds)
 
-        paint.fontVariationSettings = IosClockScale.variationAt(size)
-        stretch = IosClockScale.stretchAt(size, nineAspect())
-        val numeral = IosClockScale.numeralHeightAt(
-            size,
-            smallest = smallestNumeral,
-            largest = IosClockScale.LARGEST_NUMERAL_TO_SHORT_SIDE * shortSide,
+        val fit = IosClockScale.fit(
+            size = size,
+            shortSide = shortSide,
+            numeralPerTextSize = bounds.height() / PROBE_SIZE,
+            widthPerTextSize = paint.measureText(text.ifEmpty { NUMERALS }) / PROBE_SIZE,
         )
-        paint.textSize = numeral / stretch / numeralRatio()
-
-        val maxWidth = IosClockScale.MAX_WIDTH_TO_SHORT_SIDE * shortSide
-        val width = paint.measureText(text)
-        if (width > maxWidth) paint.textSize *= maxWidth / width
+        stretch = fit.stretch
+        paint.textSize = fit.textSize
+        paint.fontVariationSettings = IosClockScale.variationFor(stretch)
 
         paint.getTextBounds(NUMERALS, 0, NUMERALS.length, bounds)
         numeralTop = bounds.top.toFloat()
@@ -122,25 +112,10 @@ internal class IosTimeView(context: Context) : View(context) {
         invalidate()
     }
 
-    /** Width over height of a "9" as the current font shape draws it. */
-    private fun nineAspect(): Float {
-        paint.textSize = RATIO_PROBE_SIZE
-        paint.getTextBounds(NINE, 0, 1, bounds)
-        return bounds.width().toFloat() / bounds.height()
-    }
-
-    /** Numeral height per pixel of text size, for the current font shape. */
-    private fun numeralRatio(): Float {
-        paint.textSize = RATIO_PROBE_SIZE
-        paint.getTextBounds(NUMERALS, 0, NUMERALS.length, bounds)
-        return bounds.height() / RATIO_PROBE_SIZE
-    }
-
     private companion object {
         const val COLON = ':'
         const val COLON_TEXT = ":"
         const val NUMERALS = "0123456789"
-        const val NINE = "9"
-        const val RATIO_PROBE_SIZE = 200f
+        const val PROBE_SIZE = 200f
     }
 }

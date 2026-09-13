@@ -49,7 +49,7 @@ internal class IosClockFace(
         dateView?.let { date ->
             val metrics = context.resources.displayMetrics
             val shortSide = minOf(metrics.widthPixels, metrics.heightPixels)
-            val dateSize = shortSide * IosClockScale.SMALLEST_TEXT_TO_SHORT_SIDE * DATE_TO_TIME_RATIO
+            val dateSize = shortSide * DATE_TEXT_TO_SHORT_SIDE
             date.setTextSize(TypedValue.COMPLEX_UNIT_PX, dateSize)
             timeParams.topMargin = (dateSize * DATE_GAP_TO_DATE).toInt()
             addView(date, LinearLayout.LayoutParams(WRAP, WRAP))
@@ -93,7 +93,8 @@ internal class IosClockFace(
 
     private companion object {
         const val WRAP = ViewGroup.LayoutParams.WRAP_CONTENT
-        const val DATE_TO_TIME_RATIO = 0.21f
+        /** The classic iOS date size, against the screen's short side. */
+        const val DATE_TEXT_TO_SHORT_SIDE = 0.055f
         const val DATE_GAP_TO_DATE = 0.35f
 
         fun withAlpha(color: Int, alpha: Float): Int =

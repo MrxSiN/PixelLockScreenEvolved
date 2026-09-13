@@ -5,38 +5,48 @@ import org.junit.Test
 
 class IosClockScaleTest {
 
+    private val shortSide = 1000f
+    private val numeral = 0.7f
+
     @Test
-    fun smallestIsTheClassicShapeUnstretched() {
+    fun unstretchedTimeKeepsTheFontShape() {
         assertEquals(
-            "'opsz' 144.0, 'wght' 600.0, 'wdth' 100.0, 'XTRA' 468.0, 'XOPQ' 96.0, 'YOPQ' 79.0",
-            IosClockScale.variationAt(0f),
+            "'opsz' 144, 'wght' 600, 'wdth' 100, 'XTRA' 468, 'XOPQ' 96, 'YOPQ' 79.0",
+            IosClockScale.variationFor(stretch = 1f),
         )
-        assertEquals(1f, IosClockScale.stretchAt(0f, naturalNineAspect = 0.5f), 0f)
     }
 
     @Test
-    fun largestIsThinAndStretchedToTheIosAspect() {
+    fun stretchThinsOnlyTheHorizontalStrokes() {
         assertEquals(
-            "'opsz' 14.0, 'wght' 500.0, 'wdth' 50.0, 'XTRA' 468.0, 'XOPQ' 110.0, 'YOPQ' 40.0",
-            IosClockScale.variationAt(1f),
+            "'opsz' 144, 'wght' 600, 'wdth' 100, 'XTRA' 468, 'XOPQ' 96, 'YOPQ' 39.5",
+            IosClockScale.variationFor(stretch = 2f),
         )
-        assertEquals(2f, IosClockScale.stretchAt(1f, naturalNineAspect = 0.52f), 1e-5f)
+        assertEquals(
+            "'opsz' 144, 'wght' 600, 'wdth' 100, 'XTRA' 468, 'XOPQ' 96, 'YOPQ' 25.0",
+            IosClockScale.variationFor(stretch = 10f),
+        )
     }
 
     @Test
-    fun aFontAlreadyNarrowerThanIosIsNotStretched() {
-        assertEquals(1f, IosClockScale.stretchAt(1f, naturalNineAspect = 0.24f), 0f)
+    fun aNarrowTimeGrowsWithoutStretching() {
+        val fit = IosClockScale.fit(size = 0f, shortSide, numeral, widthPerTextSize = 1f)
+        assertEquals(300f / numeral, fit.textSize, 1e-3f)
+        assertEquals(1f, fit.stretch, 0f)
+    }
+
+    @Test
+    fun aTimeTooWideForItsHeightIsStretchedNotSqueezed() {
+        val fit = IosClockScale.fit(size = 1f, shortSide, numeral, widthPerTextSize = 2.3f)
+        assertEquals(920f / 2.3f, fit.textSize, 1e-3f)
+        assertEquals(880f, fit.textSize * numeral * fit.stretch, 1e-2f)
     }
 
     @Test
     fun sizesOutsideTheRangeAreClamped() {
-        assertEquals(IosClockScale.variationAt(0f), IosClockScale.variationAt(-1f))
-        assertEquals(IosClockScale.variationAt(1f), IosClockScale.variationAt(3f))
-        assertEquals(10f, IosClockScale.numeralHeightAt(2f, smallest = 2f, largest = 10f), 0f)
-    }
-
-    @Test
-    fun numeralHeightGrowsLinearly() {
-        assertEquals(6f, IosClockScale.numeralHeightAt(0.5f, smallest = 2f, largest = 10f), 1e-6f)
+        assertEquals(
+            IosClockScale.fit(size = 1f, shortSide, numeral, widthPerTextSize = 2f),
+            IosClockScale.fit(size = 4f, shortSide, numeral, widthPerTextSize = 2f),
+        )
     }
 }

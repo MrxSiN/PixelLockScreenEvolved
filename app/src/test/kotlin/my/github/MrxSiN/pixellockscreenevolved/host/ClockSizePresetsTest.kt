@@ -13,8 +13,8 @@ class ClockSizePresetsTest {
     }
 
     @Test
-    fun middleStepIsHalfway() {
-        assertEquals(0.5f, ClockSizePresets.sizeOf(3f), 1e-6f)
+    fun stepsAreEvenlySpaced() {
+        assertEquals(0.4f, ClockSizePresets.sizeOf(2f), 1e-6f)
     }
 
     @Test

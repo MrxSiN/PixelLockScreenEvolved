@@ -117,7 +117,7 @@ for the current group; tapping the selected clock again cycles groups. While the
 slider moves, `ThemePickerCustomizationOptionsBinder` calls
 `ClockAnimations.onFontAxesChanged(preset)` on both faces of the picker's own
 preview clock. Apply writes the preset into the setting's `axes`
-(`{"key":"PIXEL_LOCK_SCREEN_EVOLVED_SIZE","value":6},{"key":"wdth","value":120}`), and SystemUI builds the
+(`{"key":"PIXEL_LOCK_SCREEN_EVOLVED_SIZE","value":5},{"key":"wdth","value":120}`), and SystemUI builds the
 clock again with those settings. `DefaultClockProvider.getClockPickerConfig`
 sets `current` with `findStyle(settings axes)`, which is what places the slider
 on the stored step when the picker reopens.
@@ -164,10 +164,12 @@ while its clock is previewed large.
 Roboto Flex (`/system/fonts/RobotoFlex-Regular.ttf`, family `roboto-flex`) has
 the registered axes `wght` 100-1000 and `wdth` 25-151 and the parametric axes
 `XTRA` 323-603 (counter width), `XOPQ` 27-175 (vertical stroke), `YOPQ` 25-135
-(horizontal stroke) and `YTFI` 560-788 (figure height). The large sizes narrow
-the counters and thin the strokes on those, then stretch the numerals
-vertically; `YOPQ` is set below `XOPQ` so horizontal strokes match vertical
-ones after the stretch.
+(horizontal stroke) and `YTFI` 560-788 (figure height). Larger sizes change
+nothing about the shape: the module keeps `opsz 144, wght 600, wdth 100,
+XTRA 468, XOPQ 96` at every size, sets the time as large as the height and the screen
+width allow, and stretches the numerals vertically for the rest. `YOPQ` is
+divided by the stretch (down to its minimum of 25) so horizontal strokes keep
+their weight.
 
-Android sets `opsz` from the text size when a variation leaves it out, which
-for text this large is 144, the hairline display cut. The module always sets it.
+Android sets `opsz` from the text size when a variation leaves it out, so the
+stroke would change with size. The module always sets it.

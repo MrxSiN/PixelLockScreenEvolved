@@ -5,16 +5,15 @@
 ### Added
 
 - **Clock size** slider for the iOS clock, in Wallpaper & style → Clock →
-  Style. Seven steps run from the classic iOS clock, which is the smallest, to
-  the largest iOS lock screen clock: the numerals grow taller and narrower
-  until they are straight-sided figures of even, sturdy stroke with a round
-  colon. Roboto Flex's parametric axes narrow the counters and thin the
-  strokes, and the numerals are then stretched vertically, measured against the
-  font at runtime so every size lands on the iOS proportions. A time too wide
-  for the screen is drawn smaller rather than squeezed. The picker's preview
-  follows the slider as it moves, and the chosen step is stored with the clock
-  setting, so it survives reboots and the slider reopens on it.
-- With notifications showing, the iOS clock is the time alone at the second
+  Style. Six steps, each taller than the last in the same bold numerals: the
+  time grows until it fills the screen's width, then is stretched vertically.
+  The font's weight, width and strokes never change, so the largest clock is
+  as heavy as the smallest; horizontal strokes are thinned on Roboto Flex's
+  axis by as much as the stretch thickens them, and the colon stays round. The
+  picker's preview follows the slider as it moves, and the chosen step is
+  stored with the clock setting, so it survives reboots and the slider reopens
+  on it.
+- With notifications showing, the iOS clock is the time alone at the smallest
   size step, with Pixel's date and weather line centred below it, spaced
   evenly between the clock and the notifications.
 - The picker's preview no longer draws Pixel's date line over the large iOS
