@@ -1,0 +1,30 @@
+package my.github.MrxSiN.pixellockscreenevolved.host
+
+import org.junit.Assert.assertEquals
+import org.junit.Test
+
+class ClockSizePresetsTest {
+
+    @Test
+    fun stepsRunFromSmallestToLargest() {
+        assertEquals(ClockSizePresets.STEPS, ClockSizePresets.values.size)
+        assertEquals(0f, ClockSizePresets.sizeOf(ClockSizePresets.values.first()), 0f)
+        assertEquals(1f, ClockSizePresets.sizeOf(ClockSizePresets.values.last()), 0f)
+    }
+
+    @Test
+    fun middleStepIsHalfway() {
+        assertEquals(0.5f, ClockSizePresets.sizeOf(3f), 1e-6f)
+    }
+
+    @Test
+    fun missingValueIsSmallest() {
+        assertEquals(0f, ClockSizePresets.sizeOf(null), 0f)
+    }
+
+    @Test
+    fun outOfRangeValuesAreClamped() {
+        assertEquals(0f, ClockSizePresets.sizeOf(-4f), 0f)
+        assertEquals(1f, ClockSizePresets.sizeOf(99f), 0f)
+    }
+}

@@ -1,0 +1,11 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <!--
+      The module has no screen of its own. app_name and module_description name
+      it in an Xposed manager; every clock style it adds is picked in the
+      system's own Wallpaper &amp; style, where its name comes from the style
+      class rather than from here, because that runs in another app's process.
+    -->
+    <string name="app_name">Pixel Lock Screen Evolved</string>
+    <string name="module_description">Xposed module that adds more lock screen clock styles to Pixel, picked in Wallpaper &amp; style.</string>
+</resources>

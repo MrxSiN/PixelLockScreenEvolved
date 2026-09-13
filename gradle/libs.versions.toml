@@ -1,0 +1,13 @@
+[versions]
+agp = "9.3.1"
+# The modern Xposed API that Vector (JingMatrix/Vector) implements; 102 is the
+# release its xposed/libxposed submodule is pinned to.
+libxposed = "102.0.0"
+junit = "4.13.2"
+
+[plugins]
+agp-app = { id = "com.android.application", version.ref = "agp" }
+
+[libraries]
+libxposed-api = { group = "io.github.libxposed", name = "api", version.ref = "libxposed" }
+junit = { group = "junit", name = "junit", version.ref = "junit" }

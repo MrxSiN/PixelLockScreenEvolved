@@ -1,0 +1,31 @@
+<!--
+  A padlock whose body is a clock face: the lock screen, and the clock on it.
+  Drawn on the adaptive icon's 108dp canvas inside the 66dp safe circle.
+-->
+<vector xmlns:android="http://schemas.android.com/apk/res/android"
+    android:width="108dp"
+    android:height="108dp"
+    android:viewportWidth="108"
+    android:viewportHeight="108">
+
+    <!-- Shackle. -->
+    <path
+        android:fillColor="#00000000"
+        android:strokeColor="#FFFFFFFF"
+        android:strokeWidth="5"
+        android:strokeLineCap="round"
+        android:pathData="M42,50V43a12,12 0 0,1 24,0v7" />
+
+    <!-- Body. -->
+    <path
+        android:fillColor="#FFFFFFFF"
+        android:pathData="M38,48h32a5,5 0 0,1 5,5v18a5,5 0 0,1 -5,5h-32a5,5 0 0,1 -5,-5v-18a5,5 0 0,1 5,-5z" />
+
+    <!-- Clock hands, cut out of the body. -->
+    <path
+        android:fillColor="#00000000"
+        android:strokeColor="#FF5B3DF5"
+        android:strokeWidth="3.5"
+        android:strokeLineCap="round"
+        android:pathData="M54,54v8l6,4" />
+</vector>
