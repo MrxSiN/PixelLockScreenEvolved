@@ -9,7 +9,8 @@
   SIL Open Font License. The preview switches as the slider moves.
 - **Clock size** slider for the iOS clock, in Wallpaper & style → Clock → Size,
   which replaces the Large switch for this clock (the large clock always shows
-  when notifications allow). Six steps, each taller than the last in either
+  when notifications allow); Google's clocks keep their switch and show no
+  slider. Six steps, each taller than the last in either
   font: the numerals move to a bolder cut, so strokes stay even, and the rest
   of the height comes from stretching them vertically. The colon stays round
   and centred between the digits. The preview follows the slider as it moves,

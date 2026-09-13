@@ -1,6 +1,5 @@
 package my.github.MrxSiN.pixellockscreenevolved.host
 
-import android.util.TypedValue
 import android.view.LayoutInflater
 import android.view.View
 import android.view.ViewGroup
@@ -61,7 +60,6 @@ internal class PickerClockSliders(
     private fun addSizeRow(sliders: PickerSliderApi, sheet: View) {
         val context = sheet.context
         val sizeContent = sheet.findViewById<ViewGroup>(id(sheet, "clock_floating_sheet_size_content")) ?: return
-        val description = sizeContent.findViewById<View>(id(sheet, "clock_style_clock_size_description")) ?: return
         val presetSlider = sheet.findViewById<View>(id(sheet, "clock_axis_preset_slider")) ?: return
 
         val styleContent = LayoutInflater.from(context)
@@ -83,7 +81,7 @@ internal class PickerClockSliders(
         }
 
         val largeSwitch = sizeContent.findViewById<View>(id(sheet, "clock_style_clock_size_switch")) as? CompoundButton
-        val tab = PickerSizeTab(sizeContent, row, description, largeSwitch, dp(sheet, ROW_TOP_MARGIN_DP), sliders, logger)
+        val tab = PickerSizeTab(sizeContent, row, largeSwitch, sliders, logger)
         tab.showFor(state.storedClockId() in styleIds)
         sizeTab = WeakReference(tab)
     }
@@ -107,12 +105,8 @@ internal class PickerClockSliders(
     private fun id(view: View, name: String): Int =
         view.resources.getIdentifier(name, "id", view.context.packageName)
 
-    private fun dp(view: View, value: Float): Int =
-        TypedValue.applyDimension(TypedValue.COMPLEX_UNIT_DIP, value, view.resources.displayMetrics).toInt()
-
     private companion object {
         const val FONT_LABEL = "Font"
         const val SIZE_LABEL = "Clock size"
-        const val ROW_TOP_MARGIN_DP = 16f
     }
 }

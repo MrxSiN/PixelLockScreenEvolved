@@ -154,18 +154,12 @@ whose height is animated to the tab's value in the static
 Integer clockColorContentHeight, Integer clockSizeContentHeight,
 Integer axisPresetSliderHeight)`, measured once from each content's wrapped
 height (the size content has 60px top and bottom padding and wraps its height).
-`host/PickerSizeTab.kt` records its own height there with
-`updateState(null, new)` whenever the rows change:
-
-- For this module's clocks the slider sizes the clock, so the title,
-  description and `clock_style_clock_size_switch` are `GONE`, the switch is
-  left checked, and the row is pinned to the top: height is top padding, row,
-  bottom padding.
-- For Google's clocks the original rows show and the row is disabled under the
-  description. ConstraintLayout leaves a row hung below the centred rows out of
-  its measured height, and growing the content re-centres those rows, so the
-  row's room is added as bottom padding (`clipToPadding = false`) and the
-  content's height is set to the natural height plus that room.
+`host/PickerSizeTab.kt` swaps the rows and records the content's measured
+height there with `updateState(null, new)` whenever it changes. The added row
+is pinned to the content's top. For this module's clocks the slider sizes the
+clock, so the title, description and `clock_style_clock_size_switch` are
+`GONE` (the switch left checked) and only the row shows; for Google's clocks
+the row is `GONE` and the tab is as the picker made it.
 
 Moving the slider resizes every preview clock the picker has built. The picker
 writes settings only through `ClockRegistry.applySettings(ClockSettings)`, with
