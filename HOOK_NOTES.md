@@ -152,12 +152,20 @@ whose height is animated to the tab's value in the static
 `ClockFloatingSheetBinder._clockFloatingSheetHeights`, a `StateFlowImpl` of
 `ClockFloatingSheetHeightsViewModel(Integer clockStyleContentHeight,
 Integer clockColorContentHeight, Integer clockSizeContentHeight,
-Integer axisPresetSliderHeight)`, measured once. Measuring the ConstraintLayout
-again does not count the added row, and letting the content fill the container
-re-centres the original rows (which feeds back into the height). So the module
-reserves the row's height as the content's bottom padding
-(`clipToPadding = false`), pins the row's height, and writes the total into
-`clockSizeContentHeight` with `updateState(null, new)`.
+Integer axisPresetSliderHeight)`, measured once from each content's wrapped
+height (the size content has 60px top and bottom padding and wraps its height).
+`host/PickerSizeTab.kt` records its own height there with
+`updateState(null, new)` whenever the rows change:
+
+- For this module's clocks the slider sizes the clock, so the title,
+  description and `clock_style_clock_size_switch` are `GONE`, the switch is
+  left checked, and the row is pinned to the top: height is top padding, row,
+  bottom padding.
+- For Google's clocks the original rows show and the row is disabled under the
+  description. ConstraintLayout leaves a row hung below the centred rows out of
+  its measured height, and growing the content re-centres those rows, so the
+  row's room is added as bottom padding (`clipToPadding = false`) and the
+  content's height is set to the natural height plus that room.
 
 Moving the slider resizes every preview clock the picker has built. The picker
 writes settings only through `ClockRegistry.applySettings(ClockSettings)`, with
@@ -218,8 +226,10 @@ stroke would change with size. The module always sets it.
 Inter 4.1 (`assets/fonts/InterVariable.ttf`, from the official rsms/inter
 release, SIL OFL 1.1) is the second font: the closest open design to SF Pro,
 which cannot be redistributed. It has `opsz` 14-32 and `wght` 100-900 and no
-width axis, so its numerals grow in weight only and stretch vertically by at
-most 1.25. It is loaded from the module's own APK through
+width axis, so its time reaches the screen width at a small size; larger sizes
+are stretched vertically by up to 2 while the weight rises from 600 to 800.
+`IosClockScale` spreads the six sizes between the smallest and the tallest the
+font can reach for the time shown, so every step grows whatever the font. It is loaded from the module's own APK through
 `PackageManager.getResourcesForApplication(moduleApplicationInfo).assets`.
 
 R8 rewrites string literals naming `kotlin.*` classes in the release build, so

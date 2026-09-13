@@ -66,15 +66,16 @@ internal object RobotoFlexNumerals : IosNumeralFont {
  * Inter, an open-source font drawn in the manner of Apple's San Francisco and
  * the closest match to the iOS lock screen clock that can be shipped.
  *
- * It has no width axis to condense and no stroke axis to rebalance a stretch,
- * so it grows bolder only, and is stretched less than Roboto Flex.
+ * It has no width axis to condense, so a larger clock comes mostly from
+ * stretching the numerals vertically; its weight grows with the size so the
+ * upright strokes keep pace with the bars the stretch thickens.
  */
 internal class InterNumerals(override val typeface: Typeface) : IosNumeralFont {
 
     override val dateTypeface: Typeface = typeface
     override val dateVariation: String = "'opsz' 14, 'wght' 600"
 
-    override val maxStretch: Float = 1.25f
+    override val maxStretch: Float = 2f
 
     override fun variationFor(size: Float, stretch: Float): String =
         "'opsz' 32, 'wght' ${lerp(SMALLEST_WEIGHT, LARGEST_WEIGHT, size.coerceIn(0f, 1f))}"
@@ -84,7 +85,7 @@ internal class InterNumerals(override val typeface: Typeface) : IosNumeralFont {
         const val ASSET_PATH = "fonts/InterVariable.ttf"
 
         private const val SMALLEST_WEIGHT = 600f
-        private const val LARGEST_WEIGHT = 700f
+        private const val LARGEST_WEIGHT = 800f
     }
 }
 

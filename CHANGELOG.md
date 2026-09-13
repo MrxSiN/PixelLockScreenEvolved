@@ -8,8 +8,9 @@
   Roboto Flex or Inter 4.1, the open font closest to SF Pro, bundled under the
   SIL Open Font License. The preview switches as the slider moves.
 - **Clock size** slider for the iOS clock, in Wallpaper & style → Clock → Size,
-  under the Large switch. Six steps, each taller than the last: the numerals
-  move to a bolder cut, so strokes stay even at every size, and only a little
+  which replaces the Large switch for this clock (the large clock always shows
+  when notifications allow). Six steps, each taller than the last in either
+  font: the numerals move to a bolder cut, so strokes stay even, and the rest
   of the height comes from stretching them vertically. The colon stays round
   and centred between the digits. The preview follows the slider as it moves,
   and Apply stores the size and the font together with the clock setting, so

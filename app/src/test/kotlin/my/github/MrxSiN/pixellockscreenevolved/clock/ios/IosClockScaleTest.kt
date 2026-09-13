@@ -23,6 +23,16 @@ class IosClockScaleTest {
     }
 
     @Test
+    fun aWideTimeStillGrowsAtEveryStep() {
+        val heights = (0..5).map { step ->
+            val fit = IosClockScale.fit(size = step / 5f, shortSide, numeral, widthPerTextSize = 3f, maxStretch = 1.6f)
+            fit.textSize * numeral * fit.stretch
+        }
+        heights.zipWithNext().forEach { (smaller, larger) -> assert(larger > smaller) { "$heights" } }
+        assertEquals(920f / 3f * numeral * 1.6f, heights.last(), 1e-2f)
+    }
+
+    @Test
     fun aTimeThatNeedsLittleStretchGetsExactlyThat() {
         val fit = IosClockScale.fit(size = 1f, shortSide, numeral, widthPerTextSize = 1.1f, maxStretch = 1.6f)
         assertEquals(880f, fit.textSize * numeral * fit.stretch, 1e-2f)

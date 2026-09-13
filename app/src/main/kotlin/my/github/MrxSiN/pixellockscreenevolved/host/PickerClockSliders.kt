@@ -4,6 +4,7 @@ import android.util.TypedValue
 import android.view.LayoutInflater
 import android.view.View
 import android.view.ViewGroup
+import android.widget.CompoundButton
 import android.widget.TextView
 
 import java.lang.ref.WeakReference
@@ -21,11 +22,10 @@ import my.github.MrxSiN.pixellockscreenevolved.hook.HostPatch
  * means for Google's; for this module's it is named "Font".
  *
  * Size tab: the picker has a switch there and no slider, so a "Clock size" row
- * is added under the switch, built from the picker's own slider layout so it
- * looks like the one in the Style tab and copying that slider's colours as the
- * wallpaper changes them. Moving it previews the size at once; Apply stores it
- * through [PickerClockSettings]. It is enabled only while one of this module's
- * clocks is chosen.
+ * is added, built from the picker's own slider layout so it looks like the one
+ * in the Style tab and copying that slider's colours as the wallpaper changes
+ * them. Moving it previews the size at once; Apply stores it through
+ * [PickerClockSettings]. [PickerSizeTab] lays the tab out for the chosen clock.
  */
 internal class PickerClockSliders(
     private val hooks: Hooks,
@@ -35,8 +35,7 @@ internal class PickerClockSliders(
 ) : HostPatch {
 
     private val styleIds = styles.map { it.id }.toSet()
-    private var sizeRow = WeakReference<View>(null)
-    private var heightFailureReported = false
+    private var sizeTab = WeakReference<PickerSizeTab>(null)
 
     override fun install(classLoader: ClassLoader) {
         val sliders = try {
@@ -55,7 +54,7 @@ internal class PickerClockSliders(
             val model = args.firstOrNull()
             val ours = model != null && sliders.holdsFontPresets(model)
             if (model != null) nameFontSlider(sliders.presetSlider(requireNotNull(collector)), ours)
-            sizeRow.get()?.let { setEnabled(it, ours) }
+            sizeTab.get()?.showFor(ours)
         }
     }
 
@@ -83,69 +82,15 @@ internal class PickerClockSliders(
             true
         }
 
-        placeBelow(sizeContent, row, description, topMargin = dp(sheet, ROW_TOP_MARGIN_DP))
-        setEnabled(row, state.storedClockId() in styleIds)
-        sizeRow = WeakReference(row)
-        keepSheetHeight(sliders, sizeContent, row, description)
-    }
-
-    /**
-     * The picker sizes its sheet to each tab's height, measured once, and then
-     * holds the tab's content to that height. The size tab's rows are centred
-     * in its content, so rather than growing the content, room for the new row
-     * is reserved as bottom padding the row draws into, and the tab's height is
-     * recorded with that room added.
-     */
-    private fun keepSheetHeight(sliders: PickerSliderApi, sizeContent: ViewGroup, row: View, above: View) {
-        val basePadding = sizeContent.paddingBottom
-        sizeContent.clipToPadding = false
-        sizeContent.viewTreeObserver.addOnGlobalLayoutListener {
-            if (sizeContent.width <= 0) return@addOnGlobalLayoutListener
-            row.measure(
-                View.MeasureSpec.makeMeasureSpec(sizeContent.width, View.MeasureSpec.EXACTLY),
-                View.MeasureSpec.makeMeasureSpec(0, View.MeasureSpec.UNSPECIFIED),
-            )
-            val rowParams = row.layoutParams as ViewGroup.MarginLayoutParams
-            if (rowParams.height != row.measuredHeight) row.layoutParams = rowParams.apply { height = row.measuredHeight }
-            val room = rowParams.topMargin + row.measuredHeight
-            if (sizeContent.paddingBottom != basePadding + room) {
-                sizeContent.setPadding(sizeContent.paddingLeft, sizeContent.paddingTop, sizeContent.paddingRight, basePadding + room)
-            }
-            val height = above.bottom + sizeContent.getChildAt(0).top + room
-            runCatching { sliders.recordSizeTabHeight(height) }
-                .onFailure { if (!heightFailureReported) logger.warn("Size tab height could not be recorded", it) }
-                .onFailure { heightFailureReported = true }
-        }
+        val largeSwitch = sizeContent.findViewById<View>(id(sheet, "clock_style_clock_size_switch")) as? CompoundButton
+        val tab = PickerSizeTab(sizeContent, row, description, largeSwitch, dp(sheet, ROW_TOP_MARGIN_DP), sliders, logger)
+        tab.showFor(state.storedClockId() in styleIds)
+        sizeTab = WeakReference(tab)
     }
 
     /** The size the setting in effect stores, when it is one of this module's clocks. */
     private fun storedSizeStep(): Float =
         state.storedAxis(ClockAxes.SIZE_KEY)?.takeIf { state.storedClockId() in styleIds } ?: 0f
-
-    /**
-     * Adds [row] to the size tab's ConstraintLayout under [above], spanning the
-     * width.
-     */
-    private fun placeBelow(content: ViewGroup, row: View, above: View, topMargin: Int) {
-        val generate = ViewGroup::class.java.getDeclaredMethod("generateLayoutParams", ViewGroup.LayoutParams::class.java)
-            .apply { isAccessible = true }
-        val params = generate.invoke(content, ViewGroup.LayoutParams(0, ViewGroup.LayoutParams.WRAP_CONTENT)) as ViewGroup.MarginLayoutParams
-        params.topMargin = topMargin
-        params.setConstraint("topToBottom", above.id)
-        params.setConstraint("leftToLeft", PARENT)
-        params.setConstraint("rightToRight", PARENT)
-        params.validateConstraints()
-        content.addView(row, params)
-    }
-
-    private fun ViewGroup.LayoutParams.setConstraint(name: String, value: Int) {
-        javaClass.getField(name).setInt(this, value)
-    }
-
-    /** Resolves the constraint fields just set, as inflation does; skipped where R8 removed it. */
-    private fun ViewGroup.LayoutParams.validateConstraints() {
-        runCatching { javaClass.getMethod("validate").invoke(this) }
-    }
 
     private fun nameFontSlider(presetSlider: View, ours: Boolean) {
         val context = presetSlider.context
@@ -159,11 +104,6 @@ internal class PickerClockSliders(
         presetSlider.contentDescription = text
     }
 
-    private fun setEnabled(row: View, enabled: Boolean) {
-        row.alpha = if (enabled) 1f else DISABLED_ALPHA
-        (row as? ViewGroup)?.let { group -> (0 until group.childCount).forEach { group.getChildAt(it).isEnabled = enabled } }
-    }
-
     private fun id(view: View, name: String): Int =
         view.resources.getIdentifier(name, "id", view.context.packageName)
 
@@ -174,7 +114,5 @@ internal class PickerClockSliders(
         const val FONT_LABEL = "Font"
         const val SIZE_LABEL = "Clock size"
         const val ROW_TOP_MARGIN_DP = 16f
-        const val DISABLED_ALPHA = 0.38f
-        const val PARENT = 0
     }
 }

@@ -4,7 +4,8 @@ Adds **Font** and **Clock size** sliders to the iOS lock screen clock.
 
 Open Wallpaper & style → Clock and choose the iOS clock. The Style tab's slider
 picks the font: Roboto Flex or Inter, the open font closest to SF Pro. The Size
-tab's slider has six steps, each taller than the last, in bolder numerals with
+tab's slider, which replaces the Large switch for this clock, has six steps,
+each taller than the last, in bolder numerals with
 even strokes at every size. With notifications showing, the clock drops to the
 smallest step, with Pixel's date and weather centred below it. The preview
 follows both sliders as you drag, and Apply puts them on the lock screen and

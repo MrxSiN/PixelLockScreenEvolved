@@ -12,8 +12,8 @@ render on the lock screen, in the picker preview and on the always-on display.
   **Font** slider (Wallpaper & style → Clock → Style): Roboto Flex or Inter,
   the open font closest to Apple's SF Pro.
 
-  **Clock size** slider (Wallpaper & style → Clock → Size): six steps, each
-  taller than the last. The numerals get bolder as they grow, with even strokes
+  **Clock size** slider (Wallpaper & style → Clock → Size, in place of the
+  Large switch): six steps, each taller than the last. The numerals get bolder as they grow, with even strokes
   at every size, and fill the screen's width at the largest. With notifications showing, the clock is the
   time alone at the smallest step, with Pixel's date and weather
   centred below.
