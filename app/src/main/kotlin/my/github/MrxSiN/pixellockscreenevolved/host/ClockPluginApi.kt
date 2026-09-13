@@ -40,8 +40,10 @@ internal class ClockPluginApi(private val classLoader: ClassLoader) {
     private val clockInfoConstructor = load("com.android.systemui.shared.clocks.ClockRegistry\$ClockInfo")
         .getDeclaredConstructor(metadataType, providerType, load("com.android.systemui.plugins.PluginLifecycleManager"))
         .accessible()
-    private val clockConfigConstructor = load("$CLOCKS.ClockConfig")
-        .getConstructor(STRING, STRING, STRING, BOOLEAN, BOOLEAN)
+    private val clockConfigType = load("$CLOCKS.ClockConfig")
+    private val clockConfigConstructor = clockConfigType.getConstructor(STRING, STRING, STRING, BOOLEAN, BOOLEAN)
+    private val clockConfigId = clockConfigType.getMethod("getId")
+    private val controllerConfig = controllerType.getMethod("getConfig")
     private val tickRateType = load("$CLOCKS.ClockTickRate")
     private val faceConfigConstructor = load("$CLOCKS.ClockFaceConfig")
         .getConstructor(tickRateType, BOOLEAN, BOOLEAN, BOOLEAN)
@@ -150,6 +152,10 @@ internal class ClockPluginApi(private val classLoader: ClassLoader) {
     fun eventListeners(): Any = eventListenersConstructor.newInstance()
 
     fun clockId(settings: Any): String? = settingsClockId.invoke(settings) as String?
+
+    /** The id a live `ClockController` reports, whoever provides it. */
+    fun controllerClockId(controller: Any): String? =
+        clockConfigId.invoke(controllerConfig.invoke(controller)) as String?
 
     fun seedColor(settings: Any): Int? = settingsSeedColor.invoke(settings) as Int?
 

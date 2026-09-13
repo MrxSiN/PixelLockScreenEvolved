@@ -17,15 +17,15 @@ class IosClockScaleTest {
     @Test
     fun largestIsThinAndStretchedToTheIosAspect() {
         assertEquals(
-            "'opsz' 14.0, 'wght' 400.0, 'wdth' 50.0, 'XTRA' 400.0, 'XOPQ' 85.0, 'YOPQ' 40.0",
+            "'opsz' 14.0, 'wght' 500.0, 'wdth' 50.0, 'XTRA' 468.0, 'XOPQ' 110.0, 'YOPQ' 40.0",
             IosClockScale.variationAt(1f),
         )
-        assertEquals(2f, IosClockScale.stretchAt(1f, naturalNineAspect = 0.46f), 1e-5f)
+        assertEquals(2f, IosClockScale.stretchAt(1f, naturalNineAspect = 0.52f), 1e-5f)
     }
 
     @Test
     fun aFontAlreadyNarrowerThanIosIsNotStretched() {
-        assertEquals(1f, IosClockScale.stretchAt(1f, naturalNineAspect = 0.2f), 0f)
+        assertEquals(1f, IosClockScale.stretchAt(1f, naturalNineAspect = 0.24f), 0f)
     }
 
     @Test

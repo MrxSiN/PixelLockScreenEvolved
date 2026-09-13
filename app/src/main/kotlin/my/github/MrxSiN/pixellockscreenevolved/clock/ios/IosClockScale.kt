@@ -31,21 +31,21 @@ internal object IosClockScale {
 
     /**
      * Roboto Flex axis values at the largest size, before the stretch. Found by
-     * measuring rendered numerals against the largest iOS clock: strokes 4.5%
-     * of the numeral height, and horizontal strokes as heavy as vertical ones
-     * once stretched.
+     * measuring rendered numerals: strokes 7% of the numeral height, heavy
+     * enough to hold up at full height, and horizontal strokes as heavy as
+     * vertical ones once stretched.
      */
     private val LARGEST = mapOf(
         "opsz" to 14f,
-        "wght" to 400f,
+        "wght" to 500f,
         "wdth" to 50f,
-        "XTRA" to 400f,
-        "XOPQ" to 85f,
+        "XTRA" to 468f,
+        "XOPQ" to 110f,
         "YOPQ" to 40f,
     )
 
-    /** Width over height of a "9" on the largest iOS clock. */
-    private const val LARGEST_NINE_ASPECT = 0.23f
+    /** Width over height of a "9" at the largest size, the iOS proportion. */
+    private const val LARGEST_NINE_ASPECT = 0.26f
 
     /** Text size of the smallest clock, against the screen's short side. */
     const val SMALLEST_TEXT_TO_SHORT_SIDE = 0.26f

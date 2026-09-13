@@ -143,6 +143,22 @@ screen. Every size preset therefore also stores `wdth = 120`. The
 clock; SystemUI always shows it with the small clock, so the small face leaves
 out its own date.
 
+`DefaultKeyguardBlueprint` applies `ClockSection` before `SmartspaceSection`, so
+a clock face cannot move that row from its own `applyConstraints`. The module
+hooks `SmartspaceSection.applyConstraints(ConstraintSet)` and, while one of its
+clocks is showing small (`keyguardClockViewModel.currentClock` /
+`isLargeClockVisible`), connects `dateView` below the small clock and centres
+it. Measured on the device: SystemUI leaves 60px (about 23dp) between the row
+and `nssl_placeholder`.
+
+The picker preview's rows are shown by
+`KeyguardPreviewSmartspaceViewBinder$bind$1$1$1$4.emit(Pair<ClockSizeSetting,
+Boolean>, Continuation)`, holding `$largeDateView`, `$smallDateView` and
+`$viewModel` (`KeyguardPreviewSmartspaceViewModel.clockViewModel
+.keyguardClockViewModel`). It shows a row with a large clock whatever
+`hasCustomWeatherDataDisplay` says; the module hides both rows after it runs
+while its clock is previewed large.
+
 ## Font
 
 Roboto Flex (`/system/fonts/RobotoFlex-Regular.ttf`, family `roboto-flex`) has
@@ -152,3 +168,6 @@ the registered axes `wght` 100-1000 and `wdth` 25-151 and the parametric axes
 the counters and thin the strokes on those, then stretch the numerals
 vertically; `YOPQ` is set below `XOPQ` so horizontal strokes match vertical
 ones after the stretch.
+
+Android sets `opsz` from the text size when a variation leaves it out, which
+for text this large is 144, the hairline display cut. The module always sets it.

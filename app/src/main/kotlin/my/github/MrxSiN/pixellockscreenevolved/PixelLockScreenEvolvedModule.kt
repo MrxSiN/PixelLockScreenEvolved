@@ -10,6 +10,7 @@ import my.github.MrxSiN.pixellockscreenevolved.hook.Hooks
 import my.github.MrxSiN.pixellockscreenevolved.hook.HostPatch
 import my.github.MrxSiN.pixellockscreenevolved.hook.XposedHooks
 import my.github.MrxSiN.pixellockscreenevolved.host.ClockRegistryInjector
+import my.github.MrxSiN.pixellockscreenevolved.host.KeyguardDateRow
 import my.github.MrxSiN.pixellockscreenevolved.host.PickerSizeLabel
 
 /**
@@ -17,8 +18,9 @@ import my.github.MrxSiN.pixellockscreenevolved.host.PickerSizeLabel
  *
  * Its only job is to hand each scoped process the patches it needs. Both need
  * the clock styles: SystemUI draws the lock screen clock and its preview, and
- * Wallpaper & style keeps its own registry to list the clocks on offer. Only
- * the picker has a size slider to label.
+ * Wallpaper & style keeps its own registry to list the clocks on offer.
+ * SystemUI also lines its date row up under the small clock, and the picker
+ * labels its size slider.
  */
 class PixelLockScreenEvolvedModule : XposedModule() {
 
@@ -41,7 +43,10 @@ class PixelLockScreenEvolvedModule : XposedModule() {
 
     private fun patchesFor(packageName: String, hooks: Hooks, logger: Logger): List<HostPatch> = buildList {
         add(ClockRegistryInjector(hooks, ClockStyles.all, logger))
-        if (packageName == PICKER_PACKAGE) add(PickerSizeLabel(hooks, logger))
+        when (packageName) {
+            SYSTEMUI_PACKAGE -> add(KeyguardDateRow(hooks, ClockStyles.all, logger))
+            PICKER_PACKAGE -> add(PickerSizeLabel(hooks, logger))
+        }
     }
 
     private companion object {
