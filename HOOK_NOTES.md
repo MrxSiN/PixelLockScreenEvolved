@@ -211,6 +211,43 @@ Boolean>, Continuation)`, holding `$largeDateView`, `$smallDateView` and
 `hasCustomWeatherDataDisplay` says; the module hides both rows after it runs
 while its clock is previewed large.
 
+## Unlock flight to the status bar clock
+
+`KeyguardUnlockAnimationController` is told about every unlock:
+`onKeyguardDismissAmountChanged()` while a swipe drags the keyguard,
+`onKeyguardGoingAwayChanged()` when it starts going away, and
+`notifyStartSurfaceBehindRemoteAnimation(AnimatedSurface[], AnimatedSurface[],
+AnimatedSurface[], long, boolean)` when the app behind appears. Its
+`keyguardStateController` (`KeyguardStateControllerImpl`) holds `mShowing`,
+`mKeyguardGoingAway`, `mFlingingToDismissKeyguard` and `mDismissAmount`.
+
+The keyguard window's views fade to alpha 0 within about 130ms of an unlock
+starting, and the smartspace card's flight to the home screen is drawn by the
+launcher (`ILauncherUnlockAnimationController`), so nothing in the keyguard
+window can be seen travelling. The module adds its own window
+(`TYPE_SECURE_SYSTEM_OVERLAY`, 2015, not touchable) with a picture of the
+time, hides the time, and moves the picture on `Choreographer` frames: by the
+keyguard's fade while dragged, then over 400ms once going away or flung.
+
+The status bar clock is `com.android.systemui.statusbar.policy.Clock`, a
+`TextView`, tracked through `onAttachedToWindow`/`onDetachedFromWindow`; the
+one outside the notification shade window is the status bar's. SystemUI fades
+it in over about 300ms, some 400ms after the keyguard has gone. The picture
+turns into a drawing of that clock's text with its own `Paint`, waits at full
+opacity until the clock's alpha (with its parents') reaches 1, and is then
+removed; fading the picture out meanwhile dims the two together.
+
+The path is a cubic Bézier curve from the time to the status bar clock, held
+below any `DisplayCutout` bounding rect between them (on a Pixel 8 Pro,
+x 616-726 down to y 151).
+
+## Lock screen spacing
+
+With the large clock the rows are 40dp apart from ink to ink. Measured on a
+Pixel 8 Pro: the status bar is 151px tall and its icons end 19dp above its
+bottom; a date line's capitals start 16dp below its top; the smartspace card's
+first line starts 38dp below its top. `LockScreenInsets` subtracts these.
+
 ## Font
 
 Roboto Flex (`/system/fonts/RobotoFlex-Regular.ttf`, family `roboto-flex`) has

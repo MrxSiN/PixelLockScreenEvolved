@@ -57,6 +57,12 @@ interface ClockFace {
     val view: View
 
     /**
+     * The part of [view] that reads as the time. On unlock it flies to the
+     * status bar clock, so it should be the digits alone where the face has more.
+     */
+    val timeView: View get() = view
+
+    /**
      * Whether this face writes the date itself. SystemUI then leaves out its
      * own date and weather line beside it, so the date is never shown twice.
      */

@@ -17,8 +17,8 @@ import my.github.MrxSiN.pixellockscreenevolved.host.ConstraintSetEditor.Companio
  *
  * With the large clock, the clock writes its own date, and SystemUI leaves the
  * card for such a clock to place: it gives it no top, and it drifts to the
- * bottom of the screen. It is put below the clock, as far from it as SystemUI
- * puts its own row below a large clock.
+ * bottom of the screen. It is put below the clock, spaced as the clock's own
+ * rows are ([LockScreenInsets]).
  *
  * With the small clock, SystemUI places the row for a Pixel small clock, which
  * hugs the start edge: flush left and almost touching the clock. Under a
@@ -63,7 +63,7 @@ class KeyguardSmartspacePlacement(
                 if (card == 0) return@after
                 editor.clear(card, TOP)
                 editor.clear(card, BOTTOM)
-                editor.connect(card, TOP, largeClockId, BOTTOM, systemUiDimen(row, CARD_GAP_DIMEN))
+                editor.connect(card, TOP, largeClockId, BOTTOM, LockScreenInsets.cardGap(row.context))
             } else {
                 editor.connect(row.id, TOP, smallClockId, BOTTOM, gapAbove(row))
                 editor.centerHorizontally(row.id)
@@ -82,10 +82,6 @@ class KeyguardSmartspacePlacement(
     private fun systemUiId(view: View, name: String): Int =
         view.resources.getIdentifier(name, "id", view.context.packageName)
 
-    private fun systemUiDimen(view: View, name: String): Int =
-        view.resources.getIdentifier(name, "dimen", view.context.packageName)
-            .takeIf { it != 0 }?.let(view.resources::getDimensionPixelSize) ?: 0
-
     private fun gapAbove(row: View): Int = TypedValue.applyDimension(
         TypedValue.COMPLEX_UNIT_DIP, GAP_ABOVE_DP, row.resources.displayMetrics,
     ).toInt()
@@ -96,8 +92,5 @@ class KeyguardSmartspacePlacement(
 
         /** The smartspace card: weather forecasts, events, and the like. */
         const val CARD_ID = "bc_smartspace_view"
-
-        /** What SystemUI leaves between a large clock and its own date row below it. */
-        const val CARD_GAP_DIMEN = "smartspace_padding_vertical"
     }
 }

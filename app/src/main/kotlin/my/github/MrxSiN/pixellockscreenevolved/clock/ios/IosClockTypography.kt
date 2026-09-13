@@ -15,6 +15,13 @@ internal object IosClockTypography {
     /** The date is drawn a little translucent over the wallpaper. */
     const val DATE_ALPHA = 0.85f
 
+    /**
+     * Space between the date's baseline and the top of the time: the space the
+     * lock screen keeps between each of its rows, so the date sits no closer to
+     * the time than the time to the smartspace card below it.
+     */
+    const val DATE_TO_TIME_GAP_DP = 40f
+
     /** Skeleton for "Saturday, September 13", localized by the platform. */
     const val DATE_SKELETON = "EEEEMMMMd"
 }

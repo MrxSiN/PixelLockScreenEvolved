@@ -19,6 +19,12 @@
 - With notifications showing, the iOS clock is the time alone at the smallest
   size step, with Pixel's date and weather line centred below it, spaced
   evenly between the clock and the notifications.
+- On unlock, the iOS time flies to the status bar clock: it rises and shrinks,
+  curves toward the clock below any camera cutout, turns into the status bar
+  clock's own text as it arrives, and stays until SystemUI shows that clock.
+  A swipe drags it and takes it back if let go.
+- The status bar, date, time and smartspace card are spaced evenly, 40dp from
+  the ink of each to the next.
 - With no notifications, the smartspace card (weather forecast, events) sits
   below the large iOS clock instead of at the bottom of the screen.
 - The picker's preview no longer draws Pixel's date line over the large iOS

@@ -18,6 +18,9 @@ render on the lock screen, in the picker preview and on the always-on display.
   time alone at the smallest step, with Pixel's date and weather
   centred below.
 
+  The status bar, date, time and smartspace card are evenly spaced. On unlock
+  the time flies up to the status bar clock and turns into it.
+
 ## Requirements
 
 - Android 17 (SDK 37) Pixel

@@ -13,6 +13,8 @@ import android.widget.TextView
 import java.util.Calendar
 import java.util.Locale
 
+import kotlin.math.roundToInt
+
 import my.github.MrxSiN.pixellockscreenevolved.clock.FontChoosingClockFace
 import my.github.MrxSiN.pixellockscreenevolved.clock.ResizableClockFace
 
@@ -30,7 +32,7 @@ internal class IosClockFace(
     showsDate: Boolean,
 ) : ResizableClockFace, FontChoosingClockFace {
 
-    private val timeView = IosTimeView(context, fonts.first())
+    override val timeView = IosTimeView(context, fonts.first())
 
     private val dateView: TextView? = if (showsDate) {
         TextView(context).apply {
@@ -47,16 +49,13 @@ internal class IosClockFace(
         gravity = Gravity.CENTER_HORIZONTAL
         layoutParams = ViewGroup.LayoutParams(WRAP, WRAP)
 
-        val timeParams = LinearLayout.LayoutParams(WRAP, WRAP)
         dateView?.let { date ->
             val metrics = context.resources.displayMetrics
             val shortSide = minOf(metrics.widthPixels, metrics.heightPixels)
-            val dateSize = shortSide * DATE_TEXT_TO_SHORT_SIDE
-            date.setTextSize(TypedValue.COMPLEX_UNIT_PX, dateSize)
-            timeParams.topMargin = (dateSize * DATE_GAP_TO_DATE).toInt()
+            date.setTextSize(TypedValue.COMPLEX_UNIT_PX, shortSide * DATE_TEXT_TO_SHORT_SIDE)
             addView(date, LinearLayout.LayoutParams(WRAP, WRAP))
         }
-        addView(timeView, timeParams)
+        addView(timeView, LinearLayout.LayoutParams(WRAP, WRAP))
     }
 
     override val drawsDate: Boolean = showsDate
@@ -103,13 +102,25 @@ internal class IosClockFace(
             fontVariationSettings = null
             fontVariationSettings = font.dateVariation
         }
+        spaceDateFromTime()
+    }
+
+    /** Keeps [IosClockTypography.DATE_TO_TIME_GAP_DP] between the date's baseline and the time, whatever the date's font. */
+    private fun spaceDateFromTime() {
+        val date = dateView ?: return
+        val gap = TypedValue.applyDimension(
+            TypedValue.COMPLEX_UNIT_DIP, IosClockTypography.DATE_TO_TIME_GAP_DP, context.resources.displayMetrics,
+        )
+        val params = timeView.layoutParams as? ViewGroup.MarginLayoutParams ?: return
+        // The date line ends its font's descent below the baseline.
+        params.topMargin = (gap - date.paint.fontMetrics.descent).roundToInt().coerceAtLeast(0)
+        timeView.layoutParams = params
     }
 
     private companion object {
         const val WRAP = ViewGroup.LayoutParams.WRAP_CONTENT
         /** The classic iOS date size, against the screen's short side. */
         const val DATE_TEXT_TO_SHORT_SIDE = 0.055f
-        const val DATE_GAP_TO_DATE = 0.35f
 
         fun withAlpha(color: Int, alpha: Float): Int =
             Color.argb((Color.alpha(color) * alpha).toInt(), Color.red(color), Color.green(color), Color.blue(color))

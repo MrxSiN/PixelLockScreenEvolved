@@ -2,6 +2,7 @@ package my.github.MrxSiN.pixellockscreenevolved.host
 
 import android.animation.ArgbEvaluator
 import android.content.Context
+import android.view.View
 
 import my.github.MrxSiN.pixellockscreenevolved.clock.ClockFace
 import my.github.MrxSiN.pixellockscreenevolved.clock.FaceSize
@@ -71,6 +72,9 @@ internal class ClockFaceAdapter(
     )
 
     private val config = api.faceConfig(face.drawsDate)
+
+    /** The face's time, as [ClockFace.timeView] names it. */
+    val timeView: View get() = face.timeView
 
     val controller: Any = proxies.create(
         api.faceControllerType,
