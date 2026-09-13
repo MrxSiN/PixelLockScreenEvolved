@@ -19,7 +19,7 @@ internal class ClockFaceAdapter(
     private val api: ClockPluginApi,
     proxies: InterfaceProxy,
     private val face: ClockFace,
-    size: FaceSize,
+    private val size: FaceSize,
     private val context: Context,
     initialTheme: Any,
 ) {
@@ -102,11 +102,13 @@ internal class ClockFaceAdapter(
     }
 
     /**
-     * Shows the size step the picker or the clock setting chose. A face that
-     * cannot be resized has nothing to change.
+     * Shows the size step the picker or the clock setting chose on the large
+     * face; the small face keeps [ClockSizePresets.SMALL_CLOCK_STEP]. A face
+     * that cannot be resized has nothing to change.
      */
     fun setSizeStep(step: Float?) {
-        (face as? ResizableClockFace)?.setSize(ClockSizePresets.sizeOf(step))
+        val shown = if (size == FaceSize.SMALL) ClockSizePresets.SMALL_CLOCK_STEP else step
+        (face as? ResizableClockFace)?.setSize(ClockSizePresets.sizeOf(shown))
     }
 
     fun setDoze(fraction: Float) {

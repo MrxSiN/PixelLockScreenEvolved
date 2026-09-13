@@ -27,4 +27,11 @@ class ClockSizePresetsTest {
         assertEquals(0f, ClockSizePresets.sizeOf(-4f), 0f)
         assertEquals(1f, ClockSizePresets.sizeOf(99f), 0f)
     }
+
+    @Test
+    fun presetsDeclareAWideClock() {
+        val axes = ClockSizePresets.axesOf(4f)
+        assertEquals(4f, axes.getValue(ClockSizePresets.AXIS_KEY), 0f)
+        assertEquals(true, axes.getValue(ClockSizePresets.WIDTH_AXIS_KEY) >= 110f)
+    }
 }

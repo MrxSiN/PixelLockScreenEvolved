@@ -15,8 +15,13 @@ object IosClockStyle : ClockStyle {
     override val description: String = "iOS style clock with the date above the time"
     override val isResizable: Boolean = true
 
+    /**
+     * The large face writes the date above the time. The small face leaves it
+     * out: SystemUI always shows its own date and weather line under a small
+     * clock, and the date would be written twice.
+     */
     override fun createFace(context: Context, size: FaceSize): ClockFace =
-        IosClockFace(context, size)
+        IosClockFace(context, showsDate = size == FaceSize.LARGE)
 
     override fun createThumbnail(context: Context): Drawable = IosClockThumbnail(context)
 }

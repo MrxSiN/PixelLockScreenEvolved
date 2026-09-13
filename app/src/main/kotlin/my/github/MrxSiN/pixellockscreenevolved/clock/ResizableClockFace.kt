@@ -8,10 +8,6 @@ package my.github.MrxSiN.pixellockscreenevolved.clock
  */
 interface ResizableClockFace : ClockFace {
 
-    /**
-     * Redraws at [size], from 0 for the style's smallest to 1 for its largest.
-     * A face may ignore it where SystemUI fixes its size, as it does the small
-     * clock's.
-     */
+    /** Redraws at [size], from 0 for the style's smallest to 1 for its largest. */
     fun setSize(size: Float)
 }

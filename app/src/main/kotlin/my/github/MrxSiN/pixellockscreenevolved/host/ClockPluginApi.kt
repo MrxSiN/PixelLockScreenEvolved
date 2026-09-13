@@ -46,7 +46,7 @@ internal class ClockPluginApi(private val classLoader: ClassLoader) {
     private val faceConfigConstructor = load("$CLOCKS.ClockFaceConfig")
         .getConstructor(tickRateType, BOOLEAN, BOOLEAN, BOOLEAN)
     private val axisStyleType = load("$CLOCKS.ClockAxisStyle")
-    private val axisStyleConstructor = axisStyleType.getConstructor(STRING, Float::class.java)
+    private val axisStyleConstructor = axisStyleType.getConstructor(Map::class.java)
     private val axisStyleGet = axisStyleType.getMethod("get", STRING)
     val presetGroupType: Class<*> = load("$CLOCKS.AxisPresetConfig\$Group")
     private val presetGroupConstructor = presetGroupType.getConstructor(List::class.java, Drawable::class.java)
@@ -126,7 +126,7 @@ internal class ClockPluginApi(private val classLoader: ClassLoader) {
     }
 
     private fun sizePresets(icon: Drawable, chosen: Any?): Any {
-        val styles = ClockSizePresets.values.map { axisStyleConstructor.newInstance(ClockSizePresets.AXIS_KEY, it) }
+        val styles = ClockSizePresets.values.map { axisStyleConstructor.newInstance(ClockSizePresets.axesOf(it)) }
         val groups = listOf(presetGroupConstructor.newInstance(styles, icon))
         val unset = presetConfigConstructor.newInstance(groups, null)
         val current = chosen?.let { presetConfigFindStyle.invoke(unset, it) }

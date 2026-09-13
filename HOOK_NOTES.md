@@ -107,7 +107,7 @@ ClockPickerConfig(String id, String name, String description, Drawable thumbnail
 AxisPresetConfig(List<AxisPresetConfig$Group> groups, AxisPresetConfig$IndexedStyle current)
                  findStyle(ClockAxisStyle) IndexedStyle
 AxisPresetConfig$Group(List<ClockAxisStyle> presets, Drawable icon)
-ClockAxisStyle(String key, float value), get(String) Float
+ClockAxisStyle(Map<String, Float>), get(String) Float
 ClockSettings.getAxes() ClockAxisStyle
 ```
 
@@ -117,7 +117,7 @@ for the current group; tapping the selected clock again cycles groups. While the
 slider moves, `ThemePickerCustomizationOptionsBinder` calls
 `ClockAnimations.onFontAxesChanged(preset)` on both faces of the picker's own
 preview clock. Apply writes the preset into the setting's `axes`
-(`{"key":"PIXEL_LOCK_SCREEN_EVOLVED_SIZE","value":6}`), and SystemUI builds the
+(`{"key":"PIXEL_LOCK_SCREEN_EVOLVED_SIZE","value":6},{"key":"wdth","value":120}`), and SystemUI builds the
 clock again with those settings. `DefaultClockProvider.getClockPickerConfig`
 sets `current` with `findStyle(settings axes)`, which is what places the slider
 on the stored step when the picker reopens.
@@ -131,5 +131,24 @@ argument is the slider view model and whose `$axisPresetSlider` field is the
 `onSliderStopTrackingTouch`, found by field type. Only this binder class name
 is R8-generated; if it moves, the slider still works under Google's label.
 
-Roboto Flex (`/system/fonts/RobotoFlex-Regular.ttf`, family `roboto-flex`) has a
-`wdth` axis from 25 to 151; the large sizes narrow on it.
+## Date line beside or below the small clock
+
+`KeyguardClockViewModel.shouldDateWeatherBeBelowSmallClock` is true when the
+stored clock setting's axes hold `wdth >= 110` (Google's wide Flex clocks);
+otherwise it asks `isFontAndDisplaySizeBreaking` (screen width and font scale).
+When false, `SmartspaceSection` puts `date_smartspace_view` beside the small
+clock, which for a centred, full-width clock is off the right edge of the
+screen. Every size preset therefore also stores `wdth = 120`. The
+`hasCustomWeatherDataDisplay` face flag only hides that line beside the large
+clock; SystemUI always shows it with the small clock, so the small face leaves
+out its own date.
+
+## Font
+
+Roboto Flex (`/system/fonts/RobotoFlex-Regular.ttf`, family `roboto-flex`) has
+the registered axes `wght` 100-1000 and `wdth` 25-151 and the parametric axes
+`XTRA` 323-603 (counter width), `XOPQ` 27-175 (vertical stroke), `YOPQ` 25-135
+(horizontal stroke) and `YTFI` 560-788 (figure height). The large sizes narrow
+the counters and thin the strokes on those, then stretch the numerals
+vertically; `YOPQ` is set below `XOPQ` so horizontal strokes match vertical
+ones after the stretch.

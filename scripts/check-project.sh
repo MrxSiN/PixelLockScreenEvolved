@@ -39,6 +39,7 @@ grep -q 'AXIS_KEY = "PIXEL_LOCK_SCREEN_EVOLVED_SIZE"' "$SRC/host/ClockSizePreset
 # Pure logic stays free of Android so it can be unit tested.
 ! grep -qE '^import android' "$SRC/clock/ios/IosTimeText.kt"
 ! grep -qE '^import android' "$SRC/host/ClockSizePresets.kt"
+! grep -qE '^import android' "$SRC/clock/ios/IosClockScale.kt"
 
 # The module has no screen of its own.
 ! grep -q '<activity' "$ROOT/app/src/main/AndroidManifest.xml"

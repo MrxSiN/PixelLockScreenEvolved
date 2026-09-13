@@ -6,11 +6,17 @@
 
 - **Clock size** slider for the iOS clock, in Wallpaper & style → Clock →
   Style. Seven steps run from the classic iOS clock, which is the smallest, to
-  the largest iOS lock screen clock: numerals that grow taller and, once they
-  would run past the screen's edges, narrow on Roboto Flex's width axis instead
-  of shrinking. The picker's preview follows the slider as it moves, and the
-  chosen step is stored with the clock setting, so it survives reboots and the
-  slider reopens on it.
+  the largest iOS lock screen clock: the numerals grow taller, lighter and
+  narrower until they are thin, straight-sided figures of even stroke with a
+  round colon. Roboto Flex's parametric axes narrow the counters and thin the
+  strokes, and the numerals are then stretched vertically, measured against the
+  font at runtime so every size lands on the iOS proportions. A time too wide
+  for the screen is drawn smaller rather than squeezed. The picker's preview
+  follows the slider as it moves, and the chosen step is stored with the clock
+  setting, so it survives reboots and the slider reopens on it.
+- With notifications showing, the iOS clock is the time alone at the second
+  size step, with Pixel's date and weather line below it and the notifications
+  below that.
 - The picker's slider is labelled "Clock size" for this module's clocks and
   keeps Google's "Clock face width" for Google's own.
 - GitHub Actions workflow that runs the project checks and unit tests, builds a
@@ -18,9 +24,9 @@
 
 ### Changed
 
-- The iOS time is set in Roboto Flex. The smallest size looks as before; the
-  date now sits closer to the time, as on iOS, because the font's unused line
-  space above and below the numerals is trimmed.
+- The iOS time is set in Roboto Flex and drawn by the clock itself, so the
+  view is exactly as tall as the numerals and the date sits right above them.
+  The smallest size looks as before.
 
 ## 0.1.0
 

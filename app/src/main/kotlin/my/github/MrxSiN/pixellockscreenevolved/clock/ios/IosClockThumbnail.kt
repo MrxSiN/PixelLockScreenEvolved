@@ -21,7 +21,7 @@ internal class IosClockThumbnail(context: Context) : Drawable() {
 
     private val paint = Paint(Paint.ANTI_ALIAS_FLAG).apply {
         typeface = IosClockTypography.timeTypeface
-        fontVariationSettings = IosClockTypography.timeVariation()
+        fontVariationSettings = IosClockScale.variationAt(0f)
         letterSpacing = IosClockTypography.TIME_LETTER_SPACING
         textAlign = Paint.Align.CENTER
         color = themeColor(context)
