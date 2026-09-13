@@ -14,8 +14,11 @@ internal object IosClockTypography {
 
     private const val DATE_WEIGHT = 600
 
-    /** iOS tightens its large numerals; ems, as TextView and Paint take them. */
-    const val TIME_LETTER_SPACING = -0.03f
+    /**
+     * The font's own spacing. At full weight any tighter and neighbouring
+     * figures, a "55" say, run into each other.
+     */
+    const val TIME_LETTER_SPACING = 0f
 
     /** The date is drawn a little translucent over the wallpaper. */
     const val DATE_ALPHA = 0.85f
