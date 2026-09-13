@@ -194,6 +194,15 @@ clocks is showing small (`keyguardClockViewModel.currentClock` /
 it. Measured on the device: SystemUI leaves 60px (about 23dp) between the row
 and `nssl_placeholder`.
 
+With `hasCustomWeatherDataDisplay` and the large clock showing,
+`SmartspaceSection` clears the date row's top, hangs it above
+`bc_smartspace_view` (the card: forecasts, events) and gives the card no top
+at all, leaving it for the clock face; with nothing placing it, the card ends
+up at the bottom of the screen. The module then clears the card's top and
+bottom and connects its top to `LOCKSCREEN_CLOCK_VIEW_LARGE`'s bottom, with
+`dimen/smartspace_padding_vertical`, the gap SystemUI leaves below a large
+clock for its own row.
+
 The picker preview's rows are shown by
 `KeyguardPreviewSmartspaceViewBinder$bind$1$1$1$4.emit(Pair<ClockSizeSetting,
 Boolean>, Continuation)`, holding `$largeDateView`, `$smallDateView` and
@@ -223,7 +232,11 @@ which cannot be redistributed. It has `opsz` 14-32 and `wght` 100-900 and no
 width axis, so its time reaches the screen width at a small size; larger sizes
 are stretched vertically by up to 2 while the weight rises from 600 to 800.
 `IosClockScale` spreads the six sizes between the smallest and the tallest the
-font can reach for the time shown, so every step grows whatever the font. It is loaded from the module's own APK through
+font can reach for the time shown, so every step grows whatever the font. `Paint.setFontVariationSettings` (and `TextView`'s) returns early when given
+the settings it last applied, even after `setTypeface` replaced the derived
+typeface they were applied to, so the time view clears them before setting
+them again. Otherwise every relayout after the first draws the font's default
+instance (Inter Regular). It is loaded from the module's own APK through
 `PackageManager.getResourcesForApplication(moduleApplicationInfo).assets`.
 
 R8 rewrites string literals naming `kotlin.*` classes in the release build, so

@@ -99,6 +99,8 @@ internal class IosClockFace(
         timeView.setFont(font)
         dateView?.apply {
             typeface = font.dateTypeface
+            // Settings equal to the last ones are ignored though the typeface dropped them.
+            fontVariationSettings = null
             fontVariationSettings = font.dateVariation
         }
     }

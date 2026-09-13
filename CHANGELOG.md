@@ -19,6 +19,8 @@
 - With notifications showing, the iOS clock is the time alone at the smallest
   size step, with Pixel's date and weather line centred below it, spaced
   evenly between the clock and the notifications.
+- With no notifications, the smartspace card (weather forecast, events) sits
+  below the large iOS clock instead of at the bottom of the screen.
 - The picker's preview no longer draws Pixel's date line over the large iOS
   clock; it matches the lock screen, where the clock writes its own date.
 - The picker's Style slider is labelled "Font" for this module's clocks and

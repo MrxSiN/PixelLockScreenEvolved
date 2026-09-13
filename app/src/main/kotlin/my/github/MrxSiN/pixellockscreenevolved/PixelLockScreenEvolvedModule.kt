@@ -11,7 +11,7 @@ import my.github.MrxSiN.pixellockscreenevolved.hook.HostPatch
 import my.github.MrxSiN.pixellockscreenevolved.hook.ModuleFontSource
 import my.github.MrxSiN.pixellockscreenevolved.hook.XposedHooks
 import my.github.MrxSiN.pixellockscreenevolved.host.ClockRegistryInjector
-import my.github.MrxSiN.pixellockscreenevolved.host.KeyguardDateRow
+import my.github.MrxSiN.pixellockscreenevolved.host.KeyguardSmartspacePlacement
 import my.github.MrxSiN.pixellockscreenevolved.host.PickerClockPatches
 
 /**
@@ -47,7 +47,7 @@ class PixelLockScreenEvolvedModule : XposedModule() {
         return when (packageName) {
             SYSTEMUI_PACKAGE -> listOf(
                 ClockRegistryInjector(hooks, styles, logger),
-                KeyguardDateRow(hooks, styles, logger),
+                KeyguardSmartspacePlacement(hooks, styles, logger),
             )
             else -> listOf(PickerClockPatches(hooks, styles, logger))
         }

@@ -12,9 +12,15 @@ import my.github.MrxSiN.pixellockscreenevolved.host.ConstraintSetEditor.Companio
 import my.github.MrxSiN.pixellockscreenevolved.host.ConstraintSetEditor.Companion.TOP
 
 /**
- * Puts SystemUI's date and weather row where this module's clocks want it.
+ * Puts SystemUI's smartspace, the date and weather row and the card below it,
+ * where this module's clocks want it.
  *
- * On the lock screen, SystemUI places the row for a Pixel small clock, which
+ * With the large clock, the clock writes its own date, and SystemUI leaves the
+ * card for such a clock to place: it gives it no top, and it drifts to the
+ * bottom of the screen. It is put below the clock, as far from it as SystemUI
+ * puts its own row below a large clock.
+ *
+ * With the small clock, SystemUI places the row for a Pixel small clock, which
  * hugs the start edge: flush left and almost touching the clock. Under a
  * centred clock that reads as misaligned, so the row is centred and given the
  * same space above it as SystemUI leaves between it and the notifications.
@@ -26,7 +32,7 @@ import my.github.MrxSiN.pixellockscreenevolved.host.ConstraintSetEditor.Companio
  * tall clock it lands on the numerals. It is hidden there, as the lock screen
  * hides it.
  */
-class KeyguardDateRow(
+class KeyguardSmartspacePlacement(
     private val hooks: Hooks,
     styles: List<ClockStyle>,
     private val logger: Logger,
@@ -43,16 +49,24 @@ class KeyguardDateRow(
             return
         }
         val smallClockId = clocks.viewId(FaceSize.SMALL)
+        val largeClockId = clocks.viewId(FaceSize.LARGE)
 
         hooks.after(smartspace.applyConstraints) { section, args ->
             val set = args.firstOrNull() ?: return@after
             val owner = requireNotNull(section)
-            if (smartspace.isLargeClockVisible(owner) || smartspace.sectionClockId(owner) !in styleIds) return@after
+            if (smartspace.sectionClockId(owner) !in styleIds) return@after
             val row = smartspace.dateRow(owner) ?: return@after
+            val editor = ConstraintSetEditor(set)
 
-            ConstraintSetEditor(set).apply {
-                connect(row.id, TOP, smallClockId, BOTTOM, gapAbove(row))
-                centerHorizontally(row.id)
+            if (smartspace.isLargeClockVisible(owner)) {
+                val card = systemUiId(row, CARD_ID)
+                if (card == 0) return@after
+                editor.clear(card, TOP)
+                editor.clear(card, BOTTOM)
+                editor.connect(card, TOP, largeClockId, BOTTOM, systemUiDimen(row, CARD_GAP_DIMEN))
+            } else {
+                editor.connect(row.id, TOP, smallClockId, BOTTOM, gapAbove(row))
+                editor.centerHorizontally(row.id)
             }
         }
 
@@ -65,6 +79,13 @@ class KeyguardDateRow(
         }
     }
 
+    private fun systemUiId(view: View, name: String): Int =
+        view.resources.getIdentifier(name, "id", view.context.packageName)
+
+    private fun systemUiDimen(view: View, name: String): Int =
+        view.resources.getIdentifier(name, "dimen", view.context.packageName)
+            .takeIf { it != 0 }?.let(view.resources::getDimensionPixelSize) ?: 0
+
     private fun gapAbove(row: View): Int = TypedValue.applyDimension(
         TypedValue.COMPLEX_UNIT_DIP, GAP_ABOVE_DP, row.resources.displayMetrics,
     ).toInt()
@@ -72,5 +93,11 @@ class KeyguardDateRow(
     private companion object {
         /** Matches the space SystemUI leaves between the row and the notifications. */
         const val GAP_ABOVE_DP = 20f
+
+        /** The smartspace card: weather forecasts, events, and the like. */
+        const val CARD_ID = "bc_smartspace_view"
+
+        /** What SystemUI leaves between a large clock and its own date row below it. */
+        const val CARD_GAP_DIMEN = "smartspace_padding_vertical"
     }
 }

@@ -109,6 +109,9 @@ internal class IosTimeView(context: Context, font: IosNumeralFont) : View(contex
     /** Sets the cut, text size and stretch for the current font, size and text. */
     private fun relayout() {
         paint.typeface = font.typeface
+        // Paint ignores settings equal to the last ones, even though setting the
+        // typeface above dropped them, so they are cleared first.
+        paint.fontVariationSettings = null
         paint.fontVariationSettings = font.variationFor(size, stretch = 1f)
         paint.textSize = PROBE_SIZE
         paint.getTextBounds(NUMERALS, 0, NUMERALS.length, bounds)
