@@ -1,0 +1,12 @@
+<!--
+  The application icon, drawn on the same 108-unit canvas and with the same
+  path data as app/src/main/res/drawable/ic_launcher_foreground.xml, over the
+  circle Android's mask makes of ic_launcher_background. Kept here so the
+  README shows the icon itself rather than a picture of it.
+-->
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 108 108" width="108" height="108" role="img" aria-label="Pixel Lock Screen Evolved">
+  <circle cx="54" cy="54" r="54" fill="#5B3DF5"/>
+  <path d="M42,50V43a12,12 0 0,1 24,0v7" fill="none" stroke="#FFFFFF" stroke-width="5" stroke-linecap="round"/>
+  <path d="M38,48h32a5,5 0 0,1 5,5v18a5,5 0 0,1 -5,5h-32a5,5 0 0,1 -5,-5v-18a5,5 0 0,1 5,-5z" fill="#FFFFFF"/>
+  <path d="M54,54v8l6,4" fill="none" stroke="#5B3DF5" stroke-width="3.5" stroke-linecap="round"/>
+</svg>

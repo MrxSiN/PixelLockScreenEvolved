@@ -1,4 +1,4 @@
-# Publishing v0.2.0 on GitHub
+# Publishing v0.0.1 on GitHub
 
 ## GitHub Actions behavior
 
@@ -12,7 +12,7 @@ The workflow in `.github/workflows/android.yml` performs the following:
 The expected APK name is:
 
 ```text
-PixelLockScreenEvolved-v0.2.0.apk
+PixelLockScreenEvolved-v0.0.1.apk
 ```
 
 ## Required repository secrets
@@ -75,21 +75,21 @@ ANDROID_KEYSTORE_PASSWORD
 ANDROID_KEY_PASSWORD
 ```
 
-## Publish v0.2.0
+## Publish v0.0.1
 
-Commit the v0.2.0 release files first:
+Commit the v0.0.1 release files first:
 
 ```bash
 git add .
-git commit -m "Release Pixel Lock Screen Evolved v0.2.0"
+git commit -m "Release Pixel Lock Screen Evolved v0.0.1"
 git push origin HEAD
 ```
 
 After the branch workflow succeeds, create and push the release tag:
 
 ```bash
-git tag -a v0.2.0 -m "Pixel Lock Screen Evolved v0.2.0"
-git push origin v0.2.0
+git tag -a v0.0.1 -m "Pixel Lock Screen Evolved v0.0.1"
+git push origin v0.0.1
 ```
 
-The tag run will attach `PixelLockScreenEvolved-v0.2.0.apk` to the GitHub Release using the built-in `GITHUB_TOKEN`.
+The tag run will attach `PixelLockScreenEvolved-v0.0.1.apk` to the GitHub Release using the built-in `GITHUB_TOKEN`.
