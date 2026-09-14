@@ -35,6 +35,12 @@ internal class ClockControllerAdapter(
         }
     }
 
+    /** The large face, the one the depth effect draws in front of. */
+    val largeFace: ClockFaceAdapter get() = large
+
+    /** The small face, shown while notifications are. */
+    val smallFace: ClockFaceAdapter get() = small
+
     /** Both faces' times, for whatever needs the one on screen. */
     val timeViews: List<View> get() = faces.map { it.timeView }
 
@@ -61,7 +67,10 @@ internal class ClockControllerAdapter(
     private val config = api.clockConfig(style)
     private val eventListeners = api.eventListeners()
 
-    fun create(): Any = proxies.create(
+    /** The `ClockController` SystemUI holds for this clock. */
+    val controller: Any by lazy { createController() }
+
+    private fun createController(): Any = proxies.create(
         api.controllerType,
         mapOf(
             "getSmallClock" to { _ -> small.controller },

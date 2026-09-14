@@ -59,7 +59,7 @@ class KeyguardSmartspacePlacement(
             val editor = ConstraintSetEditor(set)
 
             if (smartspace.isLargeClockVisible(owner)) {
-                val card = systemUiId(row, CARD_ID)
+                val card = SmartspaceCard.id(row)
                 if (card == 0) return@after
                 editor.clear(card, TOP)
                 editor.clear(card, BOTTOM)
@@ -79,9 +79,6 @@ class KeyguardSmartspacePlacement(
         }
     }
 
-    private fun systemUiId(view: View, name: String): Int =
-        view.resources.getIdentifier(name, "id", view.context.packageName)
-
     private fun gapAbove(row: View): Int = TypedValue.applyDimension(
         TypedValue.COMPLEX_UNIT_DIP, GAP_ABOVE_DP, row.resources.displayMetrics,
     ).toInt()
@@ -89,8 +86,5 @@ class KeyguardSmartspacePlacement(
     private companion object {
         /** Matches the space SystemUI leaves between the row and the notifications. */
         const val GAP_ABOVE_DP = 20f
-
-        /** The smartspace card: weather forecasts, events, and the like. */
-        const val CARD_ID = "bc_smartspace_view"
     }
 }

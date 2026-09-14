@@ -37,6 +37,11 @@ android {
         targetSdk = 37
         versionCode = 2
         versionName = appVersion
+
+        // Pixels are arm64; the segmentation runtime for other ABIs would only add size.
+        ndk {
+            abiFilters += "arm64-v8a"
+        }
     }
 
     buildTypes {
@@ -72,6 +77,10 @@ android {
     }
 
     packaging {
+        jniLibs {
+            // Compressed in the APK and unpacked on install: the runtime is large.
+            useLegacyPackaging = true
+        }
         resources {
             // The Xposed framework discovers modern modules through these files.
             merges += "META-INF/xposed/*"
@@ -102,6 +111,9 @@ androidComponents {
 dependencies {
     // Hook side: provided by the framework at runtime, never packaged.
     compileOnly(libs.libxposed.api)
+
+    // App side: finds the subject of a photo wallpaper for the depth effect.
+    implementation(libs.onnxruntime.android)
 
     testImplementation(libs.junit)
 }

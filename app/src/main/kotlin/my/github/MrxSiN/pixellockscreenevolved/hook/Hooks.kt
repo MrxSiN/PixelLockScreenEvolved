@@ -21,6 +21,12 @@ interface Hooks {
 
     /** Lets every call to [method] run, then runs [after] with its arguments. */
     fun after(method: Method, after: (thisObject: Any?, args: List<Any?>) -> Unit)
+
+    /**
+     * Lets every call to [method] run, then returns what [transform] makes of
+     * its result instead. A [transform] that throws leaves the result as it was.
+     */
+    fun replaceResult(method: Method, transform: (thisObject: Any?, args: List<Any?>, result: Any?) -> Any?)
 }
 
 /** [Hooks] over the modern Xposed API, as Vector implements it. */
@@ -42,6 +48,16 @@ class XposedHooks(
             val result = chain.proceed()
             guarded(method) { after(chain.thisObject, chain.args) }
             result
+        }
+        logger.info("Hooked ${method.declaringClass.simpleName}.${method.name}")
+    }
+
+    override fun replaceResult(method: Method, transform: (thisObject: Any?, args: List<Any?>, result: Any?) -> Any?) {
+        xposed.hook(method).intercept { chain ->
+            val result = chain.proceed()
+            runCatching { transform(chain.thisObject, chain.args, result) }
+                .onFailure { logger.warn("Hook body failed for ${method.declaringClass.simpleName}.${method.name}", it) }
+                .getOrDefault(result)
         }
         logger.info("Hooked ${method.declaringClass.simpleName}.${method.name}")
     }

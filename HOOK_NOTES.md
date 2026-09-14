@@ -173,6 +173,21 @@ this write did not choose:
 {"key":"PIXEL_LOCK_SCREEN_EVOLVED_SIZE","value":4}
 ```
 
+Apply is enabled while `ClockPickerViewModel.onApply` is non-null: the clock,
+colour, size switch or axis preset differs from what is stored. The preset is
+compared in `ClockPickerViewModel$isClockAxisStyleEdited$1.invokeSuspend`,
+whose `L$0` is the chosen `AxisPresetConfig$IndexedStyle` (null until one is
+chosen) and `L$1` the stored one, by `style` equality. The chosen preset lives
+in the view model's `overridingClockPresetIndexedStyle` (`StateFlowImpl`,
+`getValue`/`setValue`); the view model is
+`ThemePickerCustomizationOptionsViewModel.clockPickerViewModel`, the second
+argument of `ClockFloatingSheetBinder.bind`. `host/PickerSizeEdit.kt` sets that
+flow to the preset on show with the size added to its axes whenever the size
+slider moves, which makes the picker compare again, and for this module's
+presets replaces the comparison's result with "font index or size differs from
+the stored setting". The picker also passes the new preset to the preview
+clocks' `onFontAxesChanged`, which already reads the size axis.
+
 ## Date line beside or below the small clock
 
 `KeyguardClockViewModel.shouldDateWeatherBeBelowSmallClock` is true when the
@@ -211,6 +226,33 @@ Boolean>, Continuation)`, holding `$largeDateView`, `$smallDateView` and
 `hasCustomWeatherDataDisplay` says; the module hides both rows after it runs
 while its clock is previewed large.
 
+## Changing clock size on the lock screen
+
+When `isLargeClockVisible` changes, `KeyguardBlueprintViewModel` runs an
+`IntraBlueprintTransition` of type `ClockSize`: a together-ordered set of
+`ClockSizeTransition$ClockFaceOutTransition` (133ms, linear),
+`$ClockFaceInTransition` (167ms after a 133ms delay) and
+`$SmartspaceMoveTransition` (967ms to the large clock, 467ms to the small one,
+emphasized), all `VisibilityBoundsTransition`s that animate alpha, visibility and
+`setLeftTopRightBottom`. Each face transition's `addTargets()` adds the face
+views and reads `viewModel` (`KeyguardClockViewModel`); `SmartspaceMoveTransition`
+targets `date_smartspace_view` (when the date sits below a clock),
+`bc_smartspace_view`, `aod_notification_icon_container` and one more id. The
+transition logs every target to the `KeyguardBlueprintLog` buffer in
+`dumpsys activity service com.android.systemui`.
+
+A moment before it, `KeyguardSmartspaceViewBinder$bind$1$1$2$1.emit` (and
+`$bind$1$1$4$4.emit`), both holding `$keyguardRootView`, set
+`date_smartspace_view` `GONE` directly. A layout pass can run in between, so
+the transition captured the row already gone and the card already jumped up.
+
+`host/KeyguardClockSizeMotion.kt` hooks both emits and puts the row back while
+this module's small clock is still shown, so the transition fades it; it also
+hooks `ClockFaceTransition.addTargets` and excludes this module's face views
+(`excludeTarget(view, true)`), and `host/ClockSizeMorph.kt` moves the new face's
+time from the old one's place instead. Matching the current clock uses the
+`ClockController` proxy each `ClockControllerAdapter` hands SystemUI.
+
 ## Unlock flight to the status bar clock
 
 `KeyguardUnlockAnimationController` is told about every unlock:
@@ -240,6 +282,69 @@ removed; fading the picture out meanwhile dims the two together.
 The path is a cubic Bézier curve from the time to the status bar clock, held
 below any `DisplayCutout` bounding rect between them (on a Pixel 8 Pro,
 x 616-726 down to y 151).
+
+Hooking the same method twice from this module replaces the first hook, so the
+unlock controller's methods are hooked once, in `host/UnlockFrameLoop.kt`, and
+every motion that follows an unlock (the clock flight, the status bar) adds
+itself to it.
+
+With the depth effect on, the flight's first picture of the time has the
+subject's cut-out erased from it (`DepthLayer.eraseSubjectFrom`, the layer's
+bitmap drawn through `transformMatrixToGlobal` of the layer and the inverse of
+the time's, `DST_OUT`), and a whole picture fills in beneath it over the first
+35% of the flight.
+
+## Status bar through an unlock
+
+`com.android.systemui.statusbar.phone.KeyguardStatusBarView` (hooked at
+`onFinishInflate`) holds the lock screen's right side in
+`mSystemIconsContainer`. The status bar window is a view hierarchy:
+`status_bar_contents` > `status_bar_start_side_container` (`clock`,
+`notification_icon_area` > `notificationIcons`, a `NotificationIconContainer`)
+and `status_bar_end_side_container` > `status_bar_end_side_content` (`system_icons` > `statusIcons`, and the battery).
+`cmd window dump-visible-window-views` writes it out.
+
+`host/StatusIconsHandover.kt` holds a picture of the lock screen's icons in its
+own window and eases it onto the status bar's `status_bar_end_side_content`, tinted toward the
+status bar clock's text colour. The battery's empty part is translucent, so a
+picture over its own icons draws a brighter battery. The overlays only hide the
+lock screen's views once the overlay window has drawn
+(`OverlayWindow.onFirstFrame`), and hold the status bar's views at
+`transitionAlpha` 0 while SystemUI fades them in; `status_bar_end_side_content`
+is what is held. (Holding `system_icons` alone appeared to leave the battery doubling under the
+picture.) Windows draw independently, and the status bar can present a frame or more
+after the overlay: swapping a picture for its view in one frame, or crossfading
+them in about 60ms, left the status bar clock missing for up to 8 frames. The
+flight therefore never hides or fades the status bar clock: the landed picture
+stays solid over it while SystemUI fades it in, and goes once it is fully
+shown, as the first version did. Hiding the clock with `transitionAlpha` during
+the flight and showing it again on landing blinked even with the picture held
+300ms longer, the clock invalidated every frame and a frame commit awaited:
+logged view state was correct, a screenshot during a longer hold showed the
+clock, and removing the window without the picture over it did not blink, yet
+recordings with a chip showed the clock missing for 5 to 8 frames once the
+picture went. Changes to the status bar's own views
+made the same way for the icons (hiding them, then crossfading) dipped for the
+same reason, so the icons picture also stays solid over SystemUI's icons and
+goes once they are shown and the status bar has committed a frame of them
+(`registerFrameCommitCallback`) and drawn two more. SystemUI can bring the
+status bar back before the time has landed; the committed flight takes 280ms
+on a stiff spring, and hurries in if the status bar clock is already shown. Chips can be added mid-frame, so the containers of the
+notification icons and chips are held hidden too until the entrance starts. A
+chip SystemUI adds after the entrance has started showed for about 4 frames
+before a late hide took effect, then grew back in; such late arrivals are left
+shown and only bounce (`ExpressiveSpring.kickAt` on the animation matrix).
+The large clock face is scaled by SystemUI
+(`applyCsToLargeClock: scale=0.9`), so the flight starts from the time's bounds
+through `transformMatrixToGlobal`, not its width and height. The battery draws its level as a dark cut in a
+light fill, so the picture is tinted by multiplying (`PorterDuff.Mode.MULTIPLY`);
+`SRC_IN` filled the level in. `host/NotificationIconsEntrance.kt` hides the
+status bar's notification icons, and the chips beside them in
+`start_side_notif_and_chip_container` (the screen recording chip), with
+`transitionAlpha` on every frame from the start of the unlock, since icons are
+rebound as it goes on, and brings them in, once their row is fully shown, with
+`setAnimationMatrix` and `transitionAlpha`: `NotificationIconContainer` sets
+each icon's translation, scale and alpha itself and never touches those two.
 
 ## Lock screen spacing
 

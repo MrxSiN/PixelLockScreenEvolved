@@ -15,7 +15,8 @@
   of the height comes from stretching them vertically. The colon stays round
   and centred between the digits. The preview follows the slider as it moves,
   and Apply stores the size and the font together with the clock setting, so
-  choosing one keeps the other.
+  choosing one keeps the other. Moving the slider alone enables Apply, which
+  greys out again once the size and font are back to what is stored.
 - With notifications showing, the iOS clock is the time alone at the smallest
   size step, with Pixel's date and weather line centred below it, spaced
   evenly between the clock and the notifications.
@@ -23,6 +24,18 @@
   curves toward the clock below any camera cutout, turns into the status bar
   clock's own text as it arrives, and stays until SystemUI shows that clock.
   A swipe drags it and takes it back if let go.
+- As the last notification goes or the first arrives, the iOS time moves and
+  resizes in one piece between the small and large clock, instead of blinking
+  out and back in; the date row below the small clock fades rather than
+  vanishing, and the smartspace card glides instead of jumping.
+- With the depth effect on, the time's flight to the status bar starts behind
+  the photo's subject, as the lock screen showed it, and comes out from behind
+  it on the way.
+- The status icons and battery on the right of the lock screen status bar stay
+  put through an unlock instead of fading out and back in with the status bar.
+- After an unlock, the notification icons and chips beside the status bar
+  clock grow in one after another on Material 3 Expressive springs instead of
+  reappearing.
 - The status bar, date, time and smartspace card are spaced evenly, 40dp from
   the ink of each to the next.
 - With no notifications, the smartspace card (weather forecast, events) sits

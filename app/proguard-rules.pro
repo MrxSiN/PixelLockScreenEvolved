@@ -7,3 +7,6 @@
 # cannot see the XposedModule hierarchy to infer that it matters.
 -keep class my.github.MrxSiN.pixellockscreenevolved.PixelLockScreenEvolvedModule { *; }
 -adaptresourcefilecontents META-INF/xposed/java_init.list
+
+# ONNX Runtime's native code calls back into its Java classes by name.
+-keep class ai.onnxruntime.** { *; }

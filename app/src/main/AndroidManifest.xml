@@ -11,6 +11,15 @@
         android:hasCode="true"
         android:icon="@mipmap/ic_launcher"
         android:label="@string/app_name"
-        android:supportsRtl="true" />
+        android:supportsRtl="true">
+
+        <!--
+            Finds the subject of the lock screen photo for the depth effect.
+            SystemUI binds to it; it answers no other caller.
+        -->
+        <service
+            android:name=".depth.SubjectMaskService"
+            android:exported="true" />
+    </application>
 
 </manifest>

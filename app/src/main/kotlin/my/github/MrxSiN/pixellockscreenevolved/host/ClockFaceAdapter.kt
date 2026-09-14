@@ -28,7 +28,10 @@ internal class ClockFaceAdapter(
 ) {
 
     private var theme: Any = initialTheme
-    private var dozeFraction = 0f
+
+    /** How far the face has gone into the always-on display, from 0 awake to 1 dozing. */
+    var dozeFraction = 0f
+        private set
 
     private val placement = ClockFacePlacement(api.viewId(size), size, LockScreenInsets.largeClockTop(context))
 
@@ -41,7 +44,9 @@ internal class ClockFaceAdapter(
                 args[1]?.also { placement.inPreview(ConstraintSetEditor(it), api.previewTops(requireNotNull(args[0]))) }
             },
             "applyExternalDisplayPresentationConstraints" to { args -> args[0] },
-            "applyAodBurnIn" to { args -> applyBurnIn(requireNotNull(args[0])) },
+            // SystemUI moves and scales the clock's views for burn-in itself, as Google's faces rely on;
+            // moving them here too doubled the shift, which snapped back midway through waking up.
+            "applyAodBurnIn" to IgnoreCall,
             "getElements" to { _ -> emptyList<Any>() },
         ),
     )
@@ -75,6 +80,9 @@ internal class ClockFaceAdapter(
 
     /** The face's time, as [ClockFace.timeView] names it. */
     val timeView: View get() = face.timeView
+
+    /** The face's whole view, as SystemUI places it. */
+    val view: View get() = face.view
 
     val controller: Any = proxies.create(
         api.faceControllerType,
@@ -139,16 +147,6 @@ internal class ClockFaceAdapter(
     private fun recolor() {
         val colors = api.colors(theme, context)
         face.setColor(COLOR_EVALUATOR.evaluate(dozeFraction, colors.normal, colors.doze) as Int)
-    }
-
-    private fun applyBurnIn(model: Any) {
-        val burnIn = api.burnIn(model)
-        face.view.apply {
-            scaleX = burnIn.scale
-            scaleY = burnIn.scale
-            translationX = burnIn.translationX
-            translationY = burnIn.translationY
-        }
     }
 
     private companion object {

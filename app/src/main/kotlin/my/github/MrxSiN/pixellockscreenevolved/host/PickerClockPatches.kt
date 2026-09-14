@@ -7,8 +7,9 @@ import my.github.MrxSiN.pixellockscreenevolved.hook.HostPatch
 
 /**
  * Everything Wallpaper & style's process needs, sharing one [PickerClockState]:
- * the clock styles in its registry, the font and size sliders, and the setting
- * Apply writes.
+ * the clock styles in its registry, the font and size sliders, the Apply button
+ * the size enables, the setting Apply writes, and the depth effect switch in
+ * the Lock screen list.
  */
 internal class PickerClockPatches(
     private val hooks: Hooks,
@@ -28,6 +29,8 @@ internal class PickerClockPatches(
             ClockRegistryInjector(hooks, styles, logger, onRegistry = { state.registry = it }, onClockCreated = state::track),
             PickerClockSliders(hooks, styles, state, logger),
             PickerClockSettings(hooks, styles, state, logger),
+            PickerSizeEdit(hooks, state, logger),
+            PickerDepthEffectOption(hooks, logger),
         ).forEach { it.install(classLoader) }
     }
 }

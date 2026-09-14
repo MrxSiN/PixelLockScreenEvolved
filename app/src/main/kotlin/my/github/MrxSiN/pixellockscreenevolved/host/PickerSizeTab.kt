@@ -5,6 +5,8 @@ import android.view.ViewGroup
 import android.widget.CompoundButton
 
 import my.github.MrxSiN.pixellockscreenevolved.core.Logger
+import my.github.MrxSiN.pixellockscreenevolved.host.ConstraintParams.constrain
+import my.github.MrxSiN.pixellockscreenevolved.host.ConstraintParams.validate
 
 /**
  * The Size tab of Wallpaper & style's clock sheet, with the "Clock size" row
@@ -31,11 +33,11 @@ internal class PickerSizeTab(
     private var heightFailureReported = false
 
     init {
-        val params = generateLayoutParams(content, ViewGroup.LayoutParams(0, ViewGroup.LayoutParams.WRAP_CONTENT))
-        params.setConstraint("topToTop", PARENT)
-        params.setConstraint("leftToLeft", PARENT)
-        params.setConstraint("rightToRight", PARENT)
-        params.validateConstraints()
+        val params = ConstraintParams.forChild(content, 0, ViewGroup.LayoutParams.WRAP_CONTENT)
+        params.constrain("topToTop", ConstraintParams.PARENT)
+        params.constrain("leftToLeft", ConstraintParams.PARENT)
+        params.constrain("rightToRight", ConstraintParams.PARENT)
+        params.validate()
         content.addView(row, params)
         content.viewTreeObserver.addOnGlobalLayoutListener { keepHeight() }
     }
@@ -56,23 +58,5 @@ internal class PickerSizeTab(
         runCatching { sliders.recordSizeTabHeight(content.measuredHeight) }
             .onFailure { if (!heightFailureReported) logger.warn("Size tab height could not be recorded", it) }
             .onFailure { heightFailureReported = true }
-    }
-
-    private companion object {
-        const val PARENT = 0
-
-        fun generateLayoutParams(content: ViewGroup, source: ViewGroup.LayoutParams): ViewGroup.MarginLayoutParams =
-            ViewGroup::class.java.getDeclaredMethod("generateLayoutParams", ViewGroup.LayoutParams::class.java)
-                .apply { isAccessible = true }
-                .invoke(content, source) as ViewGroup.MarginLayoutParams
-
-        fun ViewGroup.LayoutParams.setConstraint(name: String, value: Int) {
-            javaClass.getField(name).setInt(this, value)
-        }
-
-        /** Resolves the constraint fields just set, as inflation does; skipped where R8 removed it. */
-        fun ViewGroup.LayoutParams.validateConstraints() {
-            runCatching { javaClass.getMethod("validate").invoke(this) }
-        }
     }
 }

@@ -46,9 +46,7 @@ internal class KeyguardSmartspaceApi(
         load("com.android.systemui.keyguard.ui.viewmodel.KeyguardPreviewClockViewModel", classLoader)
             .field("keyguardClockViewModel")
 
-    private val clockViewModelType = load("com.android.systemui.keyguard.ui.viewmodel.KeyguardClockViewModel", classLoader)
-    private val currentClockFlow = clockViewModelType.field("currentClock")
-    private val largeClockVisibleFlow = clockViewModelType.field("isLargeClockVisible")
+    private val clockViewModels = KeyguardClockViewModelApi(classLoader)
 
     /** The live date and weather row, or null before the section has built it. */
     fun dateRow(section: Any): View? = sectionDateView.get(section) as View?
@@ -61,7 +59,7 @@ internal class KeyguardSmartspaceApi(
     fun sectionClockId(section: Any): String? = clockId(sectionClockViewModel.get(section))
 
     fun isLargeClockVisible(section: Any): Boolean =
-        flowValue(sectionClockViewModel.get(section), largeClockVisibleFlow) as Boolean? ?: true
+        sectionClockViewModel.get(section)?.let(clockViewModels::isLargeClockVisible) ?: true
 
     /** Id of the clock the preview shows, or null while none is. */
     fun previewClockId(binder: Any): String? {
@@ -77,11 +75,7 @@ internal class KeyguardSmartspaceApi(
     }
 
     private fun clockId(clockViewModel: Any?): String? =
-        flowValue(clockViewModel, currentClockFlow)?.let(clocks::controllerClockId)
-
-    /** The current value of a `StateFlow` field, read through the flow's own `getValue`. */
-    private fun flowValue(owner: Any?, flow: Field): Any? =
-        owner?.let { flow.get(it) }?.let { it.javaClass.getMethod("getValue").invoke(it) }
+        clockViewModel?.let(clockViewModels::currentClock)?.let(clocks::controllerClockId)
 
     private companion object {
         const val PREVIEW_BINDER =

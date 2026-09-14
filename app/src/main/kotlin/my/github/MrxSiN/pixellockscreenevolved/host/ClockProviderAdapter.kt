@@ -31,7 +31,7 @@ internal class ClockProviderAdapter(
 
     private fun createClock(context: Context, settings: Any): Any? =
         styleFor(settings)?.let { style ->
-            ClockControllerAdapter(api, proxies, style, context, settings).also(onClockCreated).create()
+            ClockControllerAdapter(api, proxies, style, context, settings).also(onClockCreated).controller
         }
 
     private fun styleFor(settings: Any): ClockStyle? {

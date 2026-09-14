@@ -4,6 +4,8 @@ agp = "9.3.1"
 # release its xposed/libxposed submodule is pinned to.
 libxposed = "102.0.0"
 junit = "4.13.2"
+# Runs the depth effect's subject segmentation model (U2-Net lite) on device.
+onnxruntime = "1.29.0"
 
 [plugins]
 agp-app = { id = "com.android.application", version.ref = "agp" }
@@ -11,3 +13,4 @@ agp-app = { id = "com.android.application", version.ref = "agp" }
 [libraries]
 libxposed-api = { group = "io.github.libxposed", name = "api", version.ref = "libxposed" }
 junit = { group = "junit", name = "junit", version.ref = "junit" }
+onnxruntime-android = { group = "com.microsoft.onnxruntime", name = "onnxruntime-android", version.ref = "onnxruntime" }

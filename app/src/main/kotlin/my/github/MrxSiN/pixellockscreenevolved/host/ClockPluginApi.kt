@@ -67,6 +67,9 @@ internal class ClockPluginApi(private val classLoader: ClassLoader) {
     private val presetConfigConstructor = presetConfigType.getConstructor(List::class.java, indexedStyleType)
     private val indexedStyleConstructor =
         indexedStyleType.getConstructor(Int::class.java, Int::class.java, axisStyleType)
+    private val indexedStyleGroup = indexedStyleType.getMethod("getGroupIndex")
+    private val indexedStylePreset = indexedStyleType.getMethod("getPresetIndex")
+    private val indexedStyleStyle = indexedStyleType.getMethod("getStyle")
     private val pickerConfigConstructor = load("$CLOCKS.ClockPickerConfig")
         .getConstructor(STRING, STRING, STRING, Drawable::class.java, BOOLEAN, List::class.java, presetConfigType)
     private val eventListenersConstructor = load("$CLOCKS.ClockEventListeners").getConstructor()
@@ -81,11 +84,6 @@ internal class ClockPluginApi(private val classLoader: ClassLoader) {
     private val themeSeedColor = themeType.getMethod("getSeedColor")
     private val themeDefaultColor = themeType.getMethod("getDefaultColor", Context::class.java)
     private val themeAodColor = themeType.getMethod("getAodColor", Context::class.java)
-
-    private val burnInType = load("$CLOCKS.AodClockBurnInModel")
-    private val burnInScale = burnInType.getMethod("getScale")
-    private val burnInTranslationX = burnInType.getMethod("getTranslationX")
-    private val burnInTranslationY = burnInType.getMethod("getTranslationY")
 
     private val previewType = load("$CLOCKS.ClockPreviewConfig")
     private val previewClockTopMargin = previewType.getMethod("getClockTopMargin")
@@ -166,6 +164,19 @@ internal class ClockPluginApi(private val classLoader: ClassLoader) {
         return axisOf(firstPreset, ClockAxes.FONT_KEY) != null
     }
 
+    /** Whether an `AxisPresetConfig.IndexedStyle` is one of this module's font presets. */
+    fun isFontPreset(indexedStyle: Any): Boolean = axisOf(requireNotNull(indexedStyleStyle.invoke(indexedStyle)), ClockAxes.FONT_KEY) != null
+
+    /** Which preset an `AxisPresetConfig.IndexedStyle` is, within its group. */
+    fun presetIndex(indexedStyle: Any): Int = indexedStylePreset.invoke(indexedStyle) as Int
+
+    /** [indexedStyle], the same preset in the same group, with its axes also choosing [sizeStep]. */
+    fun withSizeStep(indexedStyle: Any, sizeStep: Float): Any {
+        val preset = presetIndex(indexedStyle)
+        val style = axisStyleConstructor.newInstance(ClockAxes.sizedFontPreset(preset, sizeStep))
+        return indexedStyleConstructor.newInstance(indexedStyleGroup.invoke(indexedStyle), preset, style)
+    }
+
     /** The setting a registry holds now, or null before it has read one. */
     fun registrySettings(registry: Any): Any? = registrySettingsField.get(registry)
 
@@ -188,12 +199,6 @@ internal class ClockPluginApi(private val classLoader: ClassLoader) {
     fun colors(theme: Any, context: Context): ThemeColors = ThemeColors(
         normal = themeDefaultColor.invoke(theme, context) as Int,
         doze = themeAodColor.invoke(theme, context) as Int,
-    )
-
-    fun burnIn(model: Any): BurnIn = BurnIn(
-        scale = burnInScale.invoke(model) as Float,
-        translationX = burnInTranslationX.invoke(model) as Float,
-        translationY = burnInTranslationY.invoke(model) as Float,
     )
 
     fun previewTops(config: Any): PreviewTops = PreviewTops(
@@ -219,9 +224,6 @@ internal class ClockPluginApi(private val classLoader: ClassLoader) {
 
 /** The two colours a theme gives a clock: awake, and in always-on display. */
 internal data class ThemeColors(val normal: Int, val doze: Int)
-
-/** How far always-on display moves the clock to spare the panel. */
-internal data class BurnIn(val scale: Float, val translationX: Float, val translationY: Float)
 
 /** Where the picker preview puts the top of each clock size, in pixels. */
 internal data class PreviewTops(val largeClock: Int, val smallClock: Int)

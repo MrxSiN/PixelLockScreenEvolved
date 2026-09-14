@@ -43,4 +43,8 @@ internal object ClockAxes {
     /** The axes one preset on the picker's font slider holds. */
     fun fontPreset(index: Int): Map<String, Float> =
         linkedMapOf(FONT_KEY to index.toFloat(), WIDTH_AXIS_KEY to WIDE_CLOCK_WIDTH)
+
+    /** The axes of the font preset at [index] with the size step [sizeStep] chosen as well. */
+    fun sizedFontPreset(index: Int, sizeStep: Float): Map<String, Float> =
+        fontPreset(index) + (SIZE_KEY to sizeStep)
 }

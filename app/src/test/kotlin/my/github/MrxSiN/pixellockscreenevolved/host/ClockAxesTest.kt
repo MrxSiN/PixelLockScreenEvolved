@@ -34,4 +34,11 @@ class ClockAxesTest {
         assertEquals(1f, preset.getValue(ClockAxes.FONT_KEY), 0f)
         assertTrue(preset.getValue(ClockAxes.WIDTH_AXIS_KEY) >= 110f)
     }
+
+    @Test
+    fun sizedFontPresetsKeepTheFontAndAddTheSize() {
+        val preset = ClockAxes.sizedFontPreset(1, 3f)
+        assertEquals(ClockAxes.fontPreset(1), preset - ClockAxes.SIZE_KEY)
+        assertEquals(3f, preset.getValue(ClockAxes.SIZE_KEY), 0f)
+    }
 }

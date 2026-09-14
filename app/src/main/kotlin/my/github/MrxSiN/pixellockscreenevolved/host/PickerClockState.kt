@@ -22,16 +22,30 @@ internal class PickerClockState(private val api: ClockPluginApi) {
     var chosenSizeStep: Float? = null
         private set
 
+    private val sizeListeners = mutableListOf<(Float) -> Unit>()
+
     private val previews = Collections.synchronizedSet(Collections.newSetFromMap(WeakHashMap<ClockControllerAdapter, Boolean>()))
 
     fun track(preview: ClockControllerAdapter) {
         previews.add(preview)
     }
 
-    /** Records [step] and shows it on every preview clock. */
+    /** Calls [listener] with every size step chosen from now on. */
+    fun onSizeStepChosen(listener: (Float) -> Unit) {
+        sizeListeners.add(listener)
+    }
+
+    /** Records [step], shows it on every preview clock, and tells whoever listens. */
     fun chooseSizeStep(step: Float) {
         chosenSizeStep = step
         synchronized(previews) { previews.toList() }.forEach { it.previewSizeStep(step) }
+        sizeListeners.forEach { it(step) }
+    }
+
+    /** Whether the size step moved to differs from the one the setting in effect stores. */
+    fun isSizeStepEdited(): Boolean {
+        val chosen = chosenSizeStep ?: return false
+        return chosen != (storedAxis(ClockAxes.SIZE_KEY) ?: 0f)
     }
 
     /** Forgets a size moved to earlier, as a newly opened picker should. */
