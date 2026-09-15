@@ -11,15 +11,24 @@ import java.util.zip.CRC32
 import kotlin.math.max
 import kotlin.math.roundToInt
 
+import my.github.MrxSiN.pixellockscreenevolved.depth.SubjectMaskContract
+
 /**
  * The pictures the depth effect is made of: the photo as small as segmentation
  * needs, a key that tells one photo from another, the subject cut out of the
  * photo, and the masks already found, kept on disk so a restart of SystemUI
- * does not segment the same photo again.
+ * does not segment the same photo again. It is made on the depth effect's
+ * worker, since it tidies that directory.
  */
 internal class DepthCutout(cacheDirectory: File) {
 
     private val masks = File(cacheDirectory, MASK_DIRECTORY)
+
+    init {
+        // Masks another model found are never read again, so their directories are removed.
+        cacheDirectory.listFiles { file -> file.isDirectory && file.name.startsWith(MASK_DIRECTORY_PREFIX) && file != masks }
+            ?.forEach(File::deleteRecursively)
+    }
 
     /** [photo] scaled so its longer side is at most [SEGMENTATION_SIDE]. */
     fun forSegmentation(photo: Bitmap): Bitmap {
@@ -75,7 +84,8 @@ internal class DepthCutout(cacheDirectory: File) {
     }
 
     companion object {
-        private const val MASK_DIRECTORY = "pixel_lock_screen_evolved_depth"
+        private const val MASK_DIRECTORY_PREFIX = "pixel_lock_screen_evolved_depth"
+        private const val MASK_DIRECTORY = "${MASK_DIRECTORY_PREFIX}_${SubjectMaskContract.MODEL}"
         private const val MASK_SUFFIX = ".mask"
         private const val KEY_SAMPLE = 32
 

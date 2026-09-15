@@ -46,6 +46,12 @@ grep -q 'FONT_KEY = "PIXEL_LOCK_SCREEN_EVOLVED_FONT"' "$SRC/host/ClockAxes.kt"
 [ -f "$ROOT/app/src/main/assets/fonts/InterVariable.ttf" ]
 [ -f "$ROOT/app/src/main/assets/fonts/Inter-LICENSE.txt" ]
 
+# The segmentation model ships with its licence, under GitHub's 100 MB file limit.
+grep -q 'models/birefnet_lite.onnx' "$SRC/depth/SubjectSegmenter.kt"
+[ -f "$ROOT/app/src/main/assets/models/birefnet_lite.onnx" ]
+[ "$(wc -c < "$ROOT/app/src/main/assets/models/birefnet_lite.onnx")" -lt 100000000 ]
+[ -f "$ROOT/app/src/main/assets/models/BiRefNet-LICENSE.txt" ]
+
 # The module has no screen of its own.
 ! grep -q '<activity' "$ROOT/app/src/main/AndroidManifest.xml"
 

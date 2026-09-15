@@ -4,7 +4,7 @@ agp = "9.3.1"
 # release its xposed/libxposed submodule is pinned to.
 libxposed = "102.0.0"
 junit = "4.13.2"
-# Runs the depth effect's subject segmentation model (U2-Net lite) on device.
+# Runs the depth effect's subject segmentation model (BiRefNet_lite) on device.
 onnxruntime = "1.29.0"
 
 [plugins]

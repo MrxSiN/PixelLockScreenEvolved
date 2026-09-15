@@ -76,6 +76,11 @@ android {
         }
     }
 
+    androidResources {
+        // The segmentation model is mapped straight from the APK rather than read into memory.
+        noCompress += "onnx"
+    }
+
     packaging {
         jniLibs {
             // Compressed in the APK and unpacked on install: the runtime is large.

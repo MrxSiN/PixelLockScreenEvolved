@@ -9,6 +9,7 @@ import android.os.IBinder
 import android.os.Looper
 import android.os.Message
 import android.os.Messenger
+import android.os.SystemClock
 import android.util.Log
 
 import java.util.concurrent.Executors
@@ -54,10 +55,12 @@ class SubjectMaskService : Service() {
             ?: return fail(reply, id, "no photo")
 
         worker.execute {
+            val started = SystemClock.elapsedRealtime()
             runCatching {
                 val model = segmenter ?: SubjectSegmenter(assets).also { segmenter = it }
                 model.maskOf(photo)
             }.onSuccess { mask ->
+                Log.i(TAG, "Found the subject of a ${photo.width}x${photo.height} photo in ${SystemClock.elapsedRealtime() - started} ms")
                 send(reply, SubjectMaskContract.MASK, id, Bundle().apply { putParcelable(SubjectMaskContract.KEY_MASK, mask) })
             }.onFailure { error ->
                 Log.w(TAG, "Subject segmentation failed", error)

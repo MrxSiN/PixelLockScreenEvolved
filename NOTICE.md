@@ -17,18 +17,20 @@ from https://github.com/rsms/inter, licensed under the SIL Open Font License
 1.1. The license is in `app/src/main/assets/fonts/Inter-LICENSE.txt` and ships
 inside the APK next to the font.
 
-## U²-Net lite (U2NetP)
+## BiRefNet_lite
 
-`app/src/main/assets/models/u2netp.onnx` finds the subject of the lock screen
-photo for the depth effect. It is the U²-Net lite (U2NetP) salient object
-detection model by Xuebin Qin, Zichen Zhang, Chenyang Huang, Masood Dehghan,
-Osmar R. Zaiane and Martin Jagersand, from https://github.com/xuebinqin/U-2-Net,
-licensed under the Apache License 2.0, in the ONNX export published by rembg
-(https://github.com/danielgatis/rembg, release v0.0.0, MD5
-`8e83ca70e441ab06c318d82300c84806`), Copyright (c) 2020 Daniel Gatis, MIT
-License. The file is unmodified. The Apache License 2.0 is in
-`app/src/main/assets/models/U2Net-LICENSE.txt` and ships inside the APK next to
-the model.
+`app/src/main/assets/models/birefnet_lite.onnx` finds the subject of the lock
+screen photo for the depth effect. It is BiRefNet_lite, from "Bilateral
+Reference for High-Resolution Dichotomous Image Segmentation" by Peng Zheng,
+Dehong Gao, Deng-Ping Fan, Li Liu, Jorma Laaksonen, Wanli Ouyang and Nicu Sebe,
+https://github.com/ZhengPeng7/BiRefNet, Copyright (c) 2024 ZhengPeng, MIT
+License. It was converted to ONNX for this project by
+`scripts/export_subject_model.py` from the weights published at
+https://huggingface.co/ZhengPeng7/BiRefNet_lite (revision
+`aa62cd87eafb9cc43056d08ef3615a14628b831d`): the weights are unchanged except
+that most are stored in half precision. The MIT License is in
+`app/src/main/assets/models/BiRefNet-LICENSE.txt` and ships inside the APK next
+to the model.
 
 ## ONNX Runtime
 
