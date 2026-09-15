@@ -5,6 +5,7 @@ import android.content.Context
 import android.view.View
 
 import my.github.MrxSiN.pixellockscreenevolved.clock.ClockFace
+import my.github.MrxSiN.pixellockscreenevolved.clock.DozingClockFace
 import my.github.MrxSiN.pixellockscreenevolved.clock.FaceSize
 import my.github.MrxSiN.pixellockscreenevolved.clock.FontChoosingClockFace
 import my.github.MrxSiN.pixellockscreenevolved.clock.ResizableClockFace
@@ -141,6 +142,7 @@ internal class ClockFaceAdapter(
 
     fun setDoze(fraction: Float) {
         dozeFraction = fraction.coerceIn(0f, 1f)
+        (face as? DozingClockFace)?.setDoze(dozeFraction)
         recolor()
     }
 

@@ -15,6 +15,7 @@ import java.util.Locale
 
 import kotlin.math.roundToInt
 
+import my.github.MrxSiN.pixellockscreenevolved.clock.DozingClockFace
 import my.github.MrxSiN.pixellockscreenevolved.clock.FontChoosingClockFace
 import my.github.MrxSiN.pixellockscreenevolved.clock.ResizableClockFace
 
@@ -24,13 +25,14 @@ import my.github.MrxSiN.pixellockscreenevolved.clock.ResizableClockFace
  * Both SystemUI faces are this drawing, shown at the size and in the font the
  * host decides from [fonts]; [showsDate] leaves the date out where SystemUI
  * writes its own. The date keeps its classic size however large the time
- * grows, as on iOS.
+ * grows, as on iOS. On the always-on display the time is drawn in outline, so
+ * its wide strokes do not keep lighting the same pixels.
  */
 internal class IosClockFace(
     private val context: Context,
     private val fonts: List<IosNumeralFont>,
     showsDate: Boolean,
-) : ResizableClockFace, FontChoosingClockFace {
+) : ResizableClockFace, FontChoosingClockFace, DozingClockFace {
 
     override val timeView = IosTimeView(context, fonts.first())
 
@@ -87,6 +89,10 @@ internal class IosClockFace(
     override fun setColor(color: Int) {
         timeView.setColor(color)
         dateView?.setTextColor(withAlpha(color, IosClockTypography.DATE_ALPHA))
+    }
+
+    override fun setDoze(fraction: Float) {
+        timeView.setOutline(fraction)
     }
 
     override fun setSize(size: Float) {
