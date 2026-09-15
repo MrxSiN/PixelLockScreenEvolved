@@ -54,6 +54,9 @@ smartspace card sits below the clock.
 | **Font** | Clock → Style | Roboto Flex, or Inter — the open font closest to Apple's SF Pro, bundled. The preview switches as the slider moves. |
 | **Clock size** | Clock → Size | Six steps, each taller than the last, in place of the Large switch. The numerals move to a bolder cut as they grow, so strokes stay even, and fill the screen's width at the largest. Moving the slider alone enables Apply. |
 
+On the always-on display the time is drawn in outline, a thin line around each
+digit, so its wide strokes do not keep the same pixels lit.
+
 With notifications showing, the clock is the time alone at the smallest step,
 with Pixel's date and weather centred below it. As the last notification goes
 or the first arrives, the time moves and resizes in one piece between the two,
@@ -72,9 +75,12 @@ time goes behind the subject, and nothing else on the lock screen does.
 |---|---|---|
 | **Depth effect** | Wallpaper & style → Lock screen, at the bottom | Finds the subject of the lock screen photo on the device and draws it over the time, placed exactly where the window manager puts the wallpaper and following its scroll, zoom and dimming. |
 
-The subject is found once per photo, by the module's own app, with U²-Net lite
-on ONNX Runtime; nothing leaves the device. Live wallpapers are drawn by their
-own apps and have no depth effect.
+The subject is found once per photo, by the module's own app, with
+BiRefNet_lite on ONNX Runtime; nothing leaves the device. It takes about 12
+seconds on a Pixel 8 Pro, and a **Preparing depth effect** notification shows
+meanwhile — silent, with its icon in the status bar — then **Depth effect
+ready** for a few seconds. A photo already seen shows its effect at once. Live
+wallpapers are drawn by their own apps and have no depth effect.
 
 </details>
 
@@ -142,7 +148,7 @@ the other and nothing else is stored.
 SystemUI draws a still lock screen photo itself. Each time it draws one it has
 not drawn before, the photo is taken as drawn, stretched to the wallpaper
 surface, and sent to the module's app, which finds the subject's mask with
-U²-Net lite and answers only SystemUI. A mask already found is read back from
+BiRefNet_lite and answers only SystemUI. A mask already found is read back from
 disk. The subject cut out of the photo becomes a layer beside the large clock
 face, placed as `WallpaperController` places the wallpaper — crop, scroll and
 zoom — clipped to the time, and faded with SystemUI's scrims so it goes and

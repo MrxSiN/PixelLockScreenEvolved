@@ -1,35 +1,33 @@
-# Pixel Lock Screen Evolved v0.0.1
+# Pixel Lock Screen Evolved v0.0.2
 
-The first release on GitHub: an **iOS** lock screen clock for Pixel on Android
-17, chosen in Wallpaper & style beside Google's own clocks.
+A sharper depth effect that tells you when it is ready, an always-on display
+clock that is kinder to the screen, and a steadier status bar on unlock.
 
-Open Wallpaper & style → Clock and choose the iOS clock. The Style tab's slider
-picks the font: Roboto Flex or Inter, the open font closest to SF Pro. The Size
-tab's slider, in place of the Large switch, has six steps, each taller than the
-last, in bolder numerals with even strokes at every size. With notifications
-showing, the clock drops to the smallest step with Pixel's date and weather
-centred below it, and moves between the two sizes in one piece.
+## Depth effect
 
-Switch on **Depth effect** at the bottom of Wallpaper & style's Lock screen list
-to put the subject of a photo wallpaper in front of the time. The subject is
-found on the device.
+- The subject of your lock screen photo is now found with **BiRefNet_lite**,
+  which looks at the photo at 1024 by 1024: hair, thin shapes and the whole
+  subject are kept, where the previous model often kept only part of it.
+- A **Preparing depth effect** notification shows while the subject is being
+  found after you apply a photo (about 12 seconds on a Pixel 8 Pro). It is
+  silent and never pops up; its icon shows in the status bar. It turns into
+  **Depth effect ready** for a few seconds, and can be turned off in System
+  UI's notification settings under "Depth effect".
+- The APK is larger (about 104 MB), as it carries the new model.
 
-On unlock, the time flies up to the status bar clock and turns into it, the
-status icons stay put, and the notification icons and chips come in beside the
-clock on Material 3 Expressive springs.
+## Always-on display
+
+- The iOS clock is drawn in **outline** on the always-on display, so its wide
+  digits do not keep the same pixels lit.
+
+## Unlock
+
+- The status icons no longer jump sideways or double up as the status bar
+  takes them over, and no longer blink out as an unlock begins.
 
 ## Requirements
 
 - Pixel on Android 17
 - Vector (JingMatrix/Vector) or another framework with libxposed API 101 or newer
 - Scope: System UI (`com.android.systemui`) and Wallpaper & style
-  (`com.google.android.apps.wallpaper`); restart both after installing
-
-## In this release
-
-- iOS clock on the lock screen, in the picker preview and on the always-on display
-- Font slider (Roboto Flex or Inter) in the Style tab
-- Clock size slider in the Size tab
-- Depth effect for photo wallpapers
-- Smooth size changes as notifications come and go
-- Unlock motion for the clock, the status icons and the notification icons
+  (`com.google.android.apps.wallpaper`); restart both after updating

@@ -1,5 +1,44 @@
 # Changelog
 
+## 0.0.2
+
+### Added
+
+- A notification while the depth effect is being prepared for a new lock
+  screen photo, so the few seconds before the subject shows in front of the
+  clock are not mistaken for the effect not working. Its icon shows in the
+  status bar and it sits with the notifications, without sound, vibration or a
+  pop-up, and cannot be swiped away until the subject is found. It then reads
+  "Depth effect ready" and goes by itself after five seconds, or says the
+  effect is unavailable, in which case the photo is tried again the next time
+  the lock screen shows it. A photo whose subject was already found shows no
+  notification. It is the "Depth effect" channel in System UI's notification
+  settings.
+
+### Changed
+
+- On the always-on display the iOS time is drawn in outline, a thin line
+  around each digit's outer edge, instead of solid, so its wide strokes do not
+  keep the same pixels lit. It fades between solid and outline as the display
+  dozes and wakes.
+
+- The depth effect finds the subject with BiRefNet_lite instead of U²-Net lite.
+  It looks at the photo at 1024 by 1024 instead of 320 by 320, so the whole
+  subject is kept, hair and thin edges included; U²-Net lite could keep only
+  part of it. The APK grows by about 87 MB, and finding the subject of a new
+  photo takes about 12 seconds on a Pixel 8 Pro, using up to 2.3 GB of memory
+  while it runs. The model is this project's own ONNX export
+  (`scripts/export_subject_model.py`), which runs three times faster in a third
+  of the memory of the published export. Masks the old model found are deleted.
+
+### Fixed
+
+- The status icons no longer jump sideways when the status bar takes them over
+  after an unlock: the lock screen spaces its status icons further from the
+  battery, so the picture carried through the unlock now lands the icons and
+  the battery each on their own place.
+- The status icons no longer blink out for a frame as an unlock begins.
+
 ## 0.0.1
 
 First release on GitHub.

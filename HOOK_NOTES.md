@@ -304,6 +304,22 @@ the time's, `DST_OUT`), and a whole picture fills in beneath it over the first
 and `status_bar_end_side_container` > `status_bar_end_side_content` (`system_icons` > `statusIcons`, and the battery).
 `cmd window dump-visible-window-views` writes it out.
 
+The two rows are not spaced alike. With six status icons the lock screen's
+`statusIcons` was 9px wider than the status bar's (264 against 255 on a Pixel
+8 Pro), its icons laid out from the same left, so they sat 9px further from the
+battery; with five the rows matched. A single picture eased onto the status
+bar by its right edge doubled the status icons for its last frames and jumped
+9px as it went. The picture is cut at `statusIcons`: that piece lands on the
+status bar's `statusIcons` by the right edge of its visible children, and the
+rest (the battery) on `status_bar_end_side_content` the same way.
+
+The icons picture is shown from its window's first frame and the lock screen's
+icons are hidden 3 frames after that first draw
+(`OverlayWindow.onFirstFrameShown`). Showing the picture and hiding the icons
+in the same callback, the frame after the first draw, left neither on screen
+for 1 frame (at 81 and 120fps recordings). A frame commit callback registered
+during that first draw never fired: the still picture draws no further frame.
+
 `host/StatusIconsHandover.kt` holds a picture of the lock screen's icons in its
 own window and eases it onto the status bar's `status_bar_end_side_content`, tinted toward the
 status bar clock's text colour. The battery's empty part is translucent, so a
@@ -352,6 +368,66 @@ With the large clock the rows are 40dp apart from ink to ink. Measured on a
 Pixel 8 Pro: the status bar is 151px tall and its icons end 19dp above its
 bottom; a date line's capitals start 16dp below its top; the smartspace card's
 first line starts 38dp below its top. `LockScreenInsets` subtracts these.
+
+## Depth effect model
+
+The subject is found by BiRefNet_lite (fixed 1x3x1024x1024 input, ImageNet
+mean and deviation, logits out) on ONNX Runtime 1.29 in the module's own app.
+Measured on a Pixel 8 Pro with a 575 by 1024 photo, the phone warm from the
+runs before:
+
+| Model | Graph optimisation | Time | Peak RSS |
+|---|---|---|---|
+| BiRefNet_lite, own export (shipped) | all | 11-17 s | 2.25 GB |
+| BiRefNet_lite, onnx-community fp16 | basic | 32-39 s | 5.9-6.5 GB |
+| BiRefNet_lite, onnx-community fp32 | all | 25 s | 6.3 GB |
+| RMBG-1.4 fp32 | all | 10-12 s | 0.94 GB |
+| RMBG-1.4 int8 (dynamic) | all | 4-9 s | 0.96 GB |
+
+onnx-community's export writes each deformable convolution (torchvision's
+`deform_conv2d`, in the decoder's `ASPPDeformable`) as `GatherND` and
+`ScatterND` sampling at full resolution; every run of it made the low memory
+killer end background apps. ONNX has had `DeformConv` since opset 19, and ONNX
+Runtime's CPU provider implements it (1.29 included), so
+`scripts/export_subject_model.py` exports the op directly. On a desktop CPU the
+two exports took 5.0 s and 2.3 GB against 13.0 s and 7.7 GB, and the own export
+matched PyTorch exactly where onnx-community's differed by 0.015 on average.
+
+The own export stores weights in half precision with a `Cast` to float before
+each, which ONNX Runtime folds as the session loads: 91 MB, under GitHub's
+file limit, differing from full precision by 0.00005. Computing in float16
+instead is worse on ARM: the fp16 export fails with extended optimisation
+(ONNX Runtime fuses GELUs into `com.microsoft.Gelu`, which has no float16 CPU
+kernel), and at basic optimisation its mask differed by 5/255 and had a hole
+at an earring. Dynamic int8 quantisation of `MatMul` made the file larger and
+the mask worse (0.025). Running the model below 1024 does not work: it was
+trained at 1024, and at 768 it took in the floor behind the subject and at 512
+lost the hair and horns. RMBG-1.4 kept much of the photo's lit floor as subject
+and left a haze beside thin shapes.
+
+## Depth effect notification
+
+The module's app has no activity, so it cannot be granted `POST_NOTIFICATIONS`;
+SystemUI posts the notification instead (`host/DepthProgressNotice.kt`), in a
+channel of its own that appears under System UI's notification settings. Its
+text is read from the module's resources through
+`PackageManager.getResourcesForApplication`, and its small icon is
+`Icon.createWithResource(modulePackage, R.drawable.ic_notification_depth)`.
+The channel is `IMPORTANCE_DEFAULT` with no sound or vibration, so the icon
+shows in the status bar without a heads-up; `IMPORTANCE_LOW` would count as
+silent, which Pixel hides from the status bar by default.
+
+## Always-on display outline
+
+`ClockAnimations.doze(fraction)` is passed on to faces implementing
+`DozingClockFace`. The iOS time lays itself out as one `Path`
+(`Paint.getTextPath` for the digits, stretched by a `Matrix`, plus the colon's
+circles) and fades from filling it to an outline as the fraction rises. Roboto
+Flex and Inter build glyphs from overlapping contours (the 4's bar crosses its
+stem), so a plain stroke drew lines inside the digits. `Path.op(UNION)` with an
+empty path returned the path unchanged. The outline is instead stroked at twice
+its width in a layer and the filled path erased from it (`DST_OUT`), leaving
+the outer half of the stroke.
 
 ## Font
 
