@@ -1,29 +1,45 @@
-# Pixel Lock Screen Evolved v0.0.2
+# Pixel Lock Screen Evolved v0.0.3
 
-A sharper depth effect that tells you when it is ready, an always-on display
-clock that is kinder to the screen, and a steadier status bar on unlock.
-
-## Depth effect
-
-- The subject of your lock screen photo is now found with **BiRefNet_lite**,
-  which looks at the photo at 1024 by 1024: hair, thin shapes and the whole
-  subject are kept, where the previous model often kept only part of it.
-- A **Preparing depth effect** notification shows while the subject is being
-  found after you apply a photo (about 12 seconds on a Pixel 8 Pro). It is
-  silent and never pops up; its icon shows in the status bar. It turns into
-  **Depth effect ready** for a few seconds, and can be turned off in System
-  UI's notification settings under "Depth effect".
-- The APK is larger (about 104 MB), as it carries the new model.
+Your wallpaper on the always-on display, a clock that rolls to each minute,
+and smoother, quicker motion from the lock screen to your phone.
 
 ## Always-on display
 
-- The iOS clock is drawn in **outline** on the always-on display, so its wide
-  digits do not keep the same pixels lit.
+- **Wallpaper on always-on display**, in Wallpaper & style → Lock screen, keeps
+  your lock screen photo on the always-on display, dimmed, as on iOS. Below it:
+  - **Dots** draws it as sparse white dots on black, only the photo's subject
+    where the depth effect found one: about 8-12% of the screen lit, for the
+    least power.
+  - **Black & white** dims it in greys.
+  - **Always-on brightness** sets it from 5% to 60%.
+- Everything shifts a little every minute, so no pixel stays lit, to protect
+  the screen from burn-in.
+- It needs **Always show time and info** on, and uses more battery than a black
+  always-on display.
+
+## Clock
+
+- The digits **roll** to each new minute, on the lock screen and the always-on
+  display.
+- Moving between the small and large clock is a smooth spring rather than a
+  jump.
+- With the depth effect on, the time comes in front of the subject when the
+  subject would hide more than half of it, so it can always be read.
 
 ## Unlock
 
-- The status icons no longer jump sideways or double up as the status bar
-  takes them over, and no longer blink out as an unlock begins.
+- The time **flies to the status bar** on every unlock: without a smartspace
+  card, and on a quick flick too.
+- The flight is smoother from the first touch to the landing, and starts at
+  once: it is got ready while the lock screen is up.
+
+## Fixes
+
+- Waking from the always-on display, the time no longer shows through the
+  subject before going behind it.
+- Previewing a new photo in Wallpaper & style no longer shows the current
+  photo's subject over the preview.
+- No faint box around the time as the lock screen wakes.
 
 ## Requirements
 

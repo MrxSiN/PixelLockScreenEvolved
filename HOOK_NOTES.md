@@ -253,6 +253,12 @@ hooks `ClockFaceTransition.addTargets` and excludes this module's face views
 time from the old one's place instead. Matching the current clock uses the
 `ClockController` proxy each `ClockControllerAdapter` hands SystemUI.
 
+The move runs on `ExpressiveSpring.DEFAULT_SPATIAL` (damping 0.8, stiffness
+380) and the fade on `DEFAULT_EFFECTS` (1, 1600). With Material's emphasized
+decelerate over 500ms, a screen recording showed 69% of the resize in the
+first 25ms and the rest crawling; the spring starts from rest and settles in
+about 440ms. `ClockFaceAdapter.arrival` carries the fade to the depth layer.
+
 ## Unlock flight to the status bar clock
 
 `KeyguardUnlockAnimationController` is told about every unlock:
@@ -269,7 +275,41 @@ launcher (`ILauncherUnlockAnimationController`), so nothing in the keyguard
 window can be seen travelling. The module adds its own window
 (`TYPE_SECURE_SYSTEM_OVERLAY`, 2015, not touchable) with a picture of the
 time, hides the time, and moves the picture on `Choreographer` frames: by the
-keyguard's fade while dragged, then over 400ms once going away or flung.
+keyguard's fade while dragged, then toward the status bar clock once going
+away or flung, all on one critically damped spring whose stiffness eases from
+120 to 500 over 120ms at the commit, aimed at 1.02 so it lands on crossing 1.
+
+Measured on a Pixel 8 Pro (120Hz), the flight's own frames cost about 0.2ms.
+Started from nothing it cost about 20ms (drawing the time 3ms, erasing the
+depth subject from it 9.5ms, adding the window 7ms), its window first drew
+some 46ms later, and SystemUI's unlock work stalls the main thread up to about
+120ms besides. So `host/ClockFlightStandby.kt` gets it ready while the lock
+screen is up. `host/LockScreenReadiness.kt` looks at the lock screen 250ms
+after each burst of its frames and reports it settled when the display is
+awake (doze fraction 0) and the time fully shown, or left when it dozes or the
+clock detaches. On settling, the flight's window is added, empty
+(`host/OverlayWindowStandby.kt`), and its pictures are drawn (about 12ms),
+calling `Bitmap.prepareToDraw()`; later looks cost about 0.1ms and draw again
+only what no longer matches. With it, starting the flight costs about 0.5ms
+and its pictures reach the screen 24-34ms later. The lock screen's window is
+told apart by `WindowManager.LayoutParams.type` 2040 (`TYPE_NOTIFICATION_SHADE`)
+on the time's root, which leaves out the picker's preview clocks.
+
+The status icons' picture is small and changes with every signal and battery
+change, so only its window is kept ready, by another `OverlayWindowStandby`;
+the picture is still drawn as the unlock begins.
+
+A swipe to unlock lifts the clock face against the depth layer (the layer's
+position in the time's pixels moved from -572 to -545px on one swipe), so the
+depth layer's state for these pictures (`DepthLayer.occlusionState`) is its own
+placement and the time's laid-out offset, leaving out SystemUI's moves of the
+clock; otherwise every unlock found the pictures stale and drew them again.
+The spring advances at most 17ms per frame, so the picture never leaps after
+a stalled frame. A 250ms adb swipe first reports the unlock with the keyguard
+already about 50% faded, and the time faded to about 5% by the picture's first
+frame, so the picture starts at the time's opacity then and comes up to full
+over the next 30% of the flight. The size shrinks geometrically: a linear
+height went from 346 to 108px in 40ms near the end, which read as a collapse.
 
 The status bar clock is `com.android.systemui.statusbar.policy.Clock`, a
 `TextView`, tracked through `onAttachedToWindow`/`onDetachedFromWindow`; the
@@ -292,7 +332,11 @@ With the depth effect on, the flight's first picture of the time has the
 subject's cut-out erased from it (`DepthLayer.eraseSubjectFrom`, the layer's
 bitmap drawn through `transformMatrixToGlobal` of the layer and the inverse of
 the time's, `DST_OUT`), and a whole picture fills in beneath it over the first
-35% of the flight.
+35% of the flight. Where the subject hides more than half of the time's ink,
+the layer is hidden and the time stays in front, so nothing is erased. The
+share (`TimeCoverage`) is the same erase drawn onto a 128 px alpha-only picture
+of the time; it costs about 0.8 ms on a Pixel 8 Pro, so it runs once the time
+and the layer have held still for a frame, not on every frame of waking up.
 
 ## Status bar through an unlock
 
@@ -369,6 +413,37 @@ Pixel 8 Pro: the status bar is 151px tall and its icons end 19dp above its
 bottom; a date line's capitals start 16dp below its top; the smartspace card's
 first line starts 38dp below its top. `LockScreenInsets` subtracts these.
 
+## Lock screen previews of another wallpaper
+
+Wallpaper & style asks SystemUI for lock screen previews through
+`KeyguardRemotePreviewManager.preview(Bundle)`. The request's keys are read in
+`KeyguardPreviewRepository.<init>`: `host_token`, `width`, `height`,
+`highlight_quick_affordances`, `display_id`, `hide_clock`, `wallpaper_colors`
+and `clock_id`. The picker draws the wallpaper itself behind the preview, so
+`wallpaper_colors` is all SystemUI hears of it: null in the lock screen tab's
+preview of the wallpaper already set, and the photo's `WallpaperColors` in the
+preview shown while a new photo is looked at before it is set.
+
+```
+KeyguardPreviewRenderer
+  Context context
+  KeyguardPreviewViewModel previewViewModel
+  static Object access$updateClockAppearance(KeyguardPreviewRenderer, ClockController, Resources, Continuation)
+KeyguardPreviewViewModel
+  KeyguardPreviewInteractor interactor
+KeyguardPreviewInteractor
+  KeyguardPreviewRepository repository
+KeyguardPreviewRepository
+  WallpaperColors wallpaperColors
+```
+
+`access$updateClockAppearance` runs for each preview's clock as it is set up,
+holding the renderer and the clock's `ClockController` proxy.
+`host/KeyguardPreviewWallpapers.kt` hooks it, and a preview whose colours are
+set and differ from `WallpaperManager.getWallpaperColors(FLAG_LOCK)` (or
+`FLAG_SYSTEM`) gets no depth layer: before, the current photo's subject showed
+over the new photo's time.
+
 ## Depth effect model
 
 The subject is found by BiRefNet_lite (fixed 1x3x1024x1024 input, ImageNet
@@ -405,6 +480,37 @@ trained at 1024, and at 768 it took in the floor behind the subject and at 512
 lost the hair and horns. RMBG-1.4 kept much of the photo's lit floor as subject
 and left a haze beside thin shapes.
 
+## Depth effect through the light reveal
+
+Waking from the always-on display, `LightRevealScrim` (id `light_reveal_scrim`
+in the notification shade window) reveals the photo from a point outward as
+`revealAmount` goes from 0 to 1, in step with the clock's doze fraction going
+from 1 to 0. Its `onDraw`:
+
+```
+if (revealGradientWidth <= 0 || revealGradientHeight <= 0 || revealAmount == 0) {
+    if (revealAmount < 1) canvas.drawColor(revealGradientEndColor)
+    return
+}
+if (startColorAlpha > 0) canvas.drawColor(getColorWithAlpha(startColorAlpha, revealGradientEndColor))
+shaderGradientMatrix.setScale(revealGradientWidth, revealGradientHeight, 0, 0)
+shaderGradientMatrix.postTranslate(revealGradientCenter.x, revealGradientCenter.y)
+gradientPaint.shader.setLocalMatrix(shaderGradientMatrix)
+canvas.drawRect(0, 0, width, height, gradientPaint)
+```
+
+`gradientPaint` is a two-stop `RadialGradient` ending in white, `SRC_OVER`,
+under a `MULTIPLY` filter of `revealGradientEndColor` (black).
+
+The depth layer used to fade by `1 - revealAmount`, so the time showed through
+the subject until the reveal finished. `KeyguardScrims.darkenAsRevealed` now
+repeats that `onDraw` over the subject in the scrim's coordinates with
+`SRC_ATOP`. It only darkens the subject when the layer view is in its own
+hardware layer, set only while the reveal runs (the layer is as big as the
+photo). Drawn straight on the window, `SRC_ATOP` darkened the time behind the
+subject too; inside a `Canvas.saveLayer` around the subject it darkened
+nothing on screen, whether the scrim's `RenderNode` was drawn or its paint.
+
 ## Depth effect notification
 
 The module's app has no activity, so it cannot be granted `POST_NOTIFICATIONS`;
@@ -416,6 +522,82 @@ text is read from the module's resources through
 The channel is `IMPORTANCE_DEFAULT` with no sound or vibration, so the icon
 shows in the status bar without a heads-up; `IMPORTANCE_LOW` would count as
 silent, which Pixel hides from the status bar by default.
+
+## Wallpaper on the always-on display
+
+SystemUI has its own dimmed wallpaper for the always-on display.
+`WallpaperRepositoryImpl.wallpaperSupportsAmbientMode` is true when the secure
+settings `doze_always_on` and `doze_always_on_wallpaper_enabled` are both 1 and
+the device supports it: SystemUI's integer `config_dozeSupportsAodWallpaperOverride`
+(0x7f0b0027: 0 no, 1 yes, -1 on a Pixel 8 Pro, meaning ask the framework), then
+the framework's bool `config_dozeSupportsAodWallpaper` (0x01110163, false on a
+Pixel 8 Pro). `DozeScreenBrightness`, `KeyguardViewMediator`,
+`LightRevealScrimRepositoryImpl`, `LightRevealScrimInteractor`,
+`NotificationShadeDepthController` and `WindowRootViewModel` follow that flow.
+Neither `framework.jar` nor `services.jar` reads the framework bool, so only
+SystemUI decides.
+
+Setting `doze_always_on_wallpaper_enabled` to 1 alone left the always-on display
+black. Hooking `Resources.getBoolean(int)` to answer true for
+`config_dozeSupportsAodWallpaper` made SystemUI keep the wallpaper, blurred and
+dimmed, but gave no say over its brightness, colour or burn-in, so the module
+does not use it.
+
+Instead `host/KeyguardAodWallpaper.kt` keeps a copy of the lock screen photo
+(half the screen's size, `Bitmap.Config.HARDWARE`, about 5MB) and
+`host/AodWallpaperLayer.kt` adds a view as the first child of `KeyguardRootView`,
+over the black scrims beneath the keyguard and behind everything in it. Its
+alpha is the clock's doze fraction. It draws with one AGSL `RuntimeShader`: the
+photo, through a `BitmapShader` placed as `WallpaperPlacement` places the
+wallpaper, multiplied by the brightness, made grey, or sampled at each dot
+cell's middle (5dp) to light a disc whose radius is 0.36 of the cell times
+`smoothstep(0.3, 0.95, lightness)`, times the depth cut-out's alpha there when
+the depth effect has one (`KeyguardDepthEffect.addSubjectListener`, copied to
+the GPU at the same half size). Every minute the photo drifts on a 3dp circle
+and the dot grid moves 7px across and 4px down within its cell, both prime to
+its 15px, so every offset comes round; between two minutes 6.4% of lit dot
+pixels stayed lit. On a Pixel 8 Pro, with brightness 25%, dots lit 11.7% of
+pixels (mean level 8 of 255), and 8.4% with the subject alone (6 of 255); a
+3.5dp cell and `smoothstep(0.18, 0.85)` had lit 42.6% (27 of 255). Colour and
+grey light every pixel.
+
+`KeyguardRootView` is a `ConstraintLayout` that SystemUI's blueprint transitions
+clone into a `ConstraintSet`: a child without an id crashed SystemUI ("All
+children of ConstraintLayout must have ids to use ConstraintSet"), and a
+match-parent child is sized in pixels instead. The photo is drawn once as
+SystemUI starts, often before the style setting is read, and not again until it
+changes, so its copy is always kept. While charging, turning the screen off
+with the power key starts the clock screensaver, not the always-on display;
+`KEYCODE_SLEEP` dozes.
+
+Over the always-on wallpaper the depth layer is not darkened by the light reveal
+scrim, whose black it hides, and only fades with the doze. BiRefNet_lite leaves
+alpha of a few percent across a wide area around the subject, which showed as a
+box around the time wherever what lay beneath differed from the photo, so
+`DepthCutout.cutOut` drops mask alpha up to 26 of 255 and stretches the rest.
+
+The lock screen photo and its placement come from `host/LockWallpaperFeed.kt`,
+which hooks `ImageWallpaper$CanvasEngine.drawFrameOnCanvas`, `onOffsetsChanged`
+and `WallpaperService$Engine.onZoomChanged` once for the depth effect and the
+always-on wallpaper. The options are rows of `host/PickerLockScreenOptions.kt`,
+switches over `pixel_lock_screen_evolved_aod_wallpaper`, `..._aod_dots` and
+`..._aod_black_and_white`, and a `SeekBar` over
+`pixel_lock_screen_evolved_aod_wallpaper_brightness` (percent, 5 to 60, 25
+until set), written once let go. A row that only matters while another option
+is on is faded to 0.38 and disabled until it is. The picker process holds the
+module's code until it is killed, so it has to be restarted with SystemUI after
+installing a new build.
+
+## Minute roll
+
+`IosTimeView` lays the time out as a path per character. When `setText` changes
+the text while the view is shown, `IosDigitTransition` lines the old and new
+texts up from their right ends, and over 600ms (`PathInterpolator(0.2, 0, 0, 1)`)
+each changed digit rises by 45% of the numerals' height and fades by 55% of the
+way, while the new digit comes up from below, fading in from 15%. The face's
+layout clips the time to its box, so the digits roll out of and into it. On the always-on display
+the roll ran at about 30 frames a second. The depth layer holds its answer on
+whether the subject may stand in front of the time while `ClockFace.isChanging`.
 
 ## Always-on display outline
 

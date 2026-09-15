@@ -1,5 +1,79 @@
 # Changelog
 
+## 0.0.3
+
+### Added
+
+- **Wallpaper on always-on display** in Wallpaper & style's Lock screen list,
+  below Depth effect, with a **Dots** switch, a **Black & white** switch and an
+  **Always-on brightness** slider from 5% to 60%. The always-on display then
+  keeps the lock screen photo, placed exactly where it sits on the lock screen,
+  dimmed, instead of turning black, as on iOS. Switches that only matter while
+  another is on are greyed out until it is. Dots draw the photo as sparse white
+  dots on black, bigger where it is lighter; where the depth effect has found
+  the photo's subject, only the subject is dotted. On a Pixel 8 Pro dots lit
+  about 12% of the screen's pixels, and 8% with the subject alone, where the
+  dimmed photo lights them all. To protect the screen from burn-in, the photo
+  drifts a few pixels and the dots' grid steps through its cell every minute,
+  so no pixel stays lit; from one minute to the next, only about 6% of the lit
+  dot pixels stay lit. It fades in as the display dozes and out as it wakes, while
+  the photo is revealed beneath it. It needs the always-on display turned on,
+  and uses more battery than a black one.
+
+- The iOS time rolls to each new minute, on the lock screen and the always-on
+  display: each digit that changes rises and fades while its new one comes up
+  from below, and the digits that stay glide to their new places when the
+  time's width changes, as from 9:59 to 10:00.
+
+### Changed
+
+- With the depth effect on, the time stays in front of the subject when the
+  subject would hide more than half of it, as on iOS, so it can still be read.
+  The share is measured on the time's own digits once the lock screen holds
+  still, and again as the minute, size or font changes.
+
+- The time moves between the small and large clock on a Material 3 Expressive
+  spring that sets off from rest, instead of an easing that covered most of the
+  way in the first few frames and crawled for the rest. The date and the depth
+  effect's subject fade in around it, where the subject used to appear at once.
+
+- The time flies to the status bar clock on unlock even when the lock screen
+  shows no smartspace card, and on a fast swipe that has already faded the lock
+  screen, starting as faint as the time was and coming up to full as it flies.
+  It used to stay still in both cases.
+
+- The flight to the status bar clock is smoother. One spring carries it from
+  the swipe to the landing, firming up gently when the unlock is committed
+  instead of switching to a timed path; the time shrinks by a steady ratio
+  instead of seeming to collapse at the end; it arrives still gently moving
+  instead of creeping the last pixels and snapping; and a frame SystemUI is too
+  busy to draw no longer makes it leap.
+
+- The flight is got ready while the lock screen is up: its window is added and
+  its pictures are drawn once the display is awake, and drawn again only when
+  the minute, the clock or the depth effect's subject changes. Starting it on
+  unlock takes about half a millisecond instead of about 20, and the time is on
+  its way two or three frames later instead of waiting some 46ms for a new
+  window. The window that holds the status icons through an unlock is kept
+  ready the same way. It is all let go while the display dozes.
+
+### Fixed
+
+- The depth effect's subject no longer brings a faint box around the time into
+  view as the lock screen wakes. The subject mask's faint haze around the
+  subject is dropped.
+
+- Previewing a new photo in Wallpaper & style no longer shows the current lock
+  screen photo's subject over the preview's time. The lock screen tab's preview
+  of the photo already set still shows its depth effect.
+
+- Waking from the always-on display, the time no longer shows through the
+  depth effect's subject, looking brighter and in front of it, before sinking
+  behind it. The subject used to fade in by one amount as the photo was
+  revealed; it is now darkened pixel for pixel as SystemUI's light reveal
+  darkens the photo beneath it, so it stays solid in front of the time and
+  appears with the photo around it.
+
 ## 0.0.2
 
 ### Added

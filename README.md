@@ -55,12 +55,15 @@ smartspace card sits below the clock.
 | **Clock size** | Clock → Size | Six steps, each taller than the last, in place of the Large switch. The numerals move to a bolder cut as they grow, so strokes stay even, and fill the screen's width at the largest. Moving the slider alone enables Apply. |
 
 On the always-on display the time is drawn in outline, a thin line around each
-digit, so its wide strokes do not keep the same pixels lit.
+digit, so its wide strokes do not keep the same pixels lit. When the minute
+turns, the digits that change roll, awake and on the always-on display: the old
+digit rises out as the new one comes up into its place.
 
 With notifications showing, the clock is the time alone at the smallest step,
 with Pixel's date and weather centred below it. As the last notification goes
-or the first arrives, the time moves and resizes in one piece between the two,
-the date row fades, and the smartspace card glides.
+or the first arrives, the time moves and resizes in one piece between the two
+on a spring, the date row and the depth effect's subject fade, and the
+smartspace card glides.
 
 </details>
 
@@ -69,11 +72,22 @@ the date row fades, and the smartspace card glides.
 <br>
 
 The subject of a photo wallpaper in front of the large clock, as on iOS: the
-time goes behind the subject, and nothing else on the lock screen does.
+time goes behind the subject, and nothing else on the lock screen does. Where
+the subject would hide more than half of the time, the time stays in front so
+it can still be read. The lock screen tab of Wallpaper & style shows the effect
+too; the preview of a photo not yet set does not.
 
 | Switch | Where | What it does |
 |---|---|---|
 | **Depth effect** | Wallpaper & style → Lock screen, at the bottom | Finds the subject of the lock screen photo on the device and draws it over the time, placed exactly where the window manager puts the wallpaper and following its scroll, zoom and dimming. |
+| **Wallpaper on always-on display** | Wallpaper & style → Lock screen, at the bottom | Keeps the lock screen photo on the always-on display, dimmed, as on iOS. It needs **Always show time and info** on, and uses more battery than a black always-on display. |
+| **Dots** | Below it | Draws the always-on wallpaper as sparse white dots on black, only the photo's subject where the depth effect found one: about 8-12% of pixels lit, for the least power. |
+| **Black & white** | Below it | Dims the always-on wallpaper in greys instead of colour. |
+| **Always-on brightness** | Below it | A slider from 5% to 60% of the photo's brightness. |
+
+On the always-on display everything shifts a little every minute, the photo on
+a small circle and the dots through their grid, so no pixel stays lit, against
+burn-in.
 
 The subject is found once per photo, by the module's own app, with
 BiRefNet_lite on ONNX Runtime; nothing leaves the device. It takes about 12
@@ -90,7 +104,7 @@ wallpapers are drawn by their own apps and have no depth effect.
 
 | Motion | What it does |
 |---|---|
-| **Time to status bar** | The time rises, shrinks and curves toward the status bar clock, below any camera cutout, and turns into that clock's own text as it arrives. A swipe drags it and takes it back if let go. With the depth effect on, it starts behind the subject and comes out from behind it. It flies with the smartspace card, so a lock screen without one keeps it still. |
+| **Time to status bar** | The time rises, shrinks and curves toward the status bar clock, below any camera cutout, and turns into that clock's own text as it arrives, on one spring from the first touch to the landing. A swipe drags it and takes it back if let go; a fast flick flies it too, fading it back up from however faint the lock screen had already made it. With the depth effect on, it starts behind the subject and comes out from behind it. It flies whether or not the lock screen shows a smartspace card. |
 | **Status icons stay put** | The icons and battery on the right of the lock screen status bar are the ones the status bar shows after it, so they stay where they are instead of fading out and back in. |
 | **Notification icons and chips** | Grow in beside the status bar clock one after another on Material 3 Expressive springs, instead of simply reappearing. |
 
@@ -151,8 +165,11 @@ surface, and sent to the module's app, which finds the subject's mask with
 BiRefNet_lite and answers only SystemUI. A mask already found is read back from
 disk. The subject cut out of the photo becomes a layer beside the large clock
 face, placed as `WallpaperController` places the wallpaper — crop, scroll and
-zoom — clipped to the time, and faded with SystemUI's scrims so it goes and
-comes back with the photo on the way into and out of the always-on display.
+zoom — clipped to the time, left out while it would hide more than half of
+the time's ink, dimmed with SystemUI's scrims, and darkened pixel for pixel
+as the light reveal darkens the photo, so it goes and comes back with the
+photo on the way into and out of the always-on display without letting the
+time show through.
 
 </details>
 
