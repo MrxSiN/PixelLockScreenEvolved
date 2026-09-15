@@ -24,6 +24,7 @@ internal class KeyguardStatusBarUnlockMotion(
     private val hooks: Hooks,
     private val unlockFrames: UnlockFrameLoop,
     private val statusBarClocks: StatusBarClocks,
+    private val iconWindows: OverlayWindowStandby,
     private val logger: Logger,
 ) : HostPatch {
 
@@ -87,16 +88,20 @@ internal class KeyguardStatusBarUnlockMotion(
     }
 
     private fun begin(unlockApi: KeyguardUnlockApi, statusBarApi: KeyguardStatusBarApi, controller: Any, frameTimeNanos: Long): Unlock? {
-        if (!unlockApi.isKeyguardShowing(controller)) return null
-        val keyguardBar = keyguardStatusBar.get()?.takeIf { it.isAttachedToWindow } ?: return null
-        val icons = statusBarApi.systemIcons(keyguardBar) ?: return null
-        val clock = statusBarClocks.find(keyguardBar) ?: return null
+        val keyguardBar = keyguardStatusBar.get()?.takeIf { it.isAttachedToWindow }
+        val icons = keyguardBar?.let(statusBarApi::systemIcons)
+        val clock = keyguardBar?.let(statusBarClocks::find)
+        if (!unlockApi.isKeyguardShowing(controller) || icons == null || clock == null) {
+            iconWindows.discard()
+            return null
+        }
         val statusBar = clock.rootView
 
         val handover = statusBar.findViewByName<View>(END_SIDE_ID)
             ?.takeIf { ViewPictures.visibleAlpha(icons) >= MOST_FADE_TO_START && icons.width > 0 }
-            ?.let { StatusIconsHandover(icons, it, clock, logger) }
+            ?.let { StatusIconsHandover(icons, it, clock, iconWindows.take(icons.context)) }
             ?.takeIf { it.show() }
+        if (handover == null) iconWindows.discard()
         val entrance = statusBar.findViewByName<ViewGroup>(START_SIDE_ID)
             ?.let { NotificationIconsEntrance(it, clock) }
             ?.also { it.hold() }

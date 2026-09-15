@@ -30,7 +30,7 @@ internal class PickerClockPatches(
             PickerClockSliders(hooks, styles, state, logger),
             PickerClockSettings(hooks, styles, state, logger),
             PickerSizeEdit(hooks, state, logger),
-            PickerDepthEffectOption(hooks, logger),
+            PickerLockScreenOptions(hooks, logger),
         ).forEach { it.install(classLoader) }
     }
 }

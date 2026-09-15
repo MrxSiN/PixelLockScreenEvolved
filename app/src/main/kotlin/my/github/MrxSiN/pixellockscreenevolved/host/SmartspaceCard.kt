@@ -13,11 +13,4 @@ internal object SmartspaceCard {
 
     /** The card's view id, as SystemUI's resources name it, or 0 where it has none. */
     fun id(view: View): Int = view.resources.getIdentifier(ID_NAME, "id", view.context.packageName)
-
-    /** Whether the window [view] is in shows a card now. */
-    fun isShownAround(view: View): Boolean {
-        val id = id(view).takeIf { it != 0 } ?: return false
-        val card = view.rootView.findViewById<View>(id) ?: return false
-        return card.isShown && card.height > 0
-    }
 }

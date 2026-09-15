@@ -30,6 +30,19 @@ internal class ClockFaceAdapter(
 
     private var theme: Any = initialTheme
 
+    /**
+     * Counts the changes to how the time is written (its text, size and font), so
+     * whatever measures the time can tell its measure is out of date.
+     */
+    var timeChanges = 0
+        private set
+
+    /**
+     * How far the parts of the face around its time have come in, from 0 to 1,
+     * as the clock changes size; the time itself is carried across instead.
+     */
+    var arrival = 1f
+
     /** How far the face has gone into the always-on display, from 0 awake to 1 dozing. */
     var dozeFraction = 0f
         private set
@@ -55,7 +68,7 @@ internal class ClockFaceAdapter(
     private val events = proxies.create(
         api.faceEventsType,
         mapOf(
-            "onTimeTick" to { _ -> face.refresh() },
+            "onTimeTick" to { _ -> refresh() },
             "onThemeChanged" to { args -> setTheme(requireNotNull(args[0])) },
             "onFontSettingChanged" to IgnoreCall,
             "onSecondaryDisplayChanged" to IgnoreCall,
@@ -78,6 +91,9 @@ internal class ClockFaceAdapter(
     )
 
     private val config = api.faceConfig(face.drawsDate)
+
+    /** Whether the face's time is moving to new text ([ClockFace.isChanging]). */
+    val timeChanging: Boolean get() = face.isChanging
 
     /** The face's time, as [ClockFace.timeView] names it. */
     val timeView: View get() = face.timeView
@@ -104,6 +120,7 @@ internal class ClockFaceAdapter(
     }
 
     fun refresh() {
+        timeChanges++
         face.refresh()
     }
 
@@ -132,11 +149,13 @@ internal class ClockFaceAdapter(
      */
     fun setSizeStep(step: Float?) {
         val shown = if (size == FaceSize.SMALL) ClockAxes.SMALL_CLOCK_SIZE_STEP else step
+        timeChanges++
         (face as? ResizableClockFace)?.setSize(ClockAxes.sizeOf(shown))
     }
 
     /** Shows the font a stored font value chooses; a face with one font has nothing to change. */
     fun setFont(value: Float?) {
+        timeChanges++
         (face as? FontChoosingClockFace)?.setFont(ClockAxes.fontIndexOf(value, fontCount))
     }
 

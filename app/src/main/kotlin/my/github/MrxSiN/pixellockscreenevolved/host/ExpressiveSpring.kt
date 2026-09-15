@@ -81,7 +81,13 @@ internal class ExpressiveSpring(private val dampingRatio: Float, stiffness: Floa
         /** `MotionScheme.expressive().fastSpatialSpec()`: small things moving and resizing, with a little bounce. */
         val FAST_SPATIAL = ExpressiveSpring(dampingRatio = 0.6f, stiffness = 800f)
 
+        /** `MotionScheme.expressive().defaultSpatialSpec()`: larger things moving and resizing, with a little bounce. */
+        val DEFAULT_SPATIAL = ExpressiveSpring(dampingRatio = 0.8f, stiffness = 380f)
+
         /** `MotionScheme.expressive().fastEffectsSpec()`: opacity and colour, without bounce. */
         val FAST_EFFECTS = ExpressiveSpring(dampingRatio = 1f, stiffness = 3800f)
+
+        /** `MotionScheme.expressive().defaultEffectsSpec()`: opacity and colour over a larger area, without bounce. */
+        val DEFAULT_EFFECTS = ExpressiveSpring(dampingRatio = 1f, stiffness = 1600f)
     }
 }

@@ -16,7 +16,6 @@ import android.widget.TextView
 
 import kotlin.math.roundToInt
 
-import my.github.MrxSiN.pixellockscreenevolved.core.Logger
 import my.github.MrxSiN.pixellockscreenevolved.host.ViewPictures.screenLocation
 
 /**
@@ -26,7 +25,8 @@ import my.github.MrxSiN.pixellockscreenevolved.host.ViewPictures.screenLocation
  *
  * The keyguard fades within a few frames of an unlock starting and SystemUI only
  * brings the status bar back some time after, so a picture of the icons is held
- * in a window of its own; the lock screen's icons are hidden as soon as it has
+ * in a window of its own, usually added before the unlock began
+ * ([OverlayWindowStandby]); the lock screen's icons are hidden as soon as it has
  * reached the screen. As SystemUI shows the status bar's icons, the picture eases
  * onto them, in place and in colour ([statusBarClock]'s, which the status bar
  * tints its icons with; it can darken toward that tint but not lighten beyond
@@ -41,13 +41,13 @@ internal class StatusIconsHandover(
     private val source: View,
     private val target: View,
     private val statusBarClock: TextView,
-    logger: Logger,
+    /** The window the picture is shown in, added or not yet. */
+    private val window: OverlayWindow,
 ) {
 
     private val picture: Bitmap = requireNotNull(ViewPictures.of(source))
     private val ink = inkColour(picture)
-    private val pieces = cut(picture)
-    private val window = OverlayWindow(source.context, WINDOW_TITLE, logger).apply { pieces.forEach { root.addView(it.image) } }
+    private val pieces = cut(picture).onEach { window.root.addView(it.image) }
     private val sourceTransitionAlpha = source.transitionAlpha
     private var waitingForCommit = false
     private var committedFrames = 0
@@ -60,7 +60,7 @@ internal class StatusIconsHandover(
      * left neither on screen for a frame or two, since the two windows draw apart.
      */
     fun show(): Boolean {
-        if (!window.add()) {
+        if (!window.isAdded && !window.add()) {
             recycle()
             return false
         }
@@ -163,26 +163,26 @@ internal class StatusIconsHandover(
         }
     }
 
-    private companion object {
+    companion object {
         const val WINDOW_TITLE = "StatusIcons"
 
         /** Parts of the icons both rows name alike and space differently. */
-        val MATCHED_PARTS = listOf("statusIcons")
+        private val MATCHED_PARTS = listOf("statusIcons")
 
         /** Frames the picture stays after the status bar has committed a frame of its icons. */
-        const val FRAMES_AFTER_COMMIT = 2
+        private const val FRAMES_AFTER_COMMIT = 2
 
         /** The status bar's icons count as shown from this opacity. */
-        const val SHOWN = 0.99f
+        private const val SHOWN = 0.99f
 
-        const val OPAQUE = 255
+        private const val OPAQUE = 255
 
-        val COLOUR = ArgbEvaluator()
+        private val COLOUR = ArgbEvaluator()
 
-        val ERASE = Paint().apply { xfermode = PorterDuffXfermode(PorterDuff.Mode.CLEAR) }
+        private val ERASE = Paint().apply { xfermode = PorterDuffXfermode(PorterDuff.Mode.CLEAR) }
 
         /** The tint that turns icons drawn in [ink] into ones drawn in [wanted], by multiplying. */
-        fun tintFrom(ink: Int, wanted: Int): Int {
+        private fun tintFrom(ink: Int, wanted: Int): Int {
             fun channel(from: Int, to: Int) = if (from == 0) OPAQUE else (to * OPAQUE / from).coerceIn(0, OPAQUE)
             return Color.rgb(
                 channel(Color.red(ink), Color.red(wanted)),
@@ -192,7 +192,7 @@ internal class StatusIconsHandover(
         }
 
         /** The colour the icons are drawn in, read off the picture's first solid pixel along its middle. */
-        fun inkColour(picture: Bitmap): Int {
+        private fun inkColour(picture: Bitmap): Int {
             val y = picture.height / 2
             return (0 until picture.width).asSequence()
                 .map { picture.getPixel(it, y) }

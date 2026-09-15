@@ -1,7 +1,6 @@
 package my.github.MrxSiN.pixellockscreenevolved.host
 
 import android.content.Context
-import android.view.View
 
 import java.io.PrintWriter
 
@@ -24,7 +23,9 @@ internal class ClockControllerAdapter(
 
     private val large = face(FaceSize.LARGE)
     private val small = face(FaceSize.SMALL)
-    private val faces = listOf(large, small)
+
+    /** Both faces, for whatever needs the one on screen. */
+    val faces: List<ClockFaceAdapter> = listOf(large, small)
 
     init {
         val font = api.axis(settings, ClockAxes.FONT_KEY)
@@ -40,9 +41,6 @@ internal class ClockControllerAdapter(
 
     /** The small face, shown while notifications are. */
     val smallFace: ClockFaceAdapter get() = small
-
-    /** Both faces' times, for whatever needs the one on screen. */
-    val timeViews: List<View> get() = faces.map { it.timeView }
 
     /** Shows [step] on the large face at once, as the picker's size slider moves. */
     fun previewSizeStep(step: Float) {

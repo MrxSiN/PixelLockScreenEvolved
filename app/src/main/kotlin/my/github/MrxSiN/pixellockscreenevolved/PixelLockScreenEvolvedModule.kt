@@ -10,14 +10,22 @@ import my.github.MrxSiN.pixellockscreenevolved.hook.Hooks
 import my.github.MrxSiN.pixellockscreenevolved.hook.HostPatch
 import my.github.MrxSiN.pixellockscreenevolved.hook.ModuleFontSource
 import my.github.MrxSiN.pixellockscreenevolved.hook.XposedHooks
+import my.github.MrxSiN.pixellockscreenevolved.host.ClockFlightOverlay
+import my.github.MrxSiN.pixellockscreenevolved.host.ClockFlightStandby
 import my.github.MrxSiN.pixellockscreenevolved.host.ClockRegistryInjector
 import my.github.MrxSiN.pixellockscreenevolved.host.KeyguardClockSizeMotion
+import my.github.MrxSiN.pixellockscreenevolved.host.KeyguardAodWallpaper
 import my.github.MrxSiN.pixellockscreenevolved.host.KeyguardClockUnlockMotion
 import my.github.MrxSiN.pixellockscreenevolved.host.KeyguardDepthEffect
+import my.github.MrxSiN.pixellockscreenevolved.host.KeyguardPreviewWallpapers
 import my.github.MrxSiN.pixellockscreenevolved.host.KeyguardSmartspacePlacement
 import my.github.MrxSiN.pixellockscreenevolved.host.KeyguardStatusBarUnlockMotion
+import my.github.MrxSiN.pixellockscreenevolved.host.LockWallpaperFeed
+import my.github.MrxSiN.pixellockscreenevolved.host.LockScreenReadiness
+import my.github.MrxSiN.pixellockscreenevolved.host.OverlayWindowStandby
 import my.github.MrxSiN.pixellockscreenevolved.host.PickerClockPatches
 import my.github.MrxSiN.pixellockscreenevolved.host.StatusBarClocks
+import my.github.MrxSiN.pixellockscreenevolved.host.StatusIconsHandover
 import my.github.MrxSiN.pixellockscreenevolved.host.UnlockFrameLoop
 
 /**
@@ -55,21 +63,33 @@ class PixelLockScreenEvolvedModule : XposedModule() {
             SYSTEMUI_PACKAGE -> {
                 val unlockFrames = UnlockFrameLoop(hooks, logger)
                 val statusBarClocks = StatusBarClocks(hooks, logger)
-                val depthEffect = KeyguardDepthEffect(hooks, moduleApplicationInfo.packageName, logger)
-                val unlockMotion = KeyguardClockUnlockMotion(unlockFrames, statusBarClocks, depthEffect, logger)
+                val previewWallpapers = KeyguardPreviewWallpapers(hooks, logger)
+                val wallpaperFeed = LockWallpaperFeed(hooks, logger)
+                val aodWallpaper = KeyguardAodWallpaper(wallpaperFeed).also(wallpaperFeed::addListener)
+                val depthEffect = KeyguardDepthEffect(wallpaperFeed, moduleApplicationInfo.packageName, previewWallpapers, aodWallpaper, logger)
+                    .also(wallpaperFeed::addListener)
+                    .also { it.addSubjectListener(aodWallpaper::onSubject) }
+                val lockScreen = LockScreenReadiness()
+                val flightStandby = ClockFlightStandby(
+                    lockScreen, OverlayWindowStandby(ClockFlightOverlay.WINDOW_TITLE, logger), statusBarClocks, depthEffect,
+                ).also(lockScreen::addListener)
+                val iconWindows = OverlayWindowStandby(StatusIconsHandover.WINDOW_TITLE, logger).also(lockScreen::addListener)
+                val unlockMotion = KeyguardClockUnlockMotion(unlockFrames, flightStandby)
                 val sizeMotion = KeyguardClockSizeMotion(hooks, logger)
                 listOf(
                     ClockRegistryInjector(hooks, styles, logger) { clock ->
-                        unlockMotion.track(clock)
+                        lockScreen.track(clock)
                         depthEffect.track(clock)
+                        aodWallpaper.track(clock)
                         sizeMotion.track(clock)
                     },
                     KeyguardSmartspacePlacement(hooks, styles, logger),
                     unlockFrames,
                     statusBarClocks,
                     unlockMotion,
-                    KeyguardStatusBarUnlockMotion(hooks, unlockFrames, statusBarClocks, logger),
-                    depthEffect,
+                    KeyguardStatusBarUnlockMotion(hooks, unlockFrames, statusBarClocks, iconWindows, logger),
+                    previewWallpapers,
+                    wallpaperFeed,
                     sizeMotion,
                 )
             }

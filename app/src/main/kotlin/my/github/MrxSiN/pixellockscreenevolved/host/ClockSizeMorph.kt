@@ -1,13 +1,9 @@
 package my.github.MrxSiN.pixellockscreenevolved.host
 
-import android.animation.Animator
-import android.animation.AnimatorListenerAdapter
 import android.animation.ValueAnimator
 import android.graphics.RectF
-import android.view.View
 import android.view.ViewGroup
 import android.view.ViewTreeObserver
-import android.view.animation.PathInterpolator
 
 /**
  * Carries the time from one clock face to the other as the lock screen changes
@@ -16,8 +12,10 @@ import android.view.animation.PathInterpolator
  *
  * [start] is called while the face being left is still laid out. On the first
  * frame the face being shown is laid out, its time is moved and scaled back
- * over the time just left and then eased into its own place, while the rest of
- * that face (the large face's date) fades in around it.
+ * over the time just left and then carried into its own place on a spring
+ * that sets off from rest, so it neither jumps at the start nor crawls at the
+ * end, while the rest of that face (the large face's date, and the depth
+ * effect's subject beside it) fades in around it ([ClockFaceAdapter.arrival]).
  */
 internal class ClockSizeMorph {
 
@@ -54,39 +52,28 @@ internal class ClockSizeMorph {
 
         time.pivotX = 0f
         time.pivotY = 0f
-        running = ValueAnimator.ofFloat(0f, 1f).apply {
-            duration = DURATION_MS
-            interpolator = EMPHASIZED_DECELERATE
-            addUpdateListener {
-                val progress = it.animatedValue as Float
-                time.translationX = fromX * (1f - progress)
-                time.translationY = fromY * (1f - progress)
-                time.scaleX = lerp(fromScaleX, 1f, progress)
-                time.scaleY = lerp(fromScaleY, 1f, progress)
-                around.forEach { view -> view.alpha = progress }
-            }
-            addListener(object : AnimatorListenerAdapter() {
-                override fun onAnimationEnd(animation: Animator) = settle(time, around)
-            })
-            start()
+        fun show(progress: Float, faded: Float) {
+            time.translationX = fromX * (1f - progress)
+            time.translationY = fromY * (1f - progress)
+            time.scaleX = lerp(fromScaleX, 1f, progress)
+            time.scaleY = lerp(fromScaleY, 1f, progress)
+            around.forEach { view -> view.alpha = faded }
+            to.arrival = faded
         }
-    }
-
-    private fun settle(time: View, around: List<View>) {
-        time.translationX = 0f
-        time.translationY = 0f
-        time.scaleX = 1f
-        time.scaleY = 1f
-        time.resetPivot()
-        around.forEach { it.alpha = 1f }
-        running = null
+        show(0f, 0f)
+        running = MOVE.animator(
+            update = { seconds -> show(MOVE.valueAt(seconds), FADE.valueAt(seconds).coerceIn(0f, 1f)) },
+            end = {
+                show(1f, 1f)
+                time.resetPivot()
+                running = null
+            },
+        ).apply { start() }
     }
 
     private companion object {
-        const val DURATION_MS = 500L
-
-        /** Material's emphasized decelerate easing. */
-        val EMPHASIZED_DECELERATE = PathInterpolator(0.05f, 0.7f, 0.1f, 1f)
+        val MOVE = ExpressiveSpring.DEFAULT_SPATIAL
+        val FADE = ExpressiveSpring.DEFAULT_EFFECTS
 
         fun lerp(from: Float, to: Float, t: Float): Float = from + (to - from) * t
     }

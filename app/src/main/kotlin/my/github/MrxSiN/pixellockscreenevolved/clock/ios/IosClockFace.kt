@@ -62,6 +62,8 @@ internal class IosClockFace(
 
     override val drawsDate: Boolean = showsDate
 
+    override val isChanging: Boolean get() = timeView.isChanging
+
     init {
         setFont(0)
         setColor(Color.WHITE)

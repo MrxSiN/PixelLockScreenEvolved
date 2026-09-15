@@ -63,6 +63,12 @@ interface ClockFace {
     val timeView: View get() = view
 
     /**
+     * Whether the time is moving to new text, as digits roll to a new minute, so
+     * what [timeView] draws now is not yet what it will show.
+     */
+    val isChanging: Boolean get() = false
+
+    /**
      * Whether this face writes the date itself. SystemUI then leaves out its
      * own date and weather line beside it, so the date is never shown twice.
      */

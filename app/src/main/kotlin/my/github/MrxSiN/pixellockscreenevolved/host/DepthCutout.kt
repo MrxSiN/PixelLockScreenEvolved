@@ -41,7 +41,10 @@ internal class DepthCutout(cacheDirectory: File) {
      * The subject of [photo]: its pixels, as opaque as [mask] stretched over
      * the photo is. The alpha is set pixel by pixel; drawn with a transfer
      * mode, an alpha-only bitmap acts as coverage and would leave the pixels
-     * outside the subject untouched.
+     * outside the subject untouched. The model leaves a faint haze of alpha
+     * well around the subject, which showed as a lighter or darker box around
+     * the time wherever what lay beneath differed from the photo, so alpha up
+     * to [HAZE] is dropped and the rest stretched back to full.
      */
     fun cutOut(photo: Bitmap, mask: Bitmap): Bitmap {
         val width = photo.width
@@ -52,7 +55,8 @@ internal class DepthCutout(cacheDirectory: File) {
 
         val pixels = IntArray(width * height).also { photo.getPixels(it, 0, width, 0, 0, width, height) }
         for (i in pixels.indices) {
-            pixels[i] = ((alpha[i].toInt() and 0xff) shl 24) or (pixels[i] and 0xffffff)
+            val kept = ((alpha[i].toInt() and 0xff) - HAZE).coerceAtLeast(0) * OPAQUE / (OPAQUE - HAZE)
+            pixels[i] = (kept shl 24) or (pixels[i] and 0xffffff)
         }
         return Bitmap.createBitmap(pixels, width, height, Bitmap.Config.ARGB_8888)
     }
@@ -88,6 +92,10 @@ internal class DepthCutout(cacheDirectory: File) {
         private const val MASK_DIRECTORY = "${MASK_DIRECTORY_PREFIX}_${SubjectMaskContract.MODEL}"
         private const val MASK_SUFFIX = ".mask"
         private const val KEY_SAMPLE = 32
+        private const val OPAQUE = 255
+
+        /** Mask alpha, out of 255, at and below which a pixel is taken to be the model's haze rather than the subject. */
+        private const val HAZE = 26
 
         /** Masks kept on disk, so going back to a recent photo needs no new segmentation. */
         private const val KEPT_MASKS = 4

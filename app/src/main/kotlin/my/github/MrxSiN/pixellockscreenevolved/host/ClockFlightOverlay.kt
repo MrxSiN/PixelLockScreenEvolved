@@ -1,19 +1,15 @@
 package my.github.MrxSiN.pixellockscreenevolved.host
 
 import android.animation.ArgbEvaluator
-import android.graphics.Bitmap
-import android.graphics.Canvas
-import android.graphics.Color
-import android.graphics.Paint
 import android.graphics.PointF
 import android.graphics.PorterDuff
 import android.graphics.PorterDuffColorFilter
-import android.graphics.Rect
 import android.view.View
 import android.widget.ImageView
 import android.widget.TextView
 
-import my.github.MrxSiN.pixellockscreenevolved.core.Logger
+import kotlin.math.pow
+
 import my.github.MrxSiN.pixellockscreenevolved.host.ViewPictures.screenLocation
 
 /**
@@ -30,59 +26,66 @@ import my.github.MrxSiN.pixellockscreenevolved.host.ViewPictures.screenLocation
  *
  * The keyguard window fades within a few frames of an unlock starting, far
  * sooner than a move can be followed, so the pictures live in a window of
- * their own above everything. The time is hidden once the pictures have
- * reached the screen; once landed, the picture hands over to the status bar
- * clock beneath it ([handOver]).
+ * their own above everything, which, like the pictures, is usually ready
+ * before the unlock begins ([ClockFlightStandby]). The time is hidden once the
+ * pictures have reached the screen; once landed, the picture hands over to the
+ * status bar clock beneath it ([handOver]).
  *
- * The time starts at the size it is drawn on screen, which SystemUI may scale.
+ * The time starts at the size it is drawn on screen, which SystemUI may scale,
+ * and as faded as the keyguard has made it, coming up to full over the first
+ * part of its way. It shrinks by the same ratio each moment rather than the
+ * same number of pixels, so it does not seem to collapse at the end.
  * Where something is drawn in front of it ([TimeOcclusion], the depth effect's
  * subject), the flight starts with those parts missing, as they were on the
  * lock screen, and fills them in over the first part of its way, as the time
  * comes out from behind the subject.
  */
 internal class ClockFlightOverlay(
-    private val time: View,
+    val time: View,
     private val target: TextView,
-    occlusion: TimeOcclusion,
-    logger: Logger,
+    private val pictures: TimePictures,
+    private val landing: LandingPicture,
+    /** The window the pictures are shown in, added or not yet. */
+    private val window: OverlayWindow,
 ) {
 
-    private val timePicture = requireNotNull(ViewPictures.of(time))
-    private val startColor = inkColour(timePicture)
+    private val startColor = pictures.color
     private val endColor = target.currentTextColor
-
-    /** The time as the lock screen showed it, with what stood in front of it cut away; null if nothing did. */
-    private val hiddenTimePicture = timePicture.copy(Bitmap.Config.ARGB_8888, true)
-        .takeIf { occlusion.eraseSubject(time, it) }
 
     /** Where the time is drawn on screen, with SystemUI's scale of the clock applied. */
     private val from = ViewBounds.inWindow(time)
-    private val landing = Landing.of(target, endColor)
     private val path = flightPath()
 
-    private val timeImage = ViewPictures.image(time, timePicture).apply { alpha = 0f }
-    private val hiddenTimeImage = hiddenTimePicture?.let { ViewPictures.image(time, it).apply { alpha = 0f } }
+    private val timeImage = ViewPictures.image(time, pictures.whole).apply { alpha = 0f }
+    private val hiddenTimeImage = pictures.hidden?.let { ViewPictures.image(time, it).apply { alpha = 0f } }
     private val landingImage = ViewPictures.image(time, landing.picture).apply { alpha = 0f }
-    private val window = OverlayWindow(time.context, WINDOW_TITLE, logger).apply {
-        root.addView(timeImage)
-        hiddenTimeImage?.let(root::addView)
-        root.addView(landingImage)
+    private val root = window.root.apply {
+        addView(timeImage)
+        hiddenTimeImage?.let(::addView)
+        addView(landingImage)
     }
-    private val root get() = window.root
 
     private val timeAlpha = time.alpha
+
+    /** How shown the time was as the pictures first appeared over it; a fast swipe may have faded it a long way. */
+    private var startAlpha = 1f
+
+    /** How far along the flight was as the pictures first appeared. */
+    private var appearedAt = 0f
     private var progress = 0f
     private var shown = false
 
     /** Shows the pictures over the time, hiding the time as they first appear; false if the window could not be added. */
     fun show(): Boolean {
-        if (!window.add()) {
+        if (!window.isAdded && !window.add()) {
             recycle()
             return false
         }
         place()
         window.onFirstFrame {
             shown = true
+            startAlpha = ViewPictures.visibleAlpha(time)
+            appearedAt = progress
             place()
             time.alpha = 0f
         }
@@ -125,14 +128,15 @@ internal class ClockFlightOverlay(
     private fun place() {
         if (!shown) return
 
-        val remaining = 1f - progress
-        val along = 1f - remaining * remaining * remaining
+        // The spring already eases the progress in and out, so the path follows it as it is.
+        val along = progress
         // Shrinks as it moves, a little ahead, so it is small by the time it passes the top left,
         // where the home screen's smartspace appears, without its size changing faster than its place.
         val shrink = smoothstep(along / SHRUNK_BY)
         val morph = smoothstep((along - MORPH_FROM) / (1f - MORPH_FROM))
+        root.alpha = lerp(startAlpha, 1f, smoothstep((along - appearedAt) / APPEARED_BY))
 
-        val height = lerp(from.height(), landing.height.toFloat(), shrink)
+        val height = from.height() * (landing.height / from.height()).pow(shrink)
         val sameShapeWidth = from.width() * height / from.height()
         val width = lerp(sameShapeWidth, landing.width.toFloat(), morph)
         val topLeft = PointF(path.x(along) - width / 2f, path.y(along))
@@ -213,37 +217,13 @@ internal class ClockFlightOverlay(
     }
 
     private fun recycle() {
-        timePicture.recycle()
-        hiddenTimePicture?.recycle()
-        landing.picture.recycle()
+        pictures.recycle()
+        landing.recycle()
     }
 
-    /** The status bar clock's text as that clock draws it, with where its ink sits relative to the clock. */
-    private class Landing(val picture: Bitmap, private val inkLeft: Float, private val inkTop: Float) {
-        val width get() = picture.width
-        val height get() = picture.height
+    companion object {
+        const val WINDOW_TITLE = "ClockFlight"
 
-        /** Where the picture's top left corner goes on screen for [target] where it is now. */
-        fun origin(target: TextView): PointF {
-            val on = target.screenLocation()
-            val lineLeft = target.layout?.getLineLeft(0) ?: 0f
-            return PointF(on[0] + target.compoundPaddingLeft + lineLeft + inkLeft, on[1] + target.baseline + inkTop)
-        }
-
-        companion object {
-            fun of(target: TextView, colour: Int): Landing {
-                val text = target.text.toString()
-                val paint = Paint(target.paint).apply { color = colour }
-                val ink = Rect().also { paint.getTextBounds(text, 0, text.length, it) }
-
-                val picture = Bitmap.createBitmap(ink.width() + 2 * EDGE, ink.height() + 2 * EDGE, Bitmap.Config.ARGB_8888)
-                Canvas(picture).drawText(text, (EDGE - ink.left).toFloat(), (EDGE - ink.top).toFloat(), paint)
-                return Landing(picture, (ink.left - EDGE).toFloat(), (ink.top - EDGE).toFloat())
-            }
-        }
-    }
-
-    private companion object {
         /** Share of the way along the path after which the time turns into the status bar clock's text. */
         const val MORPH_FROM = 0.6f
 
@@ -256,32 +236,20 @@ internal class ClockFlightOverlay(
         /** The status bar clock counts as shown from this opacity. */
         const val SHOWN = 0.99f
 
-        /** Room around the landing text so its antialiased edges are not cut off. */
-        const val EDGE = 2
-
         /** How far along its path the time has shrunk to the status bar clock's size. */
         const val SHRUNK_BY = 0.85f
 
         /** How far along the flight the time has fully come out from behind what was in front of it. */
         const val EMERGED_BY = 0.35f
 
+        /** How much further along the flight a time faded by a fast swipe has come back up to full. */
+        const val APPEARED_BY = 0.3f
 
-        const val OPAQUE = 255
-        const val WINDOW_TITLE = "ClockFlight"
 
         val COLOUR = ArgbEvaluator()
 
         fun lerp(from: Float, to: Float, t: Float): Float = from + (to - from) * t
 
         fun smoothstep(t: Float): Float = t.coerceIn(0f, 1f).let { it * it * (3f - 2f * it) }
-
-        /** The colour the time is drawn in, read off the picture's first solid pixel along its middle. */
-        fun inkColour(picture: Bitmap): Int {
-            val y = picture.height / 2
-            return (0 until picture.width).asSequence()
-                .map { picture.getPixel(it, y) }
-                .firstOrNull { Color.alpha(it) == OPAQUE }
-                ?: Color.WHITE
-        }
     }
 }
