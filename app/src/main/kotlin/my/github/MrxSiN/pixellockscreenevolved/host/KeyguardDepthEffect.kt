@@ -27,8 +27,9 @@ import my.github.MrxSiN.pixellockscreenevolved.hook.HostPatch
  * surface is in is scaled and scrolled on screen, and the scroll is followed. A photo not
  * seen before goes to the module's app for its subject mask
  * ([SubjectMaskClient]); a mask already found is read back from disk
- * ([DepthCutout]). The subject cut out of the photo is then shown in front of
- * every large face ([DepthLayer]). All of it waits while the effect is off
+ * ([DepthCutout]). While a new photo's mask is being found, and when it is
+ * ready or given up, a notification says so ([DepthProgressNotice]). The subject
+ * cut out of the photo is then shown in front of every large face ([DepthLayer]). All of it waits while the effect is off
  * ([DepthEffectSetting]): the latest photo is kept, and found only once the
  * effect is turned on.
  * Live wallpapers are drawn by their own apps and never reach this, so they
@@ -59,6 +60,7 @@ internal class KeyguardDepthEffect(
     private var photoKey: String? = null
     private var cutout: Bitmap? = null
     private var client: SubjectMaskClient? = null
+    private var notice: DepthProgressNotice? = null
     private var store: DepthCutout? = null
 
     /** Draws the subject in front of a clock SystemUI built, once there is one. */
@@ -200,15 +202,39 @@ internal class KeyguardDepthEffect(
 
         val small = cutouts.forSegmentation(photo)
         main.post {
-            val masks = client ?: SubjectMaskClient(context.applicationContext ?: context, modulePackage, logger).also { client = it }
-            masks.request(small) { mask ->
-                worker.execute {
-                    runCatching {
-                        cutouts.storeMask(key, mask)
-                        publish(key, cutouts.cutOut(photo, mask))
-                    }.onFailure { logger.warn("Depth effect failed", it) }
-                }
-            }
+            val appContext = context.applicationContext ?: context
+            val masks = client ?: SubjectMaskClient(appContext, modulePackage, logger).also { client = it }
+            val progress = notice ?: DepthProgressNotice(appContext, modulePackage, logger).also { notice = it }
+            progress.finding()
+            masks.request(
+                small,
+                onMask = { mask ->
+                    worker.execute {
+                        runCatching {
+                            cutouts.storeMask(key, mask)
+                            publish(key, cutouts.cutOut(photo, mask))
+                            progress.ready()
+                        }.onFailure {
+                            logger.warn("Depth effect failed", it)
+                            giveUp(key, progress)
+                        }
+                    }
+                },
+                onFailed = { giveUp(key, progress) },
+            )
+        }
+    }
+
+    /**
+     * Says the photo [key] names has no depth effect, and forgets it was seen, so
+     * the next time the lock screen draws it its subject is looked for again.
+     */
+    private fun giveUp(key: String, progress: DepthProgressNotice) {
+        main.post {
+            if (key != photoKey) return@post
+            progress.failed()
+            seenKey = null
+            worker.execute { if (photoKey == key) photoKey = null }
         }
     }
 

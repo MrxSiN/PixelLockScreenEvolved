@@ -8,4 +8,17 @@
     -->
     <string name="app_name">Pixel Lock Screen Evolved</string>
     <string name="module_description">Xposed module that adds more lock screen clock styles to Pixel, picked in Wallpaper &amp; style.</string>
+
+    <!--
+      The depth effect's notification. SystemUI posts it, reading these strings
+      from the module's own resources.
+    -->
+    <string name="depth_notice_channel">Depth effect</string>
+    <string name="depth_notice_channel_description">Shows while the depth effect is being prepared for a new lock screen photo.</string>
+    <string name="depth_notice_finding_title">Preparing depth effect</string>
+    <string name="depth_notice_finding_text">Finding the subject of your lock screen photo. This can take a few seconds.</string>
+    <string name="depth_notice_ready_title">Depth effect ready</string>
+    <string name="depth_notice_ready_text">Your lock screen photo now stands in front of the clock.</string>
+    <string name="depth_notice_failed_title">Depth effect unavailable</string>
+    <string name="depth_notice_failed_text">The subject of your lock screen photo could not be found. It will be tried again the next time the lock screen shows the photo.</string>
 </resources>

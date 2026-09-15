@@ -1,0 +1,26 @@
+<!--
+  The depth effect's notification icon: a subject standing in front of the photo
+  it was found in. Status bar icons are drawn from their alpha alone.
+-->
+<vector xmlns:android="http://schemas.android.com/apk/res/android"
+    android:width="24dp"
+    android:height="24dp"
+    android:viewportWidth="24"
+    android:viewportHeight="24">
+
+    <!-- The photo, its lower right corner hidden behind the subject. -->
+    <path
+        android:fillColor="#00000000"
+        android:strokeColor="#FFFFFFFF"
+        android:strokeWidth="2"
+        android:strokeLineJoin="round"
+        android:pathData="M11,19H5a2,2 0 0,1 -2,-2V5a2,2 0 0,1 2,-2h12a2,2 0 0,1 2,2v5" />
+
+    <!-- The subject: head and shoulders. -->
+    <path
+        android:fillColor="#FFFFFFFF"
+        android:pathData="M17.5,13.5m-2.5,0a2.5,2.5 0 1,0 5,0a2.5,2.5 0 1,0 -5,0" />
+    <path
+        android:fillColor="#FFFFFFFF"
+        android:pathData="M12,22a5.5,4 0 0,1 11,0z" />
+</vector>

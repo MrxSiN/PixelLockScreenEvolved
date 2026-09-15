@@ -20,7 +20,7 @@ import my.github.MrxSiN.pixellockscreenevolved.depth.SubjectMaskContract
  * ([SubjectMaskContract]), binding to it while a request is open.
  *
  * Only the latest photo matters, so a new request replaces one still waiting.
- * A failure is tried again a little later, a few times.
+ * A failure is tried again a little later, a few times, before it is given up.
  */
 internal class SubjectMaskClient(
     private val context: Context,
@@ -34,7 +34,13 @@ internal class SubjectMaskClient(
     private var requestId = 0
     private var pending: Pending? = null
 
-    private class Pending(val id: Int, val photo: Bitmap, val onMask: (Bitmap) -> Unit, var attempts: Int = 0)
+    private class Pending(
+        val id: Int,
+        val photo: Bitmap,
+        val onMask: (Bitmap) -> Unit,
+        val onFailed: () -> Unit,
+        var attempts: Int = 0,
+    )
 
     private val replies = Messenger(Handler(Looper.getMainLooper()) { message ->
         val current = pending
@@ -53,9 +59,12 @@ internal class SubjectMaskClient(
         }
     }
 
-    /** Asks for [photo]'s subject mask; [onMask] hears it on the main thread. Call on the main thread. */
-    fun request(photo: Bitmap, onMask: (Bitmap) -> Unit) {
-        pending = Pending(++requestId, photo, onMask)
+    /**
+     * Asks for [photo]'s subject mask; [onMask] hears it, or [onFailed] that it was
+     * given up, on the main thread. Call on the main thread.
+     */
+    fun request(photo: Bitmap, onMask: (Bitmap) -> Unit, onFailed: () -> Unit) {
+        pending = Pending(++requestId, photo, onMask, onFailed)
         if (service != null) send(requireNotNull(pending)) else bind()
     }
 
@@ -96,6 +105,7 @@ internal class SubjectMaskClient(
             logger.warn("Subject mask not found after ${request.attempts} attempts: $reason")
             pending = null
             unbind()
+            request.onFailed()
             return
         }
         logger.info("Subject mask not ready ($reason); asking again")
