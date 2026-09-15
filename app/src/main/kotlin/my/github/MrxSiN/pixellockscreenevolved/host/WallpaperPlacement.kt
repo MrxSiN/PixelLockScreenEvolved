@@ -36,24 +36,34 @@ internal object WallpaperPlacement {
             pivotY + (top + surfaceY * height / surfaceHeight - pivotY) * scale
     }
 
+    /** A width and height in pixels. */
+    data class Size(val width: Int, val height: Int)
+
+    /** How far the wallpaper is scrolled across its crop's spare width and height, each from 0 to 1. */
+    data class Scroll(val x: Float, val y: Float)
+
+    /** The least and most the window manager scales a wallpaper as it zooms. */
+    data class ZoomScales(val min: Float, val max: Float)
+
     /** A rectangle in surface pixels. */
     data class Crop(val left: Int, val top: Int, val right: Int, val bottom: Int) {
         val width get() = right - left
         val height get() = bottom - top
     }
 
+    /** Places a [surface] cropped to [crop] on a [screen], at [scroll] and [zoom], from 0 zoomed in to 1 zoomed out. */
     fun place(
-        screenWidth: Int,
-        screenHeight: Int,
-        surfaceWidth: Int,
-        surfaceHeight: Int,
+        screen: Size,
+        surface: Size,
         crop: Crop,
-        scrollX: Float,
-        scrollY: Float,
+        scroll: Scroll,
         zoom: Float,
-        minScale: Float,
-        maxScale: Float,
+        zoomScales: ZoomScales,
     ): Placed {
+        val screenWidth = screen.width
+        val screenHeight = screen.height
+        val surfaceWidth = surface.width
+        val surfaceHeight = surface.height
         // The window is as tall as the screen; its width keeps the surface's shape.
         val vScale = screenHeight.toFloat() / surfaceHeight
         val hScale = vScale
@@ -78,10 +88,10 @@ internal object WallpaperPlacement {
         val spareWidth = ((crop.width - visibleWidth) * hScale).toInt()
         val spareHeight = ((crop.height - visibleHeight) * vScale).toInt()
 
-        val offsetX = (if (spareWidth > 0) -(spareWidth * scrollX + 0.5f).toInt() else 0) + (baseX * hScale).toInt()
-        val offsetY = (if (spareHeight > 0) -(spareHeight * scrollY + 0.5f).toInt() else 0) + (baseY * vScale).toInt()
+        val offsetX = (if (spareWidth > 0) -(spareWidth * scroll.x + 0.5f).toInt() else 0) + (baseX * hScale).toInt()
+        val offsetY = (if (spareHeight > 0) -(spareHeight * scroll.y + 0.5f).toInt() else 0) + (baseY * vScale).toInt()
 
-        val zoomScale = minScale + (maxScale - minScale) * (1f - zoom.coerceIn(0f, 1f))
+        val zoomScale = zoomScales.min + (zoomScales.max - zoomScales.min) * (1f - zoom.coerceIn(0f, 1f))
         return Placed(
             left = offsetX.toFloat(),
             top = offsetY.toFloat(),

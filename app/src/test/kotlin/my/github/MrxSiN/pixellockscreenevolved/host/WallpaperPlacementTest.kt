@@ -7,16 +7,12 @@ class WallpaperPlacementTest {
 
     /** Measured on a Pixel 8 Pro: a 2426 by 2245 surface whose portrait crop starts 618 in. */
     private fun pixel(scrollX: Float = 0f, zoom: Float = 1f) = WallpaperPlacement.place(
-        screenWidth = 1344,
-        screenHeight = 2992,
-        surfaceWidth = 2426,
-        surfaceHeight = 2245,
+        screen = WallpaperPlacement.Size(1344, 2992),
+        surface = WallpaperPlacement.Size(2426, 2245),
         crop = WallpaperPlacement.Crop(618, 0, 2426, 2244),
-        scrollX = scrollX,
-        scrollY = 0.5f,
+        scroll = WallpaperPlacement.Scroll(scrollX, 0.5f),
         zoom = zoom,
-        minScale = 1f,
-        maxScale = 1.1f,
+        zoomScales = WallpaperPlacement.ZoomScales(1f, 1.1f),
     )
 
     @Test

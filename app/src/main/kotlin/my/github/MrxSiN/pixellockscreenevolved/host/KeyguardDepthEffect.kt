@@ -48,7 +48,7 @@ internal class KeyguardDepthEffect(
     private var scrollX = 0f
     private var scrollY = 0.5f
     private var zoom = 1f
-    private var zoomScales = 1f to 1f
+    private var zoomScales = WallpaperPlacement.ZoomScales(1f, 1f)
     private var enabled = false
     private var watching = false
     private var lockEngine = java.lang.ref.WeakReference<Any>(null)
@@ -64,7 +64,7 @@ internal class KeyguardDepthEffect(
     /** Draws the subject in front of a clock SystemUI built, once there is one. */
     fun track(clock: ClockControllerAdapter) {
         main.post {
-            val layer = DepthLayer(clock.largeFace, zoomScales.first, zoomScales.second) { lockEngine.get()?.let(dimOf) ?: 0f }
+            val layer = DepthLayer(clock.largeFace, zoomScales) { lockEngine.get()?.let(dimOf) ?: 0f }
             layers[clock] = layer
             layer.setEnabled(enabled)
             layer.setScroll(scrollX, scrollY)

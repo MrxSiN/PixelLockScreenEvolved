@@ -9,13 +9,14 @@ import my.github.MrxSiN.pixellockscreenevolved.hook.HostPatch
 /**
  * Lets the size slider enable Wallpaper & style's Apply button.
  *
- * The picker enables Apply only for changes it knows of, and the size slider is
- * this module's, so moving it alone left Apply greyed out. The size is made part
- * of the picker's own edit instead: moving the slider chooses the axis preset
- * already on show again, with the size added to its axes, which makes the
- * picker compare its edits once more. For this module's clocks that comparison
- * is then made by font and size, so Apply is enabled exactly while either
- * differs from the stored setting, and greys out again when both are moved back.
+ * Moving the size slider alone left Apply greyed out, because the picker
+ * enables Apply only for changes it knows of and the slider is this module's.
+ * The size is made part of the picker's own edit instead: moving the slider
+ * chooses the axis preset already on show again, with the size added to its
+ * axes, which makes the picker compare its edits once more. For this module's
+ * clocks that comparison is then made by font and size, so Apply is enabled
+ * exactly while either differs from the stored setting, and greys out again
+ * when both are moved back.
  */
 internal class PickerSizeEdit(
     private val hooks: Hooks,

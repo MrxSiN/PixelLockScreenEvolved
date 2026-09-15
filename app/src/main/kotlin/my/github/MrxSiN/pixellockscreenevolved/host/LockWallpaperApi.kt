@@ -49,11 +49,11 @@ internal class LockWallpaperApi(classLoader: ClassLoader) {
     fun zoom(engine: Any): Float = runCatching { zoomOf.invoke(engine) as Float }.getOrDefault(1f)
 
     /** The least and most the window manager scales a wallpaper as it zooms, from the platform's configuration. */
-    fun zoomScales(): Pair<Float, Float> {
+    fun zoomScales(): WallpaperPlacement.ZoomScales {
         val system = android.content.res.Resources.getSystem()
         fun scale(name: String, fallback: Float): Float =
             system.getIdentifier(name, "dimen", "android").takeIf { it != 0 }?.let(system::getFloat) ?: fallback
-        return scale("config_wallpaperMinScale", 1f) to scale("config_wallpaperMaxScale", 1f)
+        return WallpaperPlacement.ZoomScales(scale("config_wallpaperMinScale", 1f), scale("config_wallpaperMaxScale", 1f))
     }
 
     private val surfaceHolder = engineType.getDeclaredField("mSurfaceHolder").apply { isAccessible = true }

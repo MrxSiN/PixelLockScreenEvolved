@@ -31,8 +31,7 @@ import kotlin.math.floor
  */
 internal class DepthLayer(
     private val face: ClockFaceAdapter,
-    private val minScale: Float,
-    private val maxScale: Float,
+    private val zoomScales: WallpaperPlacement.ZoomScales,
     private val wallpaperDim: () -> Float,
 ) {
 
@@ -45,8 +44,7 @@ internal class DepthLayer(
 
     private var cutout: Bitmap? = null
     private var crop: WallpaperPlacement.Crop? = null
-    private var scrollX = 0f
-    private var scrollY = 0.5f
+    private var scroll = WallpaperPlacement.Scroll(0f, 0.5f)
     private var zoom = 1f
     private var enabled = false
     private var attachedTree: ViewTreeObserver? = null
@@ -83,8 +81,7 @@ internal class DepthLayer(
 
     /** Follows the wallpaper's scroll, from 0 to 1 across ([x]) and down ([y]) its spare width and height. */
     fun setScroll(x: Float, y: Float) {
-        scrollX = x
-        scrollY = y
+        scroll = WallpaperPlacement.Scroll(x, y)
         faceView.invalidate()
     }
 
@@ -146,16 +143,12 @@ internal class DepthLayer(
 
         val screen = faceView.resources.displayMetrics
         val placed = WallpaperPlacement.place(
-            screenWidth = screen.widthPixels,
-            screenHeight = screen.heightPixels,
-            surfaceWidth = picture.width,
-            surfaceHeight = picture.height,
+            screen = WallpaperPlacement.Size(screen.widthPixels, screen.heightPixels),
+            surface = WallpaperPlacement.Size(picture.width, picture.height),
             crop = crop ?: WallpaperPlacement.Crop(0, 0, picture.width, picture.height),
-            scrollX = scrollX,
-            scrollY = scrollY,
+            scroll = scroll,
             zoom = zoom,
-            minScale = minScale,
-            maxScale = maxScale,
+            zoomScales = zoomScales,
         )
         val width = placed.width.toInt()
         val height = placed.height.toInt()

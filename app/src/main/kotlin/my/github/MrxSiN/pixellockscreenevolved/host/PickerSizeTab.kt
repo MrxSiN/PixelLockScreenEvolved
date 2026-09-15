@@ -17,9 +17,9 @@ import my.github.MrxSiN.pixellockscreenevolved.host.ConstraintParams.validate
  * row shows in place of the switch and its text, and the switch is left on
  * (the large clock whenever notifications allow).
  *
- * The picker animates its sheet to each tab's height, measured once, and holds
- * the tab's content to it, so the height is recorded again whenever the rows
- * shown change it.
+ * The height is recorded again whenever the rows shown change it, because the
+ * picker animates its sheet to each tab's height, measured once, and holds the
+ * tab's content to it.
  */
 internal class PickerSizeTab(
     private val content: ViewGroup,
