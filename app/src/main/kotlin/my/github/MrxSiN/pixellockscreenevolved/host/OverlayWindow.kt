@@ -46,20 +46,39 @@ internal class OverlayWindow(
      * pictures have reached the screen, so whatever they stand for can be hidden
      * in the same frame they are shown.
      */
-    fun onFirstFrame(action: () -> Unit) {
+    fun onFirstFrame(action: () -> Unit) = afterFirstDraw { afterFrames(1, action) }
+
+    /**
+     * Runs [action] once the window's first frame is surely on screen, for
+     * pictures shown from the start that must not leave a gap when what they
+     * stand for is hidden. A new window's first frame can reach the screen
+     * frames later than [onFirstFrame] runs, so this waits [FRAMES_TO_SHOW]
+     * frames. (A frame commit callback registered as the window first draws
+     * waits for a frame after it, which a still picture never draws.)
+     */
+    fun onFirstFrameShown(action: () -> Unit) = afterFirstDraw { afterFrames(FRAMES_TO_SHOW, action) }
+
+    private fun afterFirstDraw(then: () -> Unit) {
         root.viewTreeObserver.addOnDrawListener(object : ViewTreeObserver.OnDrawListener {
             private var drawn = false
 
             override fun onDraw() {
                 if (drawn) return
                 drawn = true
-                Choreographer.getInstance().postFrameCallback {
-                    // A draw listener cannot be removed while the tree is drawing.
-                    if (root.viewTreeObserver.isAlive) root.viewTreeObserver.removeOnDrawListener(this)
-                    if (isAdded) action()
-                }
+                // A draw listener cannot be removed while the tree is drawing.
+                root.post { if (root.viewTreeObserver.isAlive) root.viewTreeObserver.removeOnDrawListener(this) }
+                then()
             }
         })
+    }
+
+    /** Runs [action] [frames] frames from now, if the window is still added then. */
+    private fun afterFrames(frames: Int, action: () -> Unit) {
+        if (frames > 0) {
+            Choreographer.getInstance().postFrameCallback { afterFrames(frames - 1, action) }
+        } else if (isAdded) {
+            action()
+        }
     }
 
     fun remove() {
@@ -88,6 +107,9 @@ internal class OverlayWindow(
 
     private companion object {
         const val WINDOW_TITLE_PREFIX = "PixelLockScreenEvolved"
+
+        /** Frames after it first draws that a new window is taken to be on screen. */
+        const val FRAMES_TO_SHOW = 3
 
         /** `WindowManager.LayoutParams.TYPE_SECURE_SYSTEM_OVERLAY`, hidden from apps; above the status bar. */
         const val TYPE_SECURE_SYSTEM_OVERLAY = 2015

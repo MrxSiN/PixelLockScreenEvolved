@@ -93,11 +93,11 @@ internal class KeyguardStatusBarUnlockMotion(
         val clock = statusBarClocks.find(keyguardBar) ?: return null
         val statusBar = clock.rootView
 
-        val handover = statusBar.findById<View>(END_SIDE_ID)
+        val handover = statusBar.findViewByName<View>(END_SIDE_ID)
             ?.takeIf { ViewPictures.visibleAlpha(icons) >= MOST_FADE_TO_START && icons.width > 0 }
             ?.let { StatusIconsHandover(icons, it, clock, logger) }
             ?.takeIf { it.show() }
-        val entrance = statusBar.findById<ViewGroup>(START_SIDE_ID)
+        val entrance = statusBar.findViewByName<ViewGroup>(START_SIDE_ID)
             ?.let { NotificationIconsEntrance(it, clock) }
             ?.also { it.hold() }
         if (handover == null && entrance == null) return null
@@ -111,9 +111,6 @@ internal class KeyguardStatusBarUnlockMotion(
         if (!current.handedOver) current.handover?.remove()
         if (!current.entered) current.entrance?.release()
     }
-
-    private fun <T : View> View.findById(name: String): T? =
-        resources.getIdentifier(name, "id", context.packageName).takeIf { it != 0 }?.let { findViewById(it) }
 
     private companion object {
         /** The status bar's right side: its status icons and, beside them, the battery. */
