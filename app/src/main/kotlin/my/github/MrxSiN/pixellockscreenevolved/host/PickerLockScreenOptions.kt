@@ -8,7 +8,6 @@ import android.view.View
 import android.view.ViewGroup
 import android.widget.CompoundButton
 import android.widget.LinearLayout
-import android.widget.SeekBar
 import android.widget.TextView
 
 import my.github.MrxSiN.pixellockscreenevolved.core.Logger
@@ -20,9 +19,8 @@ import my.github.MrxSiN.pixellockscreenevolved.hook.HostPatch
 /**
  * This module's options at the end of Wallpaper & style's Lock screen list,
  * after Clock, Shortcuts and the rest: the depth effect's switch, and the
- * wallpaper on the always-on display's switches and brightness slider
- * ([AodWallpaperStyle]). An option that only matters while another is on is
- * greyed out while it is off.
+ * wallpaper on the always-on display's switches ([AodWallpaperStyle]). An
+ * option that only matters while another is on is greyed out while it is off.
  *
  * The picker fills each list in `CustomizationPickerFragment
  * .initCustomizationOptionEntries`, giving the first and last entries rounded
@@ -34,63 +32,43 @@ internal class PickerLockScreenOptions(
     private val logger: Logger,
 ) : HostPatch {
 
-    /** One row: its [tag], its [title], and whether it can be changed now, given the other options. */
-    private sealed class Option(val tag: String, val title: String, val available: (ContentResolver) -> Boolean)
-
-    /** A row with a switch that turns [setting] on and off. */
-    private class SwitchOption(
-        tag: String,
-        title: String,
+    /**
+     * One row: its [tag], its [title] and [description], the setting its switch
+     * turns on and off, and whether it can be changed now, given the other options.
+     */
+    private class Option(
+        val tag: String,
+        val title: String,
         val description: String,
         val setting: SecureSwitch,
-        available: (ContentResolver) -> Boolean = { true },
-    ) : Option(tag, title, available)
-
-    /** A row with a slider over [setting], from [min] to [max], its value written out by [describe]. */
-    private class SliderOption(
-        tag: String,
-        title: String,
-        val setting: SecureIntSetting,
-        val min: Int,
-        val max: Int,
-        val describe: (Int) -> String,
-        available: (ContentResolver) -> Boolean,
-    ) : Option(tag, title, available)
+        val available: (ContentResolver) -> Boolean = { true },
+    )
 
     private val options = listOf(
-        SwitchOption(
+        Option(
             tag = "pixel_lock_screen_evolved_depth_effect",
             title = "Depth effect",
             description = "Show a photo's subject in front of the clock",
             setting = DepthEffectSetting,
         ),
-        SwitchOption(
+        Option(
             tag = "pixel_lock_screen_evolved_aod_wallpaper",
             title = "Wallpaper on always-on display",
             description = "Keep your wallpaper, dimmed, when the screen is off",
             setting = AodWallpaperSetting,
         ),
-        SwitchOption(
-            tag = "pixel_lock_screen_evolved_aod_dots",
-            title = "Dots",
-            description = "Draw it as sparse dots, only the subject where the depth effect found one, for the least power",
-            setting = AodDotsSetting,
-            available = AodWallpaperSetting::isOn,
-        ),
-        SwitchOption(
+        Option(
             tag = "pixel_lock_screen_evolved_aod_black_and_white",
             title = "Black & white",
             description = "Dim it in greys",
             setting = AodBlackAndWhiteSetting,
             available = { AodWallpaperSetting.isOn(it) && !AodDotsSetting.isOn(it) },
         ),
-        SliderOption(
-            tag = "pixel_lock_screen_evolved_aod_wallpaper_brightness",
-            title = "Always-on brightness",
-            setting = AodWallpaperBrightnessSetting,
-            min = AodWallpaperBrightnessSetting.MIN,
-            max = AodWallpaperBrightnessSetting.MAX,
-            describe = { "$it% of the wallpaper's brightness" },
+        Option(
+            tag = "pixel_lock_screen_evolved_aod_dots",
+            title = "Dots",
+            description = "Draw it as sparse dots, only the subject where the depth effect found one, for the least power",
+            setting = AodDotsSetting,
             available = AodWallpaperSetting::isOn,
         ),
     )
@@ -126,11 +104,7 @@ internal class PickerLockScreenOptions(
         val description = row.findViewById<TextView>(id(row, "option_entry_description")) ?: return
         title.text = option.title
         val themed = colors?.let { runCatching { it.InFragment(fragment) }.getOrNull() }
-        val control = when (option) {
-            is SwitchOption -> addSwitch(list, row, title, description, option, themed)
-            is SliderOption -> addSlider(row, title, description, option, themed)
-        }
-        placeAtEnd(row, control, title, description)
+        placeAtEnd(row, addSwitch(list, row, description, option, themed), title, description)
 
         // The entry that was last now sits in the middle of the list, or at its top if it was the only one.
         val neighbour = list.getChildAt(list.childCount - 1)
@@ -184,47 +158,12 @@ internal class PickerLockScreenOptions(
         }
     }
 
-    /** The slider for [option], which writes its setting once let go and describes its value as it moves. */
-    private fun addSlider(row: ViewGroup, title: TextView, description: TextView, option: SliderOption, themed: PickerThemeColors.InFragment?): View {
-        val context = row.context
-        val resolver = context.contentResolver
-        val value = option.setting.get(resolver).coerceIn(option.min, option.max)
-        description.text = option.describe(value)
-        val slider = SeekBar(context).apply {
-            id = View.generateViewId()
-            min = option.min
-            max = option.max
-            progress = value
-            layoutParams = ViewGroup.LayoutParams((SLIDER_WIDTH_DP * resources.displayMetrics.density).toInt(), ViewGroup.LayoutParams.WRAP_CONTENT)
-        }
-        val accent = context.getColor(
-            if (context.resources.configuration.isNightModeActive) android.R.color.system_accent1_200 else android.R.color.system_accent1_600,
-        )
-        fun tint(color: Int) {
-            slider.progressTintList = ColorStateList.valueOf(color)
-            slider.thumbTintList = ColorStateList.valueOf(color)
-        }
-        tint(accent)
-        themed?.let { theme -> runCatching { theme.follow("colorPrimary", ::tint) } }
-        slider.setOnSeekBarChangeListener(object : SeekBar.OnSeekBarChangeListener {
-            override fun onProgressChanged(bar: SeekBar, progress: Int, fromUser: Boolean) {
-                description.text = option.describe(progress)
-            }
-
-            override fun onStartTrackingTouch(bar: SeekBar) = Unit
-
-            override fun onStopTrackingTouch(bar: SeekBar) = option.setting.put(resolver, bar.progress)
-        })
-        return slider
-    }
-
     /** The picker's switch for [option], which a tap anywhere on [row] flips. */
     private fun addSwitch(
         list: LinearLayout,
         row: ViewGroup,
-        title: TextView,
         description: TextView,
-        option: SwitchOption,
+        option: Option,
         themed: PickerThemeColors.InFragment?,
     ): View {
         val context = list.context
@@ -303,7 +242,6 @@ internal class PickerLockScreenOptions(
         const val FRAGMENT = "com.android.wallpaper.picker.customization.ui.CustomizationPickerFragment"
         const val LOCK_SCREEN = "LOCK_SCREEN"
         const val CONTROL_GAP_DP = 16f
-        const val SLIDER_WIDTH_DP = 150f
 
         /** How faded an option is while it cannot be changed, as Material fades a disabled control. */
         const val UNAVAILABLE_ALPHA = 0.38f

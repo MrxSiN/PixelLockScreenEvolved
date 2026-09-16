@@ -94,11 +94,13 @@ internal class KeyguardScrims(val root: View) {
     fun darkenAsRevealed(canvas: Canvas, target: View) {
         val view = reveal ?: return
         if (!canvas.isHardwareAccelerated || !isRevealing()) return
-        val targetToScrim = Matrix().also(target::transformMatrixToGlobal)
-        targetToScrim.postConcat(Matrix().also { Matrix().also(view::transformMatrixToGlobal).invert(it) })
+        // The scrim's own pixels in [target]'s, so the scrim is drawn where it stands on
+        // screen: the scrim onto the screen, then the screen into [target].
+        val scrimToTarget = Matrix().also(view::transformMatrixToGlobal)
+        scrimToTarget.postConcat(Matrix().also { Matrix().also(target::transformMatrixToGlobal).invert(it) })
 
         val saved = canvas.save()
-        canvas.concat(targetToScrim)
+        canvas.concat(scrimToTarget)
         runCatching { drawReveal(canvas, view) }
         canvas.restoreToCount(saved)
     }

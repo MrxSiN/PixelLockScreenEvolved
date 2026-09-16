@@ -66,7 +66,7 @@ class PixelLockScreenEvolvedModule : XposedModule() {
                 val previewWallpapers = KeyguardPreviewWallpapers(hooks, logger)
                 val wallpaperFeed = LockWallpaperFeed(hooks, logger)
                 val aodWallpaper = KeyguardAodWallpaper(wallpaperFeed).also(wallpaperFeed::addListener)
-                val depthEffect = KeyguardDepthEffect(wallpaperFeed, moduleApplicationInfo.packageName, previewWallpapers, aodWallpaper, logger)
+                val depthEffect = KeyguardDepthEffect(wallpaperFeed, moduleApplicationInfo.packageName, previewWallpapers, aodWallpaper, unlockFrames, logger)
                     .also(wallpaperFeed::addListener)
                     .also { it.addSubjectListener(aodWallpaper::onSubject) }
                 val lockScreen = LockScreenReadiness()

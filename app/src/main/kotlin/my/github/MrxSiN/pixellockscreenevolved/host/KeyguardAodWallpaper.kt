@@ -16,8 +16,7 @@ import kotlin.math.roundToInt
 
 /**
  * The lock screen photo on the always-on display, as on iOS, as Wallpaper &
- * style's switches and slider choose ([AodWallpaperStyle],
- * [AodWallpaperBrightnessSetting]), behind every lock screen clock
+ * style's switches choose ([AodWallpaperStyle]), behind every lock screen clock
  * ([AodWallpaperLayer]). As dots, where the depth effect has found the photo's
  * subject ([onSubject]), only the subject is drawn, lighting fewer pixels still.
  *
@@ -38,7 +37,6 @@ internal class KeyguardAodWallpaper(private val feed: LockWallpaperFeed) : LockW
     private var photo: Photo? = null
     private var subject: Bitmap? = null
     private var style: AodWallpaperStyle? = null
-    private var brightness = 0f
     private var watching = false
 
     /** Draws the photo behind a clock SystemUI built, on the always-on display. */
@@ -79,13 +77,11 @@ internal class KeyguardAodWallpaper(private val feed: LockWallpaperFeed) : LockW
         }
     }
 
-    /** Whether the always-on display shows the wallpaper, rather than black. */
-    fun isShown(): Boolean = look() != null
-
-    private fun look(): AodWallpaperLook? {
+    /** What the always-on display draws the photo as now, or null while it draws black. */
+    fun look(): AodWallpaperLook? {
         val current = photo ?: return null
         val chosen = style ?: return null
-        return AodWallpaperLook(current.picture, current.surface, chosen, brightness, subject.takeIf { chosen == AodWallpaperStyle.DOTS })
+        return AodWallpaperLook(current.picture, current.surface, chosen, subject.takeIf { chosen == AodWallpaperStyle.DOTS })
     }
 
     /** [picture] at half the screen's longest side, or smaller, on the GPU. */
@@ -98,18 +94,16 @@ internal class KeyguardAodWallpaper(private val feed: LockWallpaperFeed) : LockW
         return onGpu
     }
 
-    /** Follows the switches and the brightness slider, once. */
+    /** Follows the switches, once. */
     private fun watch(context: Context) {
         if (watching) return
         watching = true
         val resolver: ContentResolver = context.contentResolver
         val follow = {
             style = AodWallpaperStyle.chosen(resolver)
-            brightness = AodWallpaperBrightnessSetting.share(resolver)
             invalidateAll()
         }
-        listOf(AodWallpaperSetting, AodDotsSetting, AodBlackAndWhiteSetting, AodWallpaperBrightnessSetting)
-            .forEach { it.observe(resolver, follow) }
+        listOf(AodWallpaperSetting, AodDotsSetting, AodBlackAndWhiteSetting).forEach { it.observe(resolver, follow) }
     }
 
     private fun invalidateAll() {

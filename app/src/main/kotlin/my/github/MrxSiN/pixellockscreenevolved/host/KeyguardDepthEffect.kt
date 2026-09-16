@@ -27,12 +27,21 @@ import my.github.MrxSiN.pixellockscreenevolved.core.Logger
  * off ([DepthEffectSetting]): the latest photo is kept, and found only once the
  * effect is turned on. Whatever else draws the subject is told of it while the
  * effect is on ([addSubjectListener]).
+ *
+ * The subject goes as soon as an unlock is committed ([UnlockFrameLoop]). The
+ * cut-out is the module's own copy of the photo, drawn inside the keyguard, so
+ * whatever the app coming up behind the keyguard does to the wallpaper itself
+ * passes it by: a launcher that blurs the wallpaper left the subject sharp, as
+ * a block of clear photo in the time's bounds. By then the time has flown
+ * ([KeyguardClockUnlockMotion]) and the photo beneath the subject is the same
+ * photo, so nothing is lost by dropping it.
  */
 internal class KeyguardDepthEffect(
     private val feed: LockWallpaperFeed,
     private val modulePackage: String,
     private val previews: KeyguardPreviewWallpapers,
     private val aodWallpaper: KeyguardAodWallpaper,
+    unlockFrames: UnlockFrameLoop,
     private val logger: Logger,
 ) : LockWallpaperFeed.Listener, TimeOcclusion {
 
@@ -41,6 +50,7 @@ internal class KeyguardDepthEffect(
     private val worker = Executors.newSingleThreadExecutor()
 
     private var enabled = false
+    private var unlocking = false
     private var watching = false
     private var waiting: Waiting? = null
     private var photoKey: String? = null
@@ -50,6 +60,23 @@ internal class KeyguardDepthEffect(
     private var store: DepthCutout? = null
     private var context: Context? = null
     private val subjectListeners = CopyOnWriteArrayList<(Bitmap?, Context) -> Unit>()
+
+    init {
+        unlockFrames.add(
+            name = "Depth effect",
+            step = { api, controller, _ ->
+                if (api.isCommitted(controller)) setUnlocking(true)
+                api.isUnlocking(controller)
+            },
+            stop = { setUnlocking(false) },
+        )
+    }
+
+    private fun setUnlocking(unlocking: Boolean) {
+        if (this.unlocking == unlocking) return
+        this.unlocking = unlocking
+        synchronized(layers) { layers.values.toList() }.forEach { it.setUnlocking(unlocking) }
+    }
 
     /**
      * Tells [listener], on the main thread, of the subject's cut-out whenever it or the effect's
@@ -72,10 +99,11 @@ internal class KeyguardDepthEffect(
                 face = clock.largeFace,
                 feed = feed,
                 overOtherWallpaper = { previews.showsOtherWallpaper(clock.controller) },
-                aodShowsWallpaper = aodWallpaper::isShown,
+                aodLook = aodWallpaper::look,
             )
             layers[clock] = layer
             layer.setEnabled(enabled)
+            layer.setUnlocking(unlocking)
             layer.show(cutout)
         }
     }

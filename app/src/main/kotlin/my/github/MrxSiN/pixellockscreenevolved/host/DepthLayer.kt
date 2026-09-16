@@ -31,17 +31,22 @@ import kotlin.math.roundToInt
  * the subject, and nothing else on the lock screen does. Where the subject
  * would hide more than half of the time ([TimeCoverage]), the time stays in
  * front of it instead, so it can still be read, as on iOS. Before each frame it
- * follows the face: shown only while the face is, as faded as it is (and as
- * far as it has come in while the clock changes size), darkened as the photo
- * is, and not at all on the always-on display, where there is no photo behind it, or in a
- * preview of another wallpaper, where the photo behind it is not this one.
+ * follows the face: shown only while the face is, as faded as it is (and as far
+ * as it has come in while the clock changes size), darkened as the photo is, and
+ * not at all in a preview of another wallpaper, where the photo behind it is not
+ * this one, or while the keyguard is going away ([setUnlocking]).
+ *
+ * Whatever is laid over the photo is laid over the subject too, in the same
+ * order, so the two never come apart: the light reveal scrim as the display
+ * wakes ([KeyguardScrims]), and then the always-on wallpaper as it dozes
+ * ([AodWallpaperPaint]).
  */
 internal class DepthLayer(
     private val face: ClockFaceAdapter,
     private val feed: LockWallpaperFeed,
     private val overOtherWallpaper: () -> Boolean,
-    /** Whether the always-on display shows a wallpaper of this module's ([KeyguardAodWallpaper]) rather than black. */
-    private val aodShowsWallpaper: () -> Boolean,
+    /** What the always-on display draws the photo as ([KeyguardAodWallpaper]), or null while it draws black. */
+    private val aodLook: () -> AodWallpaperLook?,
 ) {
 
     private val faceView = face.view
@@ -53,12 +58,15 @@ internal class DepthLayer(
 
     private var cutout: Bitmap? = null
     private var enabled = false
+    private var unlocking = false
     private var attachedTree: ViewTreeObserver? = null
     private val main = Handler(Looper.getMainLooper())
     private val clip = Rect()
+    private val aodPaint = AodWallpaperPaint(faceView.resources)
     private var scrims: KeyguardScrims? = null
     private var tint = Color.TRANSPARENT
     private var revealing = false
+    private var layered = false
     private var measured: Measured? = null
     private var unsettled: Measured? = null
     private var timeReadable = true
@@ -100,6 +108,12 @@ internal class DepthLayer(
     /** Shows the subject, or not, as [DepthEffectSetting] chooses. */
     fun setEnabled(enabled: Boolean) {
         this.enabled = enabled
+        faceView.invalidate()
+    }
+
+    /** Takes the subject away while the keyguard is going away ([KeyguardDepthEffect]), and brings it back after. */
+    fun setUnlocking(unlocking: Boolean) {
+        this.unlocking = unlocking
         faceView.invalidate()
     }
 
@@ -185,7 +199,7 @@ internal class DepthLayer(
     private fun place() {
         val parent = faceView.parent as? ViewGroup
         val picture = cutout
-        if (parent == null || picture == null || !enabled || !coversScreen(parent) || overOtherWallpaper()) {
+        if (parent == null || picture == null || !enabled || unlocking || !coversScreen(parent) || overOtherWallpaper()) {
             (image.parent as? ViewGroup)?.removeView(image)
             return
         }
@@ -222,6 +236,10 @@ internal class DepthLayer(
         clipToTime(time, placed)
         followScrims()
 
+        // Gone by the time the display has dozed, so the always-on time is never stood in front of:
+        // nothing on the always-on display goes over the clock. The fade shows nothing of its own,
+        // since what is laid over the subject on the way there ([drawAodWallpaper], [KeyguardScrims])
+        // is what is drawn behind it, so it is the same picture growing fainter over itself.
         val faded = faceView.alpha * face.arrival * (1f - face.dozeFraction)
         val alpha = if (faded > 0f && leavesTimeReadable(picture, time)) faded else 0f
         val visibility = if (faceView.visibility == View.VISIBLE && alpha > 0f) View.VISIBLE else View.INVISIBLE
@@ -285,20 +303,55 @@ internal class DepthLayer(
             tint = dim
             image.colorFilter = if (dim == Color.TRANSPARENT) null else PorterDuffColorFilter(dim, PorterDuff.Mode.SRC_ATOP)
         }
-        // The scrim changes every frame while it reveals, and once more as it finishes. Only then is the
-        // cut-out drawn in a layer of its own, which the darkening needs; the layer is as big as the photo.
-        // Over the always-on wallpaper the scrim's black is hidden, so the subject only fades, with the doze.
-        val nowRevealing = found.isRevealing() && !aodShowsWallpaper()
-        if (nowRevealing != revealing) image.setLayerType(if (nowRevealing) View.LAYER_TYPE_HARDWARE else View.LAYER_TYPE_NONE, null)
-        if (nowRevealing || revealing) image.invalidate()
+        // The scrim changes every frame while it reveals, and once more as it finishes. Only while the
+        // scrim or the always-on wallpaper is laid over the cut-out is it drawn in a layer of its own,
+        // which both need; the layer is as big as the photo. The photo behind the subject is the one the
+        // scrim hides, whatever the always-on display draws over it, so the subject follows the scrim
+        // either way, and the always-on wallpaper goes over both, as it goes over the photo around them.
+        val nowRevealing = found.isRevealing()
+        val nowLayered = nowRevealing || face.dozeFraction > 0f
+        if (nowLayered != layered) image.setLayerType(if (nowLayered) View.LAYER_TYPE_HARDWARE else View.LAYER_TYPE_NONE, null)
+        if (nowLayered || layered) image.invalidate()
         revealing = nowRevealing
+        layered = nowLayered
     }
 
-    /** The cut-out, with the light reveal scrim laid over it while that hides the photo beneath. */
+    /** The parent's pixels in the layer's own, so what is drawn over the whole lock screen can be drawn inside it. */
+    private fun parentToImage(parent: View): Matrix {
+        val matrix = Matrix().also(parent::transformMatrixToGlobal)
+        matrix.postConcat(Matrix().also { Matrix().also(image::transformMatrixToGlobal).invert(it) })
+        return matrix
+    }
+
+    /**
+     * Lays the always-on wallpaper over the cut-out, as far in as the display has
+     * dozed, exactly as [AodWallpaperLayer] lays it over the photo behind the whole
+     * lock screen. The subject stands in front of the clock, over that layer, so
+     * without this the always-on wallpaper stopped at the subject's edges and the
+     * time's bounds showed as a box in it.
+     */
+    private fun drawAodWallpaper(canvas: Canvas) {
+        val parent = image.parent as? ViewGroup ?: return
+        val look = aodLook() ?: return
+        val alpha = (face.dozeFraction * OPAQUE).toInt()
+        if (alpha <= 0) return
+        val saved = canvas.save()
+        canvas.concat(parentToImage(parent))
+        val placed = feed.place(WallpaperPlacement.Size(parent.width, parent.height), look.surface)
+        aodPaint.drawAtop(canvas, look, parent.width, parent.height, placed, alpha)
+        canvas.restoreToCount(saved)
+    }
+
+    /**
+     * The cut-out, with the light reveal scrim laid over it while that hides the
+     * photo beneath, and then the always-on wallpaper, in the order the lock
+     * screen lays the two over the photo itself.
+     */
     private inner class SubjectView(context: Context) : ImageView(context) {
         override fun onDraw(canvas: Canvas) {
             super.onDraw(canvas)
             if (revealing) scrims?.darkenAsRevealed(canvas, this)
+            if (canvas.isHardwareAccelerated) drawAodWallpaper(canvas)
         }
     }
 

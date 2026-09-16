@@ -10,7 +10,11 @@ internal enum class AodWallpaperStyle(val value: Int) {
     /** The photo in greys, dimmed. */
     BLACK_AND_WHITE(2),
 
-    /** The photo, or only its subject, as sparse white dots on black: few pixels lit, for the least power. */
+    /**
+     * The photo, or only its subject, as sparse dots on black: few pixels lit, for the least
+     * power. Each dot is lit nearly as brightly as the clock: the always-on display holds greys
+     * unsteadily and dimmed dots flickered.
+     */
     DOTS(3);
 
     companion object {
@@ -33,18 +37,3 @@ internal object AodDotsSetting : SecureSwitch("pixel_lock_screen_evolved_aod_dot
 /** Whether the dimmed always-on wallpaper is in greys. */
 internal object AodBlackAndWhiteSetting : SecureSwitch("pixel_lock_screen_evolved_aod_black_and_white")
 
-/** The always-on wallpaper's brightness until one is chosen, in percent. */
-private const val DEFAULT_AOD_BRIGHTNESS = 25
-
-/** How bright the always-on display's wallpaper is, in percent of the photo's own brightness. */
-internal object AodWallpaperBrightnessSetting : SecureIntSetting("pixel_lock_screen_evolved_aod_wallpaper_brightness", DEFAULT_AOD_BRIGHTNESS) {
-    const val MIN = 5
-    const val MAX = 60
-    private const val PERCENT = 100f
-
-    /** The brightness in percent, from [MIN] to [MAX]. */
-    fun percent(resolver: ContentResolver): Int = get(resolver).coerceIn(MIN, MAX)
-
-    /** The brightness as a share of the photo's. */
-    fun share(resolver: ContentResolver): Float = percent(resolver) / PERCENT
-}
