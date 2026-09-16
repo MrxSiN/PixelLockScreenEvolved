@@ -81,9 +81,8 @@ too; the preview of a photo not yet set does not.
 |---|---|---|
 | **Depth effect** | Wallpaper & style → Lock screen, at the bottom | Finds the subject of the lock screen photo on the device and draws it over the time, placed exactly where the window manager puts the wallpaper and following its scroll, zoom and dimming. |
 | **Wallpaper on always-on display** | Wallpaper & style → Lock screen, at the bottom | Keeps the lock screen photo on the always-on display, dimmed, as on iOS. It needs **Always show time and info** on, and uses more battery than a black always-on display. |
-| **Dots** | Below it | Draws the always-on wallpaper as sparse white dots on black, only the photo's subject where the depth effect found one: about 8-12% of pixels lit, for the least power. |
 | **Black & white** | Below it | Dims the always-on wallpaper in greys instead of colour. |
-| **Always-on brightness** | Below it | A slider from 5% to 60% of the photo's brightness. |
+| **Dots** | Below it | Draws the always-on wallpaper as sparse dots on black, only the photo's subject where the depth effect found one: about 4% of pixels lit, for the least power. Each dot is lit nearly as brightly as the clock beside it, since the always-on display holds greys unsteadily. |
 
 On the always-on display everything shifts a little every minute, the photo on
 a small circle and the dots through their grid, so no pixel stays lit, against

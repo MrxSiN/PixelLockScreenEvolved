@@ -1,45 +1,37 @@
-# Pixel Lock Screen Evolved v0.0.3
+# Pixel Lock Screen Evolved v0.0.4
 
-Your wallpaper on the always-on display, a clock that rolls to each minute,
-and smoother, quicker motion from the lock screen to your phone.
+A steadier always-on display, and the depth effect's subject finally keeping
+step with the photo it is cut from.
 
 ## Always-on display
 
-- **Wallpaper on always-on display**, in Wallpaper & style → Lock screen, keeps
-  your lock screen photo on the always-on display, dimmed, as on iOS. Below it:
-  - **Dots** draws it as sparse white dots on black, only the photo's subject
-    where the depth effect found one: about 8-12% of the screen lit, for the
-    least power.
-  - **Black & white** dims it in greys.
-  - **Always-on brightness** sets it from 5% to 60%.
-- Everything shifts a little every minute, so no pixel stays lit, to protect
-  the screen from burn-in.
-- It needs **Always show time and info** on, and uses more battery than a black
+- **Dots** are lit nearly as brightly as the clock beside them, instead of
+  being dimmed to a grey. The always-on display holds greys unsteadily, and
+  dimmed dots flickered. The brightness they are given goes into their width
+  instead, so about 4% of the screen is lit where 11% was, for the same light
+  and the same power.
+- Dots no longer appear where the photo has no subject: the black around it is
+  black again.
+- **Black & white** now sits above **Dots** in the list.
+- No box around the time. The always-on wallpaper is drawn over the depth
+  effect's subject as well, so it no longer stops at the subject's edges.
+- The clock is always on top. Nothing is drawn in front of the time on the
   always-on display.
-
-## Clock
-
-- The digits **roll** to each new minute, on the lock screen and the always-on
-  display.
-- Moving between the small and large clock is a smooth spring rather than a
-  jump.
-- With the depth effect on, the time comes in front of the subject when the
-  subject would hide more than half of it, so it can always be read.
-
-## Unlock
-
-- The time **flies to the status bar** on every unlock: without a smartspace
-  card, and on a quick flick too.
-- The flight is smoother from the first touch to the landing, and starts at
-  once: it is got ready while the lock screen is up.
 
 ## Fixes
 
-- Waking from the always-on display, the time no longer shows through the
-  subject before going behind it.
-- Previewing a new photo in Wallpaper & style no longer shows the current
-  photo's subject over the preview.
-- No faint box around the time as the lock screen wakes.
+- No block of bright photo in the time's bounds while the display wakes or goes
+  to sleep. The subject is darkened with the light reveal, pixel for pixel, as
+  the photo around it is.
+- No seam across the screen as the display wakes: the subject and the photo
+  come up as one.
+- No sharp block in the time's bounds while unlocking with a launcher that
+  blurs the wallpaper.
+
+## Removed
+
+- The **Always-on brightness** slider. The always-on wallpaper keeps a quarter
+  of the photo's light, which is what the slider started at.
 
 ## Requirements
 

@@ -1,5 +1,44 @@
 # Changelog
 
+## 0.0.4
+
+### Changed
+
+- The always-on wallpaper's dots are lit nearly as brightly as the clock beside
+  them, and the brightness they are given is spent on their width instead of on
+  their grey: the always-on display holds greys unsteadily, and dimmed dots
+  flickered. A dot narrower than a pixel now lights nothing at all. About 4% of
+  the screen's pixels are lit where 11% were, for the same light and the same
+  power, and the photo's black is black again.
+
+- **Black & white** sits above **Dots** in Wallpaper & style's Lock screen list.
+
+### Removed
+
+- The **Always-on brightness** slider. The always-on wallpaper keeps a quarter
+  of the photo's light, which is what the slider started at.
+
+### Fixed
+
+- The depth effect's subject no longer lights up as a block in the time's
+  bounds while the display wakes or goes to sleep. The light reveal scrim was
+  drawn over the subject through the wrong transform, so it landed off the
+  subject entirely and darkened nothing; the subject kept the photo's full
+  brightness while the photo itself was still blacked out.
+
+- The always-on wallpaper is drawn over the subject as well as behind the lock
+  screen, so it no longer stops at the subject's edges: no box around the time
+  on the always-on display, and no seam across the screen as it wakes.
+
+- Nothing is drawn in front of the time on the always-on display. The subject
+  is gone by the time the display has dozed, where it used to sit over the
+  clock and break its outline.
+
+- The subject goes as soon as an unlock is committed. It is the module's own
+  copy of the photo, drawn inside the keyguard, so a launcher that blurs the
+  wallpaper on unlock left it sharp, as a clear block in the time's bounds
+  while everything around it blurred.
+
 ## 0.0.3
 
 ### Added
