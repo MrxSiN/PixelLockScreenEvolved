@@ -63,6 +63,17 @@ for when notifications share the screen.
 | **Analog** | A dial with rounded hands, the date below. Its ticks fade and its hands go to outline on the always-on display. | A small dial. |
 | **Split** | One heavy line drawn down the screen, stretched until it meets the photo's subject. | One line, taller than a Pixel small clock's. |
 
+<table>
+<tr>
+<td align="center"><img src="docs/screenshots/style-ios.png" width="250"><br><sub><b>iOS</b></sub></td>
+<td align="center"><img src="docs/screenshots/style-stacked.png" width="250"><br><sub><b>Stacked</b></sub></td>
+</tr>
+<tr>
+<td align="center"><img src="docs/screenshots/style-numerals.png" width="250"><br><sub><b>Numerals</b>: the minute is lighter and narrower than the hour</sub></td>
+<td align="center"><img src="docs/screenshots/style-analog.png" width="250"><br><sub><b>Analog</b></sub></td>
+</tr>
+</table>
+
 Every large face writes its own date where its design puts it, so SystemUI's
 date and weather row is left out beside it rather than shown twice.
 
@@ -117,6 +128,13 @@ meanwhile — silent, with its icon in the status bar — then **Depth effect
 ready** for a few seconds. A photo already seen shows its effect at once. Live
 wallpapers are drawn by their own apps and have no depth effect.
 
+<table>
+<tr>
+<td align="center"><img src="docs/screenshots/page-depth-effect.png" width="250"><br><sub>The Depth effect page</sub></td>
+<td align="center"><img src="docs/screenshots/split-large.png" width="250"><br><sub>The subject in front of the time</sub></td>
+</tr>
+</table>
+
 </details>
 
 <details open>
@@ -170,6 +188,7 @@ so the date row and the notifications below it keep their distances.
 
 <table>
 <tr>
+<td align="center"><img src="docs/screenshots/page-always-on-display.png" width="250"><br><sub>The Always-on display page</sub></td>
 <td align="center"><img src="docs/screenshots/aod-small-clock.png" width="250"><br><sub>Notifications on the always-on display</sub></td>
 </tr>
 </table>
@@ -192,6 +211,12 @@ contract moved when it is not.
 | **Per-feature hooks** | A feature whose required contract is missing never installs its hooks. It switches itself off and logs why; clocks, the depth effect, the picker pages and smartspace placement each stand or fall alone. |
 | **Verified builds** | The Android builds each feature has been run on, so a snapshot from an unverified build reads as untested rather than broken. |
 | **Safe Mode** | Repeated crashes in a hooked process turn every hook off and post a notification, rather than leaving you with a lock screen or a picker you cannot use. Clearing it is one tap. |
+
+<table>
+<tr>
+<td align="center"><img src="docs/screenshots/page-diagnostics.png" width="250"><br><sub>v0.0.5 on Android 17 QPR1: every feature compatible</sub></td>
+</tr>
+</table>
 
 </details>
 
