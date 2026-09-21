@@ -4,10 +4,10 @@
 
 The workflow in `.github/workflows/android.yml` performs the following:
 
-- Every branch push builds `assembleRelease`, signs the APK, verifies its signature, and uploads it under the workflow run’s **Artifacts** section.
+- Every branch push builds `assembleRelease`, signs the APK, verifies its signature, and uploads it under the workflow run’s **Artifacts** section, kept for 14 days. A failed upload is logged and does not fail the run.
 - A manual **Run workflow** action performs the same signed build and artifact upload.
 - Pull requests build and upload an unsigned release APK because GitHub does not expose signing secrets to untrusted PR code.
-- A pushed `v*` tag builds and signs the APK, uploads it as a workflow artifact, creates or updates the matching GitHub Release, and attaches the signed APK.
+- A pushed `v*` tag builds and signs the APK, then creates or updates the matching GitHub Release and attaches the signed APK. A tag run uploads no workflow artifact: the Release already carries the same file, and a second copy only spends the account's Actions storage, which answers `403` at the end of an upload once it is full.
 
 The expected APK name is:
 
