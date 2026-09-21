@@ -4,10 +4,13 @@ import android.animation.ArgbEvaluator
 import android.content.Context
 import android.view.View
 
+import java.util.WeakHashMap
+
+import my.github.MrxSiN.pixellockscreenevolved.clock.AdjustableWidthClockFace
 import my.github.MrxSiN.pixellockscreenevolved.clock.ClockFace
 import my.github.MrxSiN.pixellockscreenevolved.clock.DozingClockFace
+import my.github.MrxSiN.pixellockscreenevolved.clock.ExpressiveClockFace
 import my.github.MrxSiN.pixellockscreenevolved.clock.FaceSize
-import my.github.MrxSiN.pixellockscreenevolved.clock.FontChoosingClockFace
 import my.github.MrxSiN.pixellockscreenevolved.clock.ResizableClockFace
 
 /**
@@ -23,15 +26,15 @@ internal class ClockFaceAdapter(
     proxies: InterfaceProxy,
     private val face: ClockFace,
     private val size: FaceSize,
-    private val fontCount: Int,
-    private val context: Context,
+    /** The host's own context, for whatever places the face against what SystemUI lays out around it. */
+    val context: Context,
     initialTheme: Any,
 ) {
 
     private var theme: Any = initialTheme
 
     /**
-     * Counts the changes to how the time is written (its text, size and font), so
+     * Counts the changes to how the time is written (its text, size and width), so
      * whatever measures the time can tell its measure is out of date.
      */
     var timeChanges = 0
@@ -49,6 +52,25 @@ internal class ClockFaceAdapter(
 
     private val placement = ClockFacePlacement(api.viewId(size), size, LockScreenInsets.largeClockTop(context))
 
+    /**
+     * This face as the lock screen scene composes it, or null on a build whose
+     * keyguard still adds and constrains the face's view itself.
+     */
+    private val element: Any? = api.elements?.let { elements ->
+        proxies.create(
+            elements.elementType,
+            mapOf(
+                "getKey" to { _ -> elements.key(size) },
+                "getSource" to { _ -> elements.dynamicSource },
+                "getContext" to { _ -> context },
+                "LockscreenElement" to { args ->
+                    elements.draw(requireNotNull(args[0]), requireNotNull(args[1]), face.view, size)
+                    null
+                },
+            ),
+        )
+    }
+
     private val layout = proxies.create(
         api.faceLayoutType,
         mapOf(
@@ -61,7 +83,7 @@ internal class ClockFaceAdapter(
             // SystemUI moves and scales the clock's views for burn-in itself, as Google's faces rely on;
             // moving them here too doubled the shift, which snapped back midway through waking up.
             "applyAodBurnIn" to IgnoreCall,
-            "getElements" to { _ -> emptyList<Any>() },
+            "getElements" to { _ -> listOfNotNull(element) },
         ),
     )
 
@@ -80,8 +102,8 @@ internal class ClockFaceAdapter(
         api.animationsType,
         mapOf(
             "doze" to { args -> setDoze(args[0] as Float) },
-            "enter" to IgnoreCall,
-            "charge" to IgnoreCall,
+            "enter" to { _ -> (face as? ExpressiveClockFace)?.enter() },
+            "charge" to { _ -> (face as? ExpressiveClockFace)?.charge() },
             "fold" to IgnoreCall,
             "onFidgetTap" to IgnoreCall,
             "onFontAxesChanged" to { args -> setAxes(requireNotNull(args[0])) },
@@ -90,7 +112,7 @@ internal class ClockFaceAdapter(
         ),
     )
 
-    private val config = api.faceConfig(face.drawsDate)
+    private val config = api.faceConfig(hasCustomWeatherDataDisplay = face.drawsDate)
 
     /** Whether the face's time is moving to new text ([ClockFace.isChanging]). */
     val timeChanging: Boolean get() = face.isChanging
@@ -100,6 +122,9 @@ internal class ClockFaceAdapter(
 
     /** The face's whole view, as SystemUI places it. */
     val view: View get() = face.view
+
+    /** The style face, exposed only for optional capabilities such as weather. */
+    val viewFace: ClockFace get() = face
 
     val controller: Any = proxies.create(
         api.faceControllerType,
@@ -116,6 +141,13 @@ internal class ClockFaceAdapter(
 
     init {
         face.view.id = api.viewId(size)
+        face.view.tag = ModuleClockFaceTag
+        ModuleClockFaces.track(face.view, size)
+        // The rows under a small clock are spaced against SystemUI's own band for it ([LockScreenInsets]).
+        if (size == FaceSize.SMALL) face.view.minimumHeight = LockScreenInsets.smallClockHeight(context)
+        if (api.elements != null && context.packageName == SYSTEMUI_PACKAGE) {
+            placement.inComposedLockScreen(face.view) { dozeFraction }
+        }
         recolor()
     }
 
@@ -138,7 +170,7 @@ internal class ClockFaceAdapter(
      * is changing, so an axis the style does not hold is left as it is.
      */
     private fun setAxes(axisStyle: Any) {
-        api.axisOf(axisStyle, ClockAxes.FONT_KEY)?.let(::setFont)
+        api.axisOf(axisStyle, ClockAxes.WIDTH_KEY)?.let(::setWidth)
         api.axisOf(axisStyle, ClockAxes.SIZE_KEY)?.let(::setSizeStep)
     }
 
@@ -153,10 +185,10 @@ internal class ClockFaceAdapter(
         (face as? ResizableClockFace)?.setSize(ClockAxes.sizeOf(shown))
     }
 
-    /** Shows the font a stored font value chooses; a face with one font has nothing to change. */
-    fun setFont(value: Float?) {
+    /** Shows the width a stored width value chooses; a face with one width has nothing to change. */
+    fun setWidth(value: Float?) {
         timeChanges++
-        (face as? FontChoosingClockFace)?.setFont(ClockAxes.fontIndexOf(value, fontCount))
+        (face as? AdjustableWidthClockFace)?.setWidth(ClockAxes.widthOf(value))
     }
 
     fun setDoze(fraction: Float) {
@@ -171,6 +203,29 @@ internal class ClockFaceAdapter(
     }
 
     private companion object {
+        const val SYSTEMUI_PACKAGE = "com.android.systemui"
         val COLOR_EVALUATOR = ArgbEvaluator()
+    }
+}
+
+/** Identifies this module's face without coupling smartspace placement to its concrete view type. */
+internal object ModuleClockFaceTag
+
+/**
+ * Module-owned faces currently attached to one SystemUI root, so what SystemUI
+ * lays out around the clock can tell one of this module's from a Pixel clock.
+ */
+internal object ModuleClockFaces {
+
+    private val faces = WeakHashMap<View, FaceSize>()
+
+    fun track(view: View, size: FaceSize) = synchronized(faces) { faces[view] = size }
+
+    /** The large module face shown in [root], the highest where there are several. */
+    fun largeIn(root: View): View? = synchronized(faces) {
+        faces.entries
+            .filter { (view, size) -> size == FaceSize.LARGE && view.isAttachedToWindow && view.isShown && view.rootView === root }
+            .minByOrNull { (view, _) -> IntArray(2).also(view::getLocationOnScreen)[1] }
+            ?.key
     }
 }

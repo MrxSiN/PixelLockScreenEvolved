@@ -1,24 +1,23 @@
 package my.github.MrxSiN.pixellockscreenevolved.clock.ios
 
 import android.content.Context
+import android.graphics.Paint
 import android.graphics.drawable.Drawable
 
+import my.github.MrxSiN.pixellockscreenevolved.clock.AdjustableWidthClockFace
 import my.github.MrxSiN.pixellockscreenevolved.clock.ClockFace
 import my.github.MrxSiN.pixellockscreenevolved.clock.ClockStyle
 import my.github.MrxSiN.pixellockscreenevolved.clock.FaceSize
-import my.github.MrxSiN.pixellockscreenevolved.clock.FontSource
+import my.github.MrxSiN.pixellockscreenevolved.clock.parts.ClockThumbnail
 
-/** The iOS lock screen clock: the date over a large, centred time. */
-class IosClockStyle(private val fontSource: FontSource) : ClockStyle {
+/** The iOS lock screen clock: the date over a large, centred time, set in Roboto Flex. */
+class IosClockStyle : ClockStyle {
 
     override val id: String = "PIXEL_LOCK_SCREEN_EVOLVED_IOS"
     override val name: String = "iOS"
     override val description: String = "iOS style clock with the date above the time"
     override val isResizable: Boolean = true
-    override val fontNames: List<String> = listOf("Roboto Flex", "Inter")
-
-    /** Loaded once, on the first face; falls back to Roboto Flex if the asset cannot be read. */
-    private var inter: IosNumeralFont? = null
+    override val isWidthAdjustable: Boolean = true
 
     /**
      * The large face writes the date above the time. The small face leaves it
@@ -26,14 +25,23 @@ class IosClockStyle(private val fontSource: FontSource) : ClockStyle {
      * clock, and the date would be written twice.
      */
     override fun createFace(context: Context, size: FaceSize): ClockFace =
-        IosClockFace(context, fontsFor(context), showsDate = size == FaceSize.LARGE)
+        IosClockFace(context, showsInfo = size == FaceSize.LARGE)
 
-    override fun createThumbnail(context: Context): Drawable = IosClockThumbnail(context)
+    /** A fixed 9:41, the time every iOS product shot shows, set in the face's own type. */
+    override fun createThumbnail(context: Context): Drawable = ClockThumbnail(context) { canvas, box, paint ->
+        paint.fontVariationSettings = RobotoFlexNumerals.variationFor(width = AdjustableWidthClockFace.DEFAULT_WIDTH, stretch = 1f)
+        paint.letterSpacing = IosClockTypography.TIME_LETTER_SPACING
+        paint.textAlign = Paint.Align.CENTER
+        paint.textSize = box.height() * THUMBNAIL_TEXT_HEIGHT
+        val width = paint.measureText(ClockThumbnail.SAMPLE_TIME)
+        val maxWidth = box.width() * THUMBNAIL_MAX_WIDTH
+        if (width > maxWidth) paint.textSize *= maxWidth / width
+        val baseline = box.exactCenterY() - (paint.descent() + paint.ascent()) / 2
+        canvas.drawText(ClockThumbnail.SAMPLE_TIME, box.exactCenterX(), baseline, paint)
+    }
 
-    private fun fontsFor(context: Context): List<IosNumeralFont> {
-        val second = inter
-            ?: (fontSource.load(context, InterNumerals.ASSET_PATH)?.let(::InterNumerals) ?: RobotoFlexNumerals)
-                .also { inter = it }
-        return listOf(RobotoFlexNumerals, second)
+    private companion object {
+        const val THUMBNAIL_TEXT_HEIGHT = 0.42f
+        const val THUMBNAIL_MAX_WIDTH = 0.8f
     }
 }

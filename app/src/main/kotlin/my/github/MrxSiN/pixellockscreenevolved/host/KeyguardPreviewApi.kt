@@ -19,8 +19,10 @@ internal class KeyguardPreviewApi(classLoader: ClassLoader) {
     private val rendererType = load("com.android.systemui.keyguard.ui.preview.KeyguardPreviewRenderer", classLoader)
 
     /**
-     * Colours a preview's clock for its wallpaper; its first two arguments are
-     * the renderer and the clock's plugin `ClockController`.
+     * Colours a preview's clock for its wallpaper. It is called on the renderer
+     * itself, and its first argument is the clock's plugin `ClockController`.
+     * Android 17 QPR1 made it a suspending method of the renderer, where before
+     * it was reached through a synthetic accessor that took the renderer first.
      */
     val clockAppearanceUpdated: Method = rendererType.declaredMethods.firstOrNull { it.name == UPDATE_CLOCK_APPEARANCE }
         ?: throw NoSuchMethodException("KeyguardPreviewRenderer.$UPDATE_CLOCK_APPEARANCE")
@@ -42,7 +44,7 @@ internal class KeyguardPreviewApi(classLoader: ClassLoader) {
 
     private companion object {
         const val KEYGUARD = "com.android.systemui.keyguard"
-        const val UPDATE_CLOCK_APPEARANCE = "access\$updateClockAppearance"
+        const val UPDATE_CLOCK_APPEARANCE = "updateClockAppearance"
 
         fun load(name: String, classLoader: ClassLoader): Class<*> = Class.forName(name, false, classLoader)
 

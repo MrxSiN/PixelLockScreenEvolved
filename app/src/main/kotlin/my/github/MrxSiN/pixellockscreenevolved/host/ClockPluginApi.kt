@@ -7,6 +7,7 @@ import java.lang.reflect.AccessibleObject
 import java.lang.reflect.Method
 
 import my.github.MrxSiN.pixellockscreenevolved.clock.ClockStyle
+import my.github.MrxSiN.pixellockscreenevolved.clock.ClockWeather
 import my.github.MrxSiN.pixellockscreenevolved.clock.FaceSize
 
 /**
@@ -29,8 +30,36 @@ internal class ClockPluginApi(private val classLoader: ClassLoader) {
     val animationsType: Class<*> = load("$CLOCKS.ClockAnimations")
     val faceLayoutType: Class<*> = load("$CLOCKS.ClockFaceLayout")
 
-    /** Called once, right after the registry is built, in both host processes. */
-    val registerListeners: Method = registryType.getDeclaredMethod("registerListeners")
+    /**
+     * Called once the registry is ready to answer for its clocks, before it
+     * first reads the chosen one, in both host processes.
+     *
+     * Wallpaper & style keeps `registerListeners`, which runs first. Android 17
+     * QPR1 dropped that method from SystemUI's shrunk copy, which reaches its
+     * clocks through `querySettings` instead; the registry calls it once as it
+     * is built, and again whenever the chosen clock changes.
+     */
+    val registryReady: Method = REGISTRY_READY
+        .firstNotNullOfOrNull { name ->
+            registryType.declaredMethods.firstOrNull { it.name == name && it.parameterCount == 0 }
+        }
+        ?: throw NoSuchMethodException("ClockRegistry.${REGISTRY_READY.joinToString(" or ")}")
+
+    /**
+     * How a face reaches the screen on a build whose lock screen is a scene of
+     * composed elements, or null on one that still adds and constrains a view.
+     */
+    val elements: LockscreenElementApi? =
+        runCatching { LockscreenElementApi(classLoader) }.getOrNull()
+
+    /**
+     * Makes the registry tell its listeners the current clock changed, so each
+     * builds it again from the provider now registered. Null where the registry
+     * has no such call.
+     */
+    val currentClockChanged: Method? = registryType.declaredMethods
+        .firstOrNull { it.name == "triggerOnCurrentClockChanged" && it.parameterCount == 0 }
+        ?.accessible()
 
     private val availableClocksField = registryType.getDeclaredField("availableClocks").accessible()
     private val registryContextField = registryType.getDeclaredField("context").accessible()
@@ -74,6 +103,8 @@ internal class ClockPluginApi(private val classLoader: ClassLoader) {
         .getConstructor(STRING, STRING, STRING, Drawable::class.java, BOOLEAN, List::class.java, presetConfigType)
     private val eventListenersConstructor = load("$CLOCKS.ClockEventListeners").getConstructor()
 
+    private val weatherGetters = arrayOf("getTemperature", "getUseCelsius", "getState", "getDescription")
+
     private val settingsType = load("$CLOCKS.ClockSettings")
     private val settingsClockId = settingsType.getMethod("getClockId")
     private val settingsSeedColor = settingsType.getMethod("getSeedColor")
@@ -110,29 +141,47 @@ internal class ClockPluginApi(private val classLoader: ClassLoader) {
     fun clockConfig(style: ClockStyle): Any =
         clockConfigConstructor.newInstance(style.id, style.name, style.description, false, false)
 
-    /**
-     * A face ticking once a minute. [drawsOwnDate] tells SystemUI to leave out
-     * its own date and weather line beside that face, so the date is not shown
-     * twice.
-     */
-    fun faceConfig(drawsOwnDate: Boolean): Any = faceConfigConstructor.newInstance(
+    /** A face ticking once a minute, with SystemUI owning its weather display and scene. */
+    fun faceConfig(hasCustomWeatherDataDisplay: Boolean): Any = faceConfigConstructor.newInstance(
         tickRateType.getField("PER_MINUTE").get(null),
-        drawsOwnDate,
+        hasCustomWeatherDataDisplay,
         false,
         false,
     )
 
+    /** Converts SystemUI's opaque weather payload into the module's small data contract. */
+    fun weather(value: Any?): ClockWeather? {
+        val data: Any = value ?: return null
+        return runCatching {
+            val methods = weatherGetters.map { name ->
+                data.javaClass.methods.firstOrNull { it.name == name && it.parameterCount == 0 }
+                    ?: data.javaClass.declaredMethods.first { it.name == name && it.parameterCount == 0 }.apply { isAccessible = true }
+            }
+            val temperatureValue = methods[0].invoke(data)
+            val temperature = (temperatureValue as? Number)?.toFloat()?.toInt()
+                ?: temperatureValue?.toString()?.toFloatOrNull()?.toInt()
+                ?: return null
+            val celsius = when (val raw = methods[1].invoke(data)) {
+                is Boolean -> raw
+                else -> raw?.toString()?.toBoolean() ?: false
+            }
+            val state = methods[2].invoke(data)?.toString().orEmpty()
+            val description = methods[3].invoke(data)?.toString().orEmpty()
+            ClockWeather(temperature, celsius, state, description)
+        }.getOrNull()
+    }
+
     /**
-     * How Wallpaper & style lists [style]. A style with several fonts also
-     * lists one axis preset per font, which the picker draws as a stepped
-     * slider, set to the font [settings] already holds. The current preset is
-     * picked by font alone, because the stored axes also hold the size.
+     * How Wallpaper & style lists [style]. A style whose width can be chosen
+     * also lists one axis preset per width step, which the picker draws as its
+     * "Clock face width" slider, set to the width [settings] already holds. The
+     * current preset is picked by width alone, because the stored axes also
+     * hold the size.
      */
     fun pickerConfig(style: ClockStyle, context: Context, settings: Any): Any {
         val thumbnail = style.createThumbnail(context)
-        val fontCount = style.fontNames.size
-        val presets = if (fontCount > 1) {
-            fontPresets(thumbnail, fontCount, ClockAxes.fontIndexOf(axis(settings, ClockAxes.FONT_KEY), fontCount))
+        val presets = if (style.isWidthAdjustable) {
+            widthPresets(thumbnail, ClockAxes.widthStepOf(axis(settings, ClockAxes.WIDTH_KEY)))
         } else {
             null
         }
@@ -141,8 +190,8 @@ internal class ClockPluginApi(private val classLoader: ClassLoader) {
         )
     }
 
-    private fun fontPresets(icon: Drawable, fontCount: Int, current: Int): Any {
-        val styles = List(fontCount) { axisStyleConstructor.newInstance(ClockAxes.fontPreset(it)) }
+    private fun widthPresets(icon: Drawable, current: Int): Any {
+        val styles = List(ClockAxes.WIDTH_STEPS) { axisStyleConstructor.newInstance(ClockAxes.widthPreset(it)) }
         val groups = listOf(presetGroupConstructor.newInstance(styles, icon))
         return presetConfigConstructor.newInstance(groups, indexedStyleConstructor.newInstance(0, current, styles[current]))
     }
@@ -158,14 +207,14 @@ internal class ClockPluginApi(private val classLoader: ClassLoader) {
         settingsAxes.invoke(settings)?.let { axisStylePut.invoke(it, key, value) }
     }
 
-    /** Whether a preset group is the font presets this module lists. */
-    fun isFontPresetGroup(group: Any): Boolean {
+    /** Whether a preset group is the width presets this module lists. */
+    fun isWidthPresetGroup(group: Any): Boolean {
         val firstPreset = (presetGroupPresets.invoke(group) as List<*>).firstOrNull() ?: return false
-        return axisOf(firstPreset, ClockAxes.FONT_KEY) != null
+        return axisOf(firstPreset, ClockAxes.WIDTH_KEY) != null
     }
 
-    /** Whether an `AxisPresetConfig.IndexedStyle` is one of this module's font presets. */
-    fun isFontPreset(indexedStyle: Any): Boolean = axisOf(requireNotNull(indexedStyleStyle.invoke(indexedStyle)), ClockAxes.FONT_KEY) != null
+    /** Whether an `AxisPresetConfig.IndexedStyle` is one of this module's width presets. */
+    fun isWidthPreset(indexedStyle: Any): Boolean = axisOf(requireNotNull(indexedStyleStyle.invoke(indexedStyle)), ClockAxes.WIDTH_KEY) != null
 
     /** Which preset an `AxisPresetConfig.IndexedStyle` is, within its group. */
     fun presetIndex(indexedStyle: Any): Int = indexedStylePreset.invoke(indexedStyle) as Int
@@ -173,7 +222,7 @@ internal class ClockPluginApi(private val classLoader: ClassLoader) {
     /** [indexedStyle], the same preset in the same group, with its axes also choosing [sizeStep]. */
     fun withSizeStep(indexedStyle: Any, sizeStep: Float): Any {
         val preset = presetIndex(indexedStyle)
-        val style = axisStyleConstructor.newInstance(ClockAxes.sizedFontPreset(preset, sizeStep))
+        val style = axisStyleConstructor.newInstance(ClockAxes.sizedWidthPreset(preset, sizeStep))
         return indexedStyleConstructor.newInstance(indexedStyleGroup.invoke(indexedStyle), preset, style)
     }
 
@@ -219,6 +268,9 @@ internal class ClockPluginApi(private val classLoader: ClassLoader) {
         const val CLOCKS = "com.android.systemui.plugins.keyguard.ui.clocks"
         val STRING = String::class.java
         val BOOLEAN = Boolean::class.java
+
+        /** Candidates for [registryReady], the one that runs earliest first. */
+        val REGISTRY_READY = listOf("registerListeners", "querySettings")
     }
 }
 

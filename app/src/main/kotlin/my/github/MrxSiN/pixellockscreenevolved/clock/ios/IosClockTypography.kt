@@ -1,9 +1,6 @@
 package my.github.MrxSiN.pixellockscreenevolved.clock.ios
 
-/**
- * Type values shared by every font the iOS clock can be set in. The fonts
- * themselves, and how each grows with size, are [IosNumeralFont]s.
- */
+/** Type values of the iOS clock, besides the numerals' own ([RobotoFlexNumerals]). */
 internal object IosClockTypography {
 
     /**
@@ -12,12 +9,6 @@ internal object IosClockTypography {
      */
     const val TIME_LETTER_SPACING = 0f
 
-    /**
-     * Width of the line the time is traced in on the always-on display: thin,
-     * so few pixels stay lit, yet solid enough to read at the display's low
-     * brightness.
-     */
-    const val TIME_OUTLINE_DP = 1.5f
 
     /** The date is drawn a little translucent over the wallpaper. */
     const val DATE_ALPHA = 0.85f

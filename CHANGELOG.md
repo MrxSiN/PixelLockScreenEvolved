@@ -1,5 +1,129 @@
 # Changelog
 
+## 0.0.5 — 2026-09-22
+
+### Added
+
+- Four clock styles beside iOS, each with Google's Style, Color and Size tabs:
+  **Stacked** (hour over minute, flush to the start, date below),
+  **Numerals** (giant Roboto Flex figures whose minute grows heavier and wider
+  as the hour passes), **Analog** (a dial with rounded hands, only the hands in
+  outline on the always-on display) and **Split** (the time drawn down the
+  screen until it meets the depth effect's subject, and a little past it, so
+  the subject stands in front of the ends of the numerals). Every face writes
+  its own date where its design puts it, and SystemUI's own date row is hidden
+  beside it.
+- Custom clocks take their colour from the Color tab's seed and tone, as
+  Google's clocks do, on the lock screen, in the preview and dozing.
+- **Depth effect page**: whether the wallpaper's subject was found, and
+  **Reprocess wallpaper** / **Try again**, which forgets the mask kept for the
+  photo and looks again more carefully, without clearing app data.
+- **Always-on display page**: **Show lock screen wallpaper** and one
+  **Appearance** (Color, Black & white or Dots). The old Dots and Black &
+  white switches are read once, so a choice already made carries over.
+- Each feature hooks through hooks of its own. One that keeps failing at run
+  time, or fails to install, is stopped alone until its host restarts, and the
+  compatibility page and its entry say so; every other feature carries on.
+- The compatibility page says whether the system build is one the module was
+  tried on; on any other, each feature is still checked on its own.
+- The module's own motion (the depth effect's subject easing in front of the
+  time, and the clock carried between sizes) follows **Remove animations** and
+  the animator duration scale.
+- The module's pages in Wallpaper & style open and close with Android 17
+  Settings' shared X axis motion (the page slides in from a quarter of the
+  width as the picker slides away, 450ms on the emphasized curve), and back
+  closes them the same way. **Depth effect** carries Settings' chevron and
+  divider before its switch, marking that it opens a page.
+- The new clocks move through Roboto Flex's axes, as Google's clocks do: their
+  strokes thin to a light cut on the always-on display and fill out again on
+  waking, grow in as the lock screen appears, and thin and fill once as the
+  charger is plugged in. Their digits roll at each minute, as the iOS clock's
+  do. Analog's hands step on each minute with a little spring, sweep in as the
+  lock screen appears, and nudge as the charger is plugged in.
+
+- **Compatibility & diagnostics**, at the end of Wallpaper & style's Lock screen
+  list: the module's and Android's versions, SystemUI's and Wallpaper & style's
+  versions, the libxposed API and framework, whether each feature is compatible,
+  how many required host APIs resolved, which fallbacks were used, which
+  optional APIs are absent, and every contract checked, with
+  a copyable report. Each host checks the members its features need as it
+  starts, and logs the whole report the first time it runs on a new version.
+- A feature whose required members are gone is no longer installed. Its switch
+  in Wallpaper & style is greyed out and says it is unavailable on that SystemUI
+  and to update the module, and the iOS clock is not offered while SystemUI
+  cannot draw it.
+- **Safe Mode.** Three SystemUI (or Wallpaper & style) crashes within a minute
+  hold this module's features in that process off on the next start. SystemUI
+  posts a notification, and Wallpaper & style asks as it opens, whether to
+  **Restore feature** or **Keep disabled**.
+- On the always-on display the large clock first comes in front of the depth
+  effect's subject, then moves to Pixel's fingerprint-aware clock region.
+  Waking reverses that order: it returns before the subject stands in front again. A
+  notification arriving on the always-on display carries it to the small clock.
+
+### Changed
+
+- The Lock screen list's four switches became two entries, **Depth effect**
+  (with its switch) and **Always-on display**, each opening a page.
+
+- The iOS clock is set in Roboto Flex alone. Its Style slider is the picker's own
+  **Clock face width**, the same seven cuts Google's flex clock steps through,
+  the middle one by default.
+
+- **Split**'s thumbnail shows the time split by a cut-out figure, so the style
+  reads apart from iOS in the clock list rather than as a second plain line.
+  Its small face, shown beside notifications, stands taller than a Pixel small
+  clock's figures: dropping to the usual height read as the clock shrinking
+  away from a large face that fills the screen.
+- **Split** is now one heavy line drawn down the screen rather than an hour and
+  a minute stepped across it. It reads where the depth effect's subject stands
+  and stretches until it meets it, and a little past it, so the subject stands
+  in front of the ends of the numerals. With no subject found, or the effect
+  off, it reaches toward the middle of the screen.
+
+### Fixed
+
+- Every module clock now stays in the picker's section beside iOS, before the
+  divider, instead of fixed-width clocks being mixed among Google's clocks.
+- Module clocks now use SystemUI's stock always-on placement, which leaves room
+  for the fingerprint sensor, instead of forcing the time to screen centre.
+- At the largest clock size, every **Clock face width** now has the same numeral
+  height; the widest face no longer becomes shorter than the narrowest face.
+- **Clock face width** now changes how wide the iOS clock is drawn, as it does
+  on Google's clocks. Every width of one size is set at the size the widest
+  width needs, so a narrower width draws a narrower time instead of the same
+  block of the screen in a different cut.
+- The width slider now steps through the same seven cuts as Google's own flex
+  clock, read from its `FlexClockController.BASE_PRESETS`: `wght` 200 at `wdth`
+  120 through to `wght` 800 at `wdth` 30, widest and lightest first. The
+  numerals grow heavier as they narrow, as stock's do, instead of holding one
+  weight across a wider range of widths than the font is drawn for.
+- The depth effect no longer loses the photo it is cutting the subject from.
+  Scaling a photo already the size of the wallpaper surface hands the engine's
+  own bitmap straight back rather than copying it, and the engine recycled it
+  long before segmentation returned, so the first photo after a restart ended
+  in **No subject found** instead of a cut-out.
+- The rows under a small module clock are spaced as SystemUI spaces its own.
+  A module face is only as tall as its numerals, so the date row came up to
+  meet it while the notifications below stayed put, leaving the clock, the date
+  and the notifications unevenly gapped on the always-on display; a small face
+  is now given the band SystemUI lays its own small clock out in.
+- Android 17 QPR1 no longer reports seven removed legacy clock-transition APIs
+  as failed hooks. Its Compose scene owns clock-size motion, while older builds
+  keep the module's legacy motion hooks.
+- Compatibility checks now select either the Compose or legacy smartspace path,
+  so QPR1 no longer counts two removed optional constraint APIs against its total.
+- SystemUI's QPR1 `ClockRegistry.querySettings` entry point is reported as its
+  active API instead of as a fallback for the removed `registerListeners`.
+
+### Removed
+
+- The **Pixel Minimal** and **Editorial** clock styles. A device set to either
+  goes back to the default clock.
+- The Inter, One UI (Manrope) and Nothing (Doto) fonts.
+- The clock's unlock flight to the status bar clock, and the overlays that held
+  the status icons and brought in the notification icons through an unlock.
+
 ## 0.0.4
 
 ### Changed

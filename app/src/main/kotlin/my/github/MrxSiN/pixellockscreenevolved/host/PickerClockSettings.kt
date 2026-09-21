@@ -7,13 +7,13 @@ import my.github.MrxSiN.pixellockscreenevolved.hook.HostPatch
 
 /**
  * Makes every clock setting Wallpaper & style writes for this module's clocks
- * carry both the font and the size.
+ * carry both the width and the size.
  *
- * The picker writes one set of axes: the preset its slider is on, which holds
- * the font. The size comes from the slider this module adds, so it is merged in
+ * The picker writes one set of axes: the preset its "Clock face width"
+ * slider is on, which holds the width. The size comes from the slider this module adds, so it is merged in
  * just before the registry writes. Whatever the write does not choose is kept
  * from the setting already in effect, so choosing a colour does not reset the
- * font or the size.
+ * width or the size.
  */
 internal class PickerClockSettings(
     private val hooks: Hooks,
@@ -40,14 +40,14 @@ internal class PickerClockSettings(
             if (clockId !in styleIds) return@before
             val sameClock = state.storedClockId() == clockId
 
-            val font = api.axis(settings, ClockAxes.FONT_KEY)
-                ?: state.storedAxis(ClockAxes.FONT_KEY)?.takeIf { sameClock }
-                ?: 0f
+            val width = api.axis(settings, ClockAxes.WIDTH_KEY)
+                ?: state.storedAxis(ClockAxes.WIDTH_KEY)?.takeIf { sameClock }
+                ?: ClockAxes.DEFAULT_WIDTH_STEP.toFloat()
             val size = state.chosenSizeStep
                 ?: state.storedAxis(ClockAxes.SIZE_KEY)?.takeIf { sameClock }
                 ?: 0f
 
-            api.putAxis(settings, ClockAxes.FONT_KEY, font)
+            api.putAxis(settings, ClockAxes.WIDTH_KEY, width)
             api.putAxis(settings, ClockAxes.SIZE_KEY, size)
             api.putAxis(settings, ClockAxes.WIDTH_AXIS_KEY, ClockAxes.WIDE_CLOCK_WIDTH)
         }

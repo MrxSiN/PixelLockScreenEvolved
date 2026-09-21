@@ -53,14 +53,15 @@ class SubjectMaskService : Service() {
         @Suppress("DEPRECATION")
         val photo = request.data.getParcelable<Bitmap>(SubjectMaskContract.KEY_PHOTO)
             ?: return fail(reply, id, "no photo")
+        val careful = request.data.getBoolean(SubjectMaskContract.KEY_CAREFUL)
 
         worker.execute {
             val started = SystemClock.elapsedRealtime()
             runCatching {
                 val model = segmenter ?: SubjectSegmenter(assets).also { segmenter = it }
-                model.maskOf(photo)
+                model.maskOf(photo, careful)
             }.onSuccess { mask ->
-                Log.i(TAG, "Found the subject of a ${photo.width}x${photo.height} photo in ${SystemClock.elapsedRealtime() - started} ms")
+                Log.i(TAG, "Found the subject of a ${photo.width}x${photo.height} photo${if (careful) " carefully" else ""} in ${SystemClock.elapsedRealtime() - started} ms")
                 send(reply, SubjectMaskContract.MASK, id, Bundle().apply { putParcelable(SubjectMaskContract.KEY_MASK, mask) })
             }.onFailure { error ->
                 Log.w(TAG, "Subject segmentation failed", error)

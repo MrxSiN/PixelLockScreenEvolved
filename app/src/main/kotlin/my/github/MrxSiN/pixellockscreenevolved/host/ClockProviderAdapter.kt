@@ -3,6 +3,7 @@ package my.github.MrxSiN.pixellockscreenevolved.host
 import android.content.Context
 
 import my.github.MrxSiN.pixellockscreenevolved.clock.ClockStyle
+import my.github.MrxSiN.pixellockscreenevolved.core.Logger
 
 /**
  * Every [ClockStyle] presented to a clock registry as one `ClockProvider`,
@@ -13,6 +14,7 @@ internal class ClockProviderAdapter(
     private val proxies: InterfaceProxy,
     private val styles: List<ClockStyle>,
     private val registryContext: Context,
+    private val logger: Logger,
     private val onClockCreated: (ClockControllerAdapter) -> Unit = {},
 ) {
 
@@ -29,10 +31,17 @@ internal class ClockProviderAdapter(
         ),
     )
 
-    private fun createClock(context: Context, settings: Any): Any? =
-        styleFor(settings)?.let { style ->
-            ClockControllerAdapter(api, proxies, style, context, settings).also(onClockCreated).controller
+    private fun createClock(context: Context, settings: Any): Any? {
+        val style = styleFor(settings)
+        if (style == null) {
+            // The host asked this provider for a clock none of its styles answers
+            // to, which leaves the lock screen with no clock at all.
+            logger.warn("No clock style for ${api.clockId(settings)}; the host asked for one this module does not provide")
+            return null
         }
+        logger.info("Building clock ${style.id}")
+        return ClockControllerAdapter(api, proxies, style, context, settings).also(onClockCreated).controller
+    }
 
     private fun styleFor(settings: Any): ClockStyle? {
         val id = api.clockId(settings)

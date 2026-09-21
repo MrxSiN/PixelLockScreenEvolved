@@ -1,5 +1,6 @@
 package my.github.MrxSiN.pixellockscreenevolved.host
 
+import android.annotation.SuppressLint
 import android.app.WallpaperManager
 import android.content.Context
 import android.graphics.Point
@@ -15,6 +16,7 @@ import java.lang.reflect.Method
  * screen, and slides it within that crop by the wallpaper's scroll.
  * HOOK_NOTES.md records the shapes.
  */
+@SuppressLint("BlockedPrivateApi") // This Xposed adapter intentionally reflects SystemUI's platform-owned wallpaper engine.
 internal class LockWallpaperApi(classLoader: ClassLoader) {
 
     val engineType: Class<*> = Class.forName("com.android.systemui.wallpapers.ImageWallpaper\$CanvasEngine", false, classLoader)

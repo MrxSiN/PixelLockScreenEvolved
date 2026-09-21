@@ -2,6 +2,8 @@ package my.github.MrxSiN.pixellockscreenevolved.clock.ios
 
 import java.util.Locale
 
+import my.github.MrxSiN.pixellockscreenevolved.clock.parts.TimeParts
+
 /**
  * The time as the iOS lock screen writes it.
  *
@@ -10,15 +12,6 @@ import java.util.Locale
  */
 object IosTimeText {
 
-    fun format(hourOfDay: Int, minute: Int, is24Hour: Boolean, locale: Locale): String {
-        require(hourOfDay in 0..23) { "hourOfDay out of range: $hourOfDay" }
-        require(minute in 0..59) { "minute out of range: $minute" }
-
-        return if (is24Hour) {
-            String.format(locale, "%02d:%02d", hourOfDay, minute)
-        } else {
-            val hour = (hourOfDay % 12).takeIf { it != 0 } ?: 12
-            String.format(locale, "%d:%02d", hour, minute)
-        }
-    }
+    fun format(hourOfDay: Int, minute: Int, is24Hour: Boolean, locale: Locale): String =
+        TimeParts.of(hourOfDay, minute, is24Hour, locale).joined
 }

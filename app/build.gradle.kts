@@ -2,7 +2,8 @@ plugins {
     alias(libs.plugins.agp.app)
 }
 
-val appVersion = "0.0.4"
+val appVersion = "0.0.5"
+val appVersionCode = providers.gradleProperty("moduleVersionCode").getOrElse("7").toInt()
 
 val envKeystorePath = System.getenv("ANDROID_KEYSTORE_PATH")
 val envKeystoreAlias = System.getenv("ANDROID_KEYSTORE_ALIAS")
@@ -35,7 +36,7 @@ android {
         // The SystemUI clock plugin surface this module targets is Android 17 (API 37).
         minSdk = 37
         targetSdk = 37
-        versionCode = 5
+        versionCode = appVersionCode
         versionName = appVersion
 
         // Pixels are arm64; the segmentation runtime for other ABIs would only add size.

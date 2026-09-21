@@ -33,11 +33,10 @@ interface ClockStyle {
     val isResizable: Boolean get() = false
 
     /**
-     * The fonts a person can choose between, in slider order, or none when the
-     * style has one. The faces of a style with several implement
-     * [FontChoosingClockFace].
+     * Whether the width can be chosen in Wallpaper & style. The faces of such a
+     * style implement [AdjustableWidthClockFace].
      */
-    val fontNames: List<String> get() = emptyList()
+    val isWidthAdjustable: Boolean get() = false
 
     fun createFace(context: Context, size: FaceSize): ClockFace
 
@@ -82,4 +81,17 @@ interface ClockFace {
 
     /** Colour to draw in, already settled for wallpaper contrast and doze. */
     fun setColor(color: Int)
+}
+
+/** Weather supplied to a clock by SystemUI, without host implementation types. */
+data class ClockWeather(
+    val temperature: Int,
+    val celsius: Boolean,
+    val condition: String,
+    val description: String,
+)
+
+/** A face that presents SystemUI's weather data. */
+interface WeatherClockFace {
+    fun setWeather(weather: ClockWeather?)
 }

@@ -14,7 +14,7 @@ import my.github.MrxSiN.pixellockscreenevolved.hook.HostPatch
  * The size is made part of the picker's own edit instead: moving the slider
  * chooses the axis preset already on show again, with the size added to its
  * axes, which makes the picker compare its edits once more. For this module's
- * clocks that comparison is then made by font and size, so Apply is enabled
+ * clocks that comparison is then made by width and size, so Apply is enabled
  * exactly while either differs from the stored setting, and greys out again
  * when both are moved back.
  */
@@ -39,18 +39,18 @@ internal class PickerSizeEdit(
             return
         }
 
-        hooks.after(sheet.bindSheet) { _, args ->
-            val options = args.getOrNull(1) ?: return@after
+        hooks.after(sheet.bindSheet) { binding, _ ->
+            val options = sheet.sheetOptions(requireNotNull(binding)) ?: return@after
             clockPickerViewModel = WeakReference(edits.clockPickerViewModel(options))
         }
 
         hooks.replaceResult(edits.axisPresetEdited) { edited, _, result ->
             val stored = edits.comparedStoredPreset(requireNotNull(edited))
-            if (stored == null || !clocks.isFontPreset(stored)) return@replaceResult result
+            if (stored == null || !clocks.isWidthPreset(stored)) return@replaceResult result
             storedPreset = stored
             val chosen = edits.comparedChosenPreset(edited)
-            val fontEdited = chosen != null && clocks.presetIndex(chosen) != clocks.presetIndex(stored)
-            fontEdited || state.isSizeStepEdited()
+            val widthEdited = chosen != null && clocks.presetIndex(chosen) != clocks.presetIndex(stored)
+            widthEdited || state.isSizeStepEdited()
         }
 
         state.onSizeStepChosen { step ->

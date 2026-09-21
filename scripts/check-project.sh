@@ -7,8 +7,9 @@ SRC="$ROOT/app/src/main/kotlin/my/github/MrxSiN/pixellockscreenevolved"
 META="$ROOT/app/src/main/resources/META-INF/xposed"
 
 # Modern Xposed module metadata: the framework finds the module through these.
-grep -q '^minApiVersion=' "$META/module.prop"
+grep -q '^minApiVersion=102$' "$META/module.prop"
 grep -q '^staticScope=true$' "$META/module.prop"
+grep -q '^autoHotReload=true$' "$META/module.prop"
 grep -q '^my.github.MrxSiN.pixellockscreenevolved.PixelLockScreenEvolvedModule$' "$META/java_init.list"
 grep -q '^com.android.systemui$' "$META/scope.list"
 grep -q '^com.google.android.apps.wallpaper$' "$META/scope.list"
@@ -23,15 +24,16 @@ grep -q 'HostPatch' "$SRC/PixelLockScreenEvolvedModule.kt"
 ! grep -rq 'com.android.systemui' "$SRC/clock"
 ! grep -rq 'libxposed' "$SRC/clock" "$SRC/host"
 
-# Every SystemUI clock plugin class is named in one file.
-[ "$(grep -rl 'com.android.systemui.plugins.keyguard.ui.clocks' "$SRC" | wc -l)" -eq 1 ]
+# Clock plugin names live in the runtime adapter and the diagnostics contract list only.
+[ "$(grep -rl 'com.android.systemui.plugins.keyguard.ui.clocks' "$SRC" | wc -l)" -eq 2 ]
+grep -q 'com.android.systemui.plugins.keyguard.ui.clocks' "$SRC/diagnostics/HostContracts.kt"
 grep -q 'registerListeners' "$SRC/host/ClockPluginApi.kt"
 grep -q 'availableClocks' "$SRC/host/ClockPluginApi.kt"
 
 # Stored keys: renaming either resets every device that stored it.
 grep -q 'id: String = "PIXEL_LOCK_SCREEN_EVOLVED_IOS"' "$SRC/clock/ios/IosClockStyle.kt"
 grep -q 'SIZE_KEY = "PIXEL_LOCK_SCREEN_EVOLVED_SIZE"' "$SRC/host/ClockAxes.kt"
-grep -q 'FONT_KEY = "PIXEL_LOCK_SCREEN_EVOLVED_FONT"' "$SRC/host/ClockAxes.kt"
+grep -q 'WIDTH_KEY = "PIXEL_LOCK_SCREEN_EVOLVED_WIDTH"' "$SRC/host/ClockAxes.kt"
 
 # R8 rewrites Kotlin class names written as strings to the module's own shrunk
 # copy of Kotlin, so a host lookup must never name a kotlin.* class.
@@ -41,10 +43,11 @@ grep -q 'FONT_KEY = "PIXEL_LOCK_SCREEN_EVOLVED_FONT"' "$SRC/host/ClockAxes.kt"
 ! grep -qE '^import android' "$SRC/clock/ios/IosTimeText.kt"
 ! grep -qE '^import android' "$SRC/host/ClockAxes.kt"
 ! grep -qE '^import android' "$SRC/clock/ios/IosClockScale.kt"
+! grep -qE '^import android' "$SRC/clock/parts/StretchFit.kt"
+! grep -qE '^import android' "$SRC/clock/styles/SplitClockScale.kt"
 
-# Bundled fonts ship with their licence.
-[ -f "$ROOT/app/src/main/assets/fonts/InterVariable.ttf" ]
-[ -f "$ROOT/app/src/main/assets/fonts/Inter-LICENSE.txt" ]
+# The clock uses the system's Roboto Flex; no font binary is bundled.
+[ ! -e "$ROOT/app/src/main/assets/fonts" ]
 
 # The segmentation model ships with its licence, under GitHub's 100 MB file limit.
 grep -q 'models/birefnet_lite.onnx' "$SRC/depth/SubjectSegmenter.kt"

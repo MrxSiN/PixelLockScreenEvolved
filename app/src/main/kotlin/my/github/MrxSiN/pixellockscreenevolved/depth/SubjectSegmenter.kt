@@ -2,6 +2,7 @@ package my.github.MrxSiN.pixellockscreenevolved.depth
 
 import android.content.res.AssetManager
 import android.graphics.Bitmap
+import android.graphics.Matrix
 
 import java.io.FileInputStream
 import java.nio.ByteBuffer
@@ -38,23 +39,34 @@ internal class SubjectSegmenter(assets: AssetManager) : AutoCloseable {
     private val session: OrtSession = environment.createSession(map(assets, MODEL_PATH), OrtSession.SessionOptions())
     private val inputName = session.inputNames.first()
 
-    /** An `ALPHA_8` mask the size of [photo]; see [SubjectMaskContract]. */
-    fun maskOf(photo: Bitmap): Bitmap {
+    /**
+     * An `ALPHA_8` mask the size of [photo]; see [SubjectMaskContract]. A
+     * [careful] mask also looks at the photo's mirror image and averages the two
+     * answers ([SubjectInput.averageMirrored]).
+     */
+    fun maskOf(photo: Bitmap, careful: Boolean = false): Bitmap {
         val scaled = Bitmap.createScaledBitmap(photo, SIDE, SIDE, true)
-        val input = OnnxTensor.createTensor(environment, SubjectInput.of(scaled), longArrayOf(1, 3, SIDE.toLong(), SIDE.toLong()))
-        if (scaled !== photo) scaled.recycle()
-
-        val logits = input.use {
-            session.run(mapOf(inputName to it)).use { outputs ->
-                (outputs.get(0) as OnnxTensor).floatBuffer.let { buffer -> FloatArray(buffer.remaining()).also(buffer::get) }
-            }
+        var logits = logitsOf(scaled)
+        if (careful) {
+            val mirror = Matrix().apply { setScale(-1f, 1f) }
+            val mirrored = Bitmap.createBitmap(scaled, 0, 0, SIDE, SIDE, mirror, false)
+            logits = SubjectInput.averageMirrored(logits, logitsOf(mirrored))
+            mirrored.recycle()
         }
+        if (scaled !== photo) scaled.recycle()
 
         val small = Bitmap.createBitmap(SIDE, SIDE, Bitmap.Config.ALPHA_8).apply {
             copyPixelsFromBuffer(ByteBuffer.wrap(SubjectInput.alphaOf(logits)))
         }
         return Bitmap.createScaledBitmap(small, photo.width, photo.height, true).also { if (it !== small) small.recycle() }
     }
+
+    private fun logitsOf(photo: Bitmap): FloatArray =
+        OnnxTensor.createTensor(environment, SubjectInput.of(photo), longArrayOf(1, 3, SIDE.toLong(), SIDE.toLong())).use {
+            session.run(mapOf(inputName to it)).use { outputs ->
+                (outputs.get(0) as OnnxTensor).floatBuffer.let { buffer -> FloatArray(buffer.remaining()).also(buffer::get) }
+            }
+        }
 
     override fun close() {
         session.close()
@@ -91,6 +103,12 @@ internal object SubjectInput {
             }
         }
         return input.also { it.rewind() }
+    }
+
+    /** The mean of [logits] and of [mirrored], the logits of the photo's mirror image, turned back the right way round. */
+    fun averageMirrored(logits: FloatArray, mirrored: FloatArray): FloatArray = FloatArray(SIDE * SIDE) { i ->
+        val x = i % SIDE
+        (logits[i] + mirrored[i - x + SIDE - 1 - x]) / 2f
     }
 
     /** One alpha byte per pixel from the model's logits, through a sigmoid and eased at the edge. */

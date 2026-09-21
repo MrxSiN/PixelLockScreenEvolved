@@ -39,12 +39,12 @@ internal class KeyguardPreviewWallpapers(
             return
         }
 
-        hooks.before(api.clockAppearanceUpdated) { _, args ->
-            val renderer = args[0] ?: return@before
-            val controller = args[1] ?: return@before
+        hooks.before(api.clockAppearanceUpdated) { renderer, args ->
+            val preview = renderer ?: return@before
+            val controller = args.firstOrNull() ?: return@before
             // The lock screen tab previews the wallpaper already set and names no colours.
-            val shown = api.wallpaperColors(renderer)
-            otherWallpaper[controller] = shown != null && shown != lockWallpaperColors(api.context(renderer))
+            val shown = api.wallpaperColors(preview)
+            otherWallpaper[controller] = shown != null && shown != lockWallpaperColors(api.context(preview))
         }
     }
 

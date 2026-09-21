@@ -26,6 +26,27 @@ internal object LockScreenInsets {
     /** How far below the top of SystemUI's smartspace card its first line of text starts. */
     private const val CARD_INK_BELOW_TOP_DP = 38f
 
+    /** SystemUI's own dimension for the band its small clock is laid out in. */
+    private const val SMALL_CLOCK_HEIGHT = "small_clock_height"
+
+    /**
+     * The band SystemUI lays its own small clock out in, in pixels.
+     *
+     * The lock screen spaces what it puts under the small clock against the
+     * bottom of that band, not against the clock's ink. This module's small
+     * faces are exactly as tall as their numerals ([NumeralView]), so left to
+     * measure themselves they sat in a shorter band and the date row came up to
+     * meet them while the notifications below it stayed where SystemUI put
+     * them, leaving the rows unevenly spaced on the always-on display. Given
+     * the band, the faces keep SystemUI's own spacing on both sides. A build
+     * that does not name the dimension gives 0, and the face measures itself as
+     * it did before.
+     */
+    fun smallClockHeight(context: Context): Int {
+        val id = context.resources.getIdentifier(SMALL_CLOCK_HEIGHT, "dimen", context.packageName)
+        return if (id != 0) context.resources.getDimensionPixelSize(id) else 0
+    }
+
     /** The top of a large clock pinned under the status bar, in pixels. */
     fun largeClockTop(context: Context): Int {
         val system = Resources.getSystem()
@@ -33,6 +54,9 @@ internal object LockScreenInsets {
         val statusBar = if (statusBarId != 0) system.getDimensionPixelSize(statusBarId) else 0
         return statusBar + dp(context, ROW_GAP_DP - STATUS_BAR_INK_ABOVE_BOTTOM_DP - DATE_INK_BELOW_TOP_DP)
     }
+
+    /** Space between the bottom of a large clock and the top of SystemUI's date row moved below it, in pixels. */
+    fun rowGap(context: Context): Int = dp(context, ROW_GAP_DP - DATE_INK_BELOW_TOP_DP).coerceAtLeast(0)
 
     /** Space between the bottom of a large clock and the top of the smartspace card below it, in pixels. */
     fun cardGap(context: Context): Int = dp(context, ROW_GAP_DP - CARD_INK_BELOW_TOP_DP).coerceAtLeast(0)

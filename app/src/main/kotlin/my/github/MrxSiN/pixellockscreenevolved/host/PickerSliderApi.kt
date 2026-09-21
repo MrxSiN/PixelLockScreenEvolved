@@ -22,17 +22,25 @@ internal class PickerSliderApi(
     private val clocks: ClockPluginApi,
 ) {
 
-    /** Binds the whole clock sheet: every tab's content, once per sheet. */
-    val bindSheet: Method = load(SHEET_BINDER, classLoader).declaredMethods
-        .firstOrNull { it.name == "bind" && it.parameterCount == 4 }
-        ?: throw NoSuchMethodException("$SHEET_BINDER.bind")
+    private val sheetBinding = load(SHEET_BINDING, classLoader)
+
+    /**
+     * Binds the whole clock sheet: every tab's content, once per sheet.
+     *
+     * Android 17 QPR1 folded `ClockFloatingSheetBinder.bind` into its one caller,
+     * leaving only the body it launches. That body holds everything the call
+     * used to be given, read back through [sheetView] and [sheetOptions]. It is
+     * the resuming of a coroutine, so it runs more than once per sheet.
+     */
+    val bindSheet: Method = sheetBinding.getDeclaredMethod("invokeSuspend", Any::class.java)
+
+    private val bindingView = sheetBinding.field("\$view")
+    private val bindingOptions = sheetBinding.field("\$optionsViewModel")
 
     /** Rebinds the preset slider each time a clock is chosen; its argument is the slider's view model, or null. */
     val bindPresetSlider: Method = load(PRESET_SLIDER_COLLECTOR, classLoader).declaredMethods
         .firstOrNull { it.name == "emit" && it.parameterCount == 2 }
         ?: throw NoSuchMethodException("$PRESET_SLIDER_COLLECTOR.emit")
-
-    private val collectorSlider = load(PRESET_SLIDER_COLLECTOR, classLoader).field("\$axisPresetSlider")
 
     private val sheetHeights = load(SHEET_BINDER, classLoader).field("_clockFloatingSheetHeights")
     private val heightsType = load("com.android.customization.picker.clock.ui.viewmodel.ClockFloatingSheetHeightsViewModel", classLoader)
@@ -55,24 +63,27 @@ internal class PickerSliderApi(
 
     private val colourFields = COLOUR_FIELDS.map { sliderType.field(it) }
     private val paintFields = PAINT_FIELDS.map { sliderType.field(it) }
-    private val thumbDrawable = sliderType.field("defaultThumbDrawable")
+    /**
+     * The slider's thumbs. Material kept one thumb drawable per slider until
+     * Android 17 QPR1, and keeps a list of them since, one per value; these
+     * sliders carry a single value, so the colour is read off the first.
+     */
+    private val thumbDrawables = runCatching { sliderType.field("defaultThumbDrawables") }.getOrNull()
+    private val thumbDrawable = thumbDrawables ?: sliderType.field("defaultThumbDrawable")
     private val shapeDrawableType = load("com.google.android.material.shape.MaterialShapeDrawable", classLoader)
     private val shapeState = shapeDrawableType.field("drawableState")
     private val shapeFillColor = load("com.google.android.material.shape.MaterialShapeDrawable\$MaterialShapeDrawableState", classLoader)
         .field("fillColor")
     private val shapeSetFillColor = shapeDrawableType.getMethod("setFillColor", ColorStateList::class.java)
 
-    /** The preset slider a collector binds, held in its captured `$axisPresetSlider`. */
-    fun presetSlider(collector: Any): View = collectorSlider.get(collector) as View
-
-    /** Whether a preset slider view model steps through this module's font presets. */
-    fun holdsFontPresets(sliderModel: Any): Boolean {
+    /** Whether a preset slider view model steps through this module's width presets. */
+    fun holdsWidthPresets(sliderModel: Any): Boolean {
         val callback = sliderModel.javaClass.getDeclaredField("onSliderStopTrackingTouch")
             .apply { isAccessible = true }.get(sliderModel) ?: return false
         val group = callback.javaClass.declaredFields
             .firstOrNull { it.type == clocks.presetGroupType }
             ?.apply { isAccessible = true }?.get(callback) ?: return false
-        return clocks.isFontPresetGroup(group)
+        return clocks.isWidthPresetGroup(group)
     }
 
     /**
@@ -128,14 +139,26 @@ internal class PickerSliderApi(
             if (paint.color != colour) paint.color = colour
         }
         // Setting the fill redraws the slider, so it is only set when it differs.
-        val fill = shapeFillColor.get(shapeState.get(thumbDrawable.get(source)))
-        val targetThumb = thumbDrawable.get(target)
+        val fill = shapeFillColor.get(shapeState.get(thumb(source) ?: return))
+        val targetThumb = thumb(target) ?: return
         if (shapeFillColor.get(shapeState.get(targetThumb)) != fill) shapeSetFillColor.invoke(targetThumb, fill)
     }
 
+    /** The one thumb a single-valued slider draws. */
+    private fun thumb(slider: Any): Any? = thumbDrawable.get(slider)?.let { held ->
+        if (thumbDrawables == null) held else (held as List<*>).firstOrNull()
+    }
+
+    /** The sheet's own view, from the call that binds it. */
+    fun sheetView(binding: Any): View? = bindingView.get(binding) as View?
+
+    /** The picker's options, which hold the clock picker's view model. */
+    fun sheetOptions(binding: Any): Any? = bindingOptions.get(binding)
+
     private companion object {
         const val SHEET_BINDER = "com.android.customization.picker.clock.ui.binder.ClockFloatingSheetBinder"
-        const val PRESET_SLIDER_COLLECTOR = "$SHEET_BINDER\$bind\$13\$1\$12\$1"
+        const val SHEET_BINDING = "$SHEET_BINDER\$bind\$13\$1"
+        const val PRESET_SLIDER_COLLECTOR = "$SHEET_BINDING\$12\$1"
 
         const val SIZE_HEIGHT = 2
 

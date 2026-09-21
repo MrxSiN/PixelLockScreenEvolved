@@ -1,75 +1,66 @@
 package my.github.MrxSiN.pixellockscreenevolved.host
 
-import android.content.Context
 import android.graphics.Bitmap
 import android.graphics.Canvas
-import android.graphics.Color
+import android.graphics.ColorFilter
 import android.graphics.Matrix
 import android.graphics.Paint
+import android.graphics.PixelFormat
 import android.graphics.PorterDuff
-import android.graphics.PorterDuffColorFilter
 import android.graphics.PorterDuffXfermode
-import android.graphics.Rect
 import android.graphics.RectF
-import android.os.Handler
-import android.os.Looper
+import android.graphics.drawable.Drawable
+import android.os.SystemClock
 import android.view.View
-import android.view.ViewGroup
-import android.view.ViewTreeObserver
-import android.widget.ImageView
+import android.view.WindowManager
 
-import kotlin.math.ceil
-import kotlin.math.floor
-import kotlin.math.roundToInt
+import kotlin.math.abs
+
+import my.github.MrxSiN.pixellockscreenevolved.motion.SystemMotion
 
 /**
- * The subject of the lock screen photo, drawn in front of one large clock face.
+ * The subject of the lock screen photo, standing in front of one large clock face.
  *
- * It is the whole wallpaper surface with everything but the subject clear,
- * placed over the screen exactly as the window manager places the wallpaper
- * ([LockWallpaperFeed]), and clipped to the clock's time: the time goes behind
- * the subject, and nothing else on the lock screen does. Where the subject
- * would hide more than half of the time ([TimeCoverage]), the time stays in
- * front of it instead, so it can still be read, as on iOS. Before each frame it
- * follows the face: shown only while the face is, as faded as it is (and as far
- * as it has come in while the clock changes size), darkened as the photo is, and
- * not at all in a preview of another wallpaper, where the photo behind it is not
- * this one, or while the keyguard is going away ([setUnlocking]).
+ * The subject is not drawn: its shape is erased from the face's time, so the
+ * photo itself shows through where the subject stands. The cut-out is placed
+ * over the screen exactly as the window manager places the wallpaper
+ * ([LockWallpaperFeed]) and erased from the time alone, so nothing else on the
+ * lock screen goes behind it. Where the subject would hide more than half of the
+ * time ([TimeCoverage]), the time stays in front of it instead, so it can still
+ * be read, as on iOS. Before each frame it follows the face: erased only as far
+ * as the face has come in while the clock changes size, and not at all in a
+ * preview of another wallpaper, where the photo behind it is not this one. It
+ * stays through an unlock: whatever the app coming up behind the keyguard does
+ * to the wallpaper shows through it as it shows around it.
  *
- * Whatever is laid over the photo is laid over the subject too, in the same
- * order, so the two never come apart: the light reveal scrim as the display
- * wakes ([KeyguardScrims]), and then the always-on wallpaper as it dozes
- * ([AodWallpaperPaint]).
+ * While it erases, the face is drawn as one layer, the erasing included
+ * ([Eraser]). An earlier version laid a copy of the subject over the time
+ * instead, and had to match everything laid over the photo beneath it; and
+ * Android 17's lock screen scene fades the clock, as the display wakes or a
+ * screen saver ends, by fading each thing it draws rather than the picture they
+ * make together, so the half-faded copy let the digits show through, and the
+ * time seemed to come in over the subject and then go behind it. Erased from
+ * one layer, whatever fades, dims or darkens the photo and the face does so to
+ * the subject too.
  */
 internal class DepthLayer(
     private val face: ClockFaceAdapter,
     private val feed: LockWallpaperFeed,
     private val overOtherWallpaper: () -> Boolean,
-    /** What the always-on display draws the photo as ([KeyguardAodWallpaper]), or null while it draws black. */
-    private val aodLook: () -> AodWallpaperLook?,
 ) {
 
     private val faceView = face.view
-    private val image = SubjectView(faceView.context).apply {
-        id = View.generateViewId()
-        scaleType = ImageView.ScaleType.FIT_XY
-        importantForAccessibility = View.IMPORTANT_FOR_ACCESSIBILITY_NO
-    }
+    private val eraser = Eraser()
 
     private var cutout: Bitmap? = null
     private var enabled = false
-    private var unlocking = false
-    private var attachedTree: ViewTreeObserver? = null
-    private val main = Handler(Looper.getMainLooper())
-    private val clip = Rect()
-    private val aodPaint = AodWallpaperPaint(faceView.resources)
-    private var scrims: KeyguardScrims? = null
-    private var tint = Color.TRANSPARENT
-    private var revealing = false
-    private var layered = false
+    private var attached = false
+    private var faceLayerType = View.LAYER_TYPE_NONE
     private var measured: Measured? = null
     private var unsettled: Measured? = null
     private var timeReadable = true
+    private val inFrontSpring = SpringFollower(IN_FRONT_STIFFNESS, initial = 1f)
+    private var easedAt = 0L
 
     /** What the share of the time the subject hides depends on. */
     private data class Measured(
@@ -77,30 +68,28 @@ internal class DepthLayer(
         val placement: Any,
         val time: RectF,
         val timeChanges: Int,
-        val dozeFraction: Float,
     )
 
-    private val follow = ViewTreeObserver.OnPreDrawListener {
-        place()
-        true
+    /**
+     * Erases the subject again on each frame the scene has moved the face on screen since it
+     * last did, so it never slides off the photo ([SceneFrames]); the face's layer is otherwise
+     * kept as it was drawn.
+     */
+    private val sceneFrames = SceneFrames(faceView) {
+        if (ViewBounds.toWindow(faceView) != eraser.erasedAt) faceView.invalidate()
     }
 
     init {
-        faceView.addOnAttachStateChangeListener(object : View.OnAttachStateChangeListener {
-            override fun onViewAttachedToWindow(view: View) = listen()
-            override fun onViewDetachedFromWindow(view: View) = stopListening()
-        })
-        if (faceView.isAttachedToWindow) listen()
+        BeforeEachDraw.follow(faceView, ::place)
     }
 
     /** Shows [cutout], as big as the wallpaper surface, or nothing. */
     fun show(cutout: Bitmap?) {
         this.cutout = cutout
-        image.setImageBitmap(cutout)
         faceView.invalidate()
     }
 
-    /** Places the layer again, as the wallpaper's placement has changed ([LockWallpaperFeed]). */
+    /** Places the subject again, as the wallpaper's placement has changed ([LockWallpaperFeed]). */
     fun invalidate() {
         faceView.invalidate()
     }
@@ -111,163 +100,84 @@ internal class DepthLayer(
         faceView.invalidate()
     }
 
-    /** Takes the subject away while the keyguard is going away ([KeyguardDepthEffect]), and brings it back after. */
-    fun setUnlocking(unlocking: Boolean) {
-        this.unlocking = unlocking
-        faceView.invalidate()
-    }
-
-    /**
-     * Erases from [picture], a drawing of the face's time at its own size, what
-     * the subject covers of it now, as faded as the subject is; false when no
-     * subject is drawn over the time.
-     */
-    fun eraseSubjectFrom(picture: Bitmap): Boolean {
-        if (!drawsOverTime()) return false
-        eraseSubject(Canvas(picture), (image.alpha * OPAQUE).toInt())
-        return true
-    }
-
-    /**
-     * What [eraseSubjectFrom] erases at rest depends on: the cut-out, how the layer is
-     * placed and faded, and where the time is laid out in the layer's parent; null when
-     * it would erase nothing. Moves SystemUI makes to the clock itself are left out, as
-     * a swipe to unlock lifts it against the photo, so a drawing made at rest still
-     * stands for the time as that swipe begins.
-     */
-    fun occlusionState(): Any? {
-        if (!drawsOverTime()) return null
-        val parent = image.parent as? View ?: return null
-        val placed = FloatArray(MATRIX_VALUES).also(image.matrix::getValues).map { (it * HUNDREDTHS).roundToInt() }
-        return listOf(cutout, placed, image.left, image.top, image.layoutParams.width, image.layoutParams.height, image.alpha, laidOutOffset(parent, face.timeView))
-    }
-
-    /** Where [view] is laid out in [ancestor], before any view's moves or scales. */
-    private fun laidOutOffset(ancestor: View, view: View): Pair<Int, Int> {
-        var x = 0
-        var y = 0
-        var at: View? = view
-        while (at != null && at !== ancestor) {
-            x += at.left - at.scrollX
-            y += at.top - at.scrollY
-            at = at.parent as? View
-        }
-        return x to y
-    }
-
-    private fun drawsOverTime(): Boolean =
-        cutout != null && image.parent != null && image.visibility == View.VISIBLE && image.alpha > 0f
-
-    /** The layer's pixels in the face's time's own pixels. */
-    private fun imageToTime(): Matrix {
-        val windowToTime = Matrix().also { Matrix().also(face.timeView::transformMatrixToGlobal).invert(it) }
-        return Matrix().also(image::transformMatrixToGlobal).apply { postConcat(windowToTime) }
-    }
-
-    /**
-     * Erases the subject, as opaque as [alpha] makes it, from [canvas], whose units
-     * are the face's time's own pixels. The layer's size is read from its layout
-     * params, which [place] sets before the layer is first laid out.
-     */
+    /** Erases the subject, as opaque as [alpha] makes it, from [canvas], whose units are the face's time's own pixels. */
     private fun eraseSubject(canvas: Canvas, alpha: Int) {
+        drawSubject(canvas, face.timeView, ERASE.apply { this.alpha = alpha })
+    }
+
+    /** Draws the cut-out, through [paint], where the wallpaper's own pixels are on screen, into [canvas] in [view]'s units. */
+    private fun drawSubject(canvas: Canvas, view: View, paint: Paint) {
         val subject = cutout ?: return
-        canvas.save()
-        canvas.concat(imageToTime())
-        image.clipBounds?.let(canvas::clipRect)
-        val size = image.layoutParams
-        canvas.drawBitmap(subject, null, Rect(0, 0, size.width, size.height), ERASE.apply { this.alpha = alpha })
-        canvas.restore()
-    }
-
-    private fun listen() {
-        stopListening()
-        attachedTree = faceView.viewTreeObserver.also { it.addOnPreDrawListener(follow) }
-    }
-
-    /**
-     * Stops following the face. The face's parent is still walking its
-     * children to detach them, so taking the layer out now would pull a view
-     * from under that walk and crash SystemUI; it is taken out once the walk
-     * is done.
-     */
-    private fun stopListening() {
-        attachedTree?.takeIf { it.isAlive }?.removeOnPreDrawListener(follow)
-        attachedTree = null
-        main.post { if (attachedTree == null) (image.parent as? ViewGroup)?.removeView(image) }
+        val screen = faceView.resources.displayMetrics
+        val placed = feed.place(
+            WallpaperPlacement.Size(screen.widthPixels, screen.heightPixels),
+            WallpaperPlacement.Size(subject.width, subject.height),
+        )
+        val subjectToView = Matrix().apply {
+            setScale(placed.width / subject.width, placed.height / subject.height)
+            postTranslate(placed.left, placed.top)
+            postScale(placed.scale, placed.scale, placed.pivotX, placed.pivotY)
+            postConcat(ViewBounds.fromWindow(view))
+        }
+        canvas.drawBitmap(subject, subjectToView, paint)
     }
 
     private fun place() {
-        val parent = faceView.parent as? ViewGroup
         val picture = cutout
-        if (parent == null || picture == null || !enabled || unlocking || !coversScreen(parent) || overOtherWallpaper()) {
-            (image.parent as? ViewGroup)?.removeView(image)
+        if (picture == null || !enabled || !isNotificationShade() || overOtherWallpaper()) {
+            detach()
             return
         }
 
-        val screen = faceView.resources.displayMetrics
-        val placed = feed.place(
-            screen = WallpaperPlacement.Size(screen.widthPixels, screen.heightPixels),
-            surface = WallpaperPlacement.Size(picture.width, picture.height),
-        )
-        val width = placed.width.toInt()
-        val height = placed.height.toInt()
-
-        if (image.parent !== parent || parent.indexOfChild(image) != parent.indexOfChild(faceView) + 1) {
-            (image.parent as? ViewGroup)?.removeView(image)
-            parent.addView(image, parent.indexOfChild(faceView) + 1, ViewGroup.LayoutParams(width, height))
-        } else if (image.layoutParams.width != width || image.layoutParams.height != height) {
-            image.layoutParams = image.layoutParams.apply {
-                this.width = width
-                this.height = height
-            }
+        val time = ViewBounds.inAncestor(faceView, face.timeView)
+        // None on the always-on display, where the time is drawn in outline and nothing goes over it. The
+        // time comes out in front of the subject before SystemUI moves it to its AOD region, and goes
+        // back behind it only once it has moved back ([AodClockMotion]).
+        val shown = face.arrival * AodClockMotion.subjectInFront(face.dozeFraction)
+        val readable = if (shown > 0f) leavesTimeReadable(picture, time) else timeReadable
+        val strength = shown * inFront(readable)
+        if (strength <= 0f) {
+            detach()
+            return
         }
-
-        // The parent is as big as the screen, so its own pixels are the screen's: on the lock
-        // screen it fills the screen, and in the picker's preview SystemUI scales a parent of
-        // it down to the preview card, taking the layer and the time along.
-        image.translationX = placed.left
-        image.translationY = placed.top
-        image.pivotX = placed.pivotX - placed.left
-        image.pivotY = placed.pivotY - placed.top
-        image.scaleX = placed.scale
-        image.scaleY = placed.scale
-
-        val time = ViewBounds.inAncestor(parent, face.timeView)
-        clipToTime(time, placed)
-        followScrims()
-
-        // Gone by the time the display has dozed, so the always-on time is never stood in front of:
-        // nothing on the always-on display goes over the clock. The fade shows nothing of its own,
-        // since what is laid over the subject on the way there ([drawAodWallpaper], [KeyguardScrims])
-        // is what is drawn behind it, so it is the same picture growing fainter over itself.
-        val faded = faceView.alpha * face.arrival * (1f - face.dozeFraction)
-        val alpha = if (faded > 0f && leavesTimeReadable(picture, time)) faded else 0f
-        val visibility = if (faceView.visibility == View.VISIBLE && alpha > 0f) View.VISIBLE else View.INVISIBLE
-        if (image.visibility != visibility) image.visibility = visibility
-        if (image.alpha != alpha) image.alpha = alpha
+        attach()
+        if (eraser.strength != strength || eraser.time != time) {
+            eraser.strength = strength
+            eraser.time = time
+            faceView.invalidate()
+        }
+        sceneFrames.start()
     }
 
-    /** Clips the layer, in its own unscaled pixels, to [time], where the face's time is in the layer's parent. */
-    private fun clipToTime(time: RectF, placed: WallpaperPlacement.Placed) {
-        fun localX(parentX: Float) = placed.pivotX - placed.left + (parentX - placed.pivotX) / placed.scale
-        fun localY(parentY: Float) = placed.pivotY - placed.top + (parentY - placed.pivotY) / placed.scale
-        clip.set(
-            floor(localX(time.left)).toInt(),
-            floor(localY(time.top)).toInt(),
-            ceil(localX(time.right)).toInt(),
-            ceil(localY(time.bottom)).toInt(),
-        )
-        if (image.clipBounds != clip) image.clipBounds = Rect(clip)
+    /** Draws the face as one layer, erased where the subject stands. */
+    private fun attach() {
+        if (attached) return
+        attached = true
+        faceLayerType = faceView.layerType
+        faceView.foreground = eraser
+        if (faceLayerType != View.LAYER_TYPE_HARDWARE) faceView.setLayerType(View.LAYER_TYPE_HARDWARE, null)
+    }
+
+    /** Lets the face draw as it did before. */
+    private fun detach() {
+        if (!attached) return
+        attached = false
+        eraser.strength = 0f
+        faceView.foreground = null
+        if (faceView.layerType != faceLayerType) faceView.setLayerType(faceLayerType, null)
     }
 
     /**
-     * Whether [subject], placed over the face's [time] as the layer is now, hides
-     * no more than [MOST_HIDDEN] of the time's ink. A measure takes about a
+     * Whether [subject], placed over the face's [time] as it is now, hides no
+     * more than [MOST_HIDDEN] of the time's ink. A measure takes about a
      * millisecond, so while the time or the subject moves, as the screen wakes,
      * the last answer holds, and the share is measured again once they have held
      * still for a frame; only the first answer is measured at once. The
      * wallpaper's zoom is left out: it only breathes as the lock screen comes and
      * goes, and the time should not jump in front of the subject or behind it midway.
+     * Nor is the time measured on its way into or out of the always-on display: it
+     * is drawn in outline there, whose thin ink the subject hides a different share
+     * of, and the subject popped in front of it as the display finished waking.
      */
     private fun leavesTimeReadable(subject: Bitmap, time: RectF): Boolean {
         // Digits rolling to a new minute are not yet the time to measure; the last answer holds until they land.
@@ -275,7 +185,8 @@ internal class DepthLayer(
             faceView.postInvalidateOnAnimation()
             return timeReadable
         }
-        val now = Measured(subject, feed.placementKey, time, face.timeChanges, face.dozeFraction)
+        if (face.dozeFraction > 0f) return timeReadable
+        val now = Measured(subject, feed.placementKey, time, face.timeChanges)
         if (now == measured) return timeReadable
         if (measured != null && now != unsettled) {
             unsettled = now
@@ -289,83 +200,67 @@ internal class DepthLayer(
     }
 
     /**
-     * Dims the cut-out as the wallpaper's own dimming (battery saver, dark theme)
-     * and SystemUI's scrims dim the photo beneath it, and darkens it with the
-     * light reveal scrim while that hides the photo ([SubjectView]), so the
-     * subject goes and comes back with the photo on the way into and out of the
-     * always-on display, pixel for pixel, and never lets the time show through.
+     * How far the subject stands in front of the time, from 0 to 1, easing toward all the
+     * way when [readable] and none otherwise, so the time goes behind the subject or comes
+     * out in front of it smoothly as the answer changes, rather than in one frame.
      */
-    private fun followScrims() {
-        val root = faceView.rootView
-        val found = scrims?.takeIf { it.root === root } ?: KeyguardScrims(root).also { scrims = it }
-        val dim = found.dim(feed.dim())
-        if (dim != tint) {
-            tint = dim
-            image.colorFilter = if (dim == Color.TRANSPARENT) null else PorterDuffColorFilter(dim, PorterDuff.Mode.SRC_ATOP)
-        }
-        // The scrim changes every frame while it reveals, and once more as it finishes. Only while the
-        // scrim or the always-on wallpaper is laid over the cut-out is it drawn in a layer of its own,
-        // which both need; the layer is as big as the photo. The photo behind the subject is the one the
-        // scrim hides, whatever the always-on display draws over it, so the subject follows the scrim
-        // either way, and the always-on wallpaper goes over both, as it goes over the photo around them.
-        val nowRevealing = found.isRevealing()
-        val nowLayered = nowRevealing || face.dozeFraction > 0f
-        if (nowLayered != layered) image.setLayerType(if (nowLayered) View.LAYER_TYPE_HARDWARE else View.LAYER_TYPE_NONE, null)
-        if (nowLayered || layered) image.invalidate()
-        revealing = nowRevealing
-        layered = nowLayered
-    }
-
-    /** The parent's pixels in the layer's own, so what is drawn over the whole lock screen can be drawn inside it. */
-    private fun parentToImage(parent: View): Matrix {
-        val matrix = Matrix().also(parent::transformMatrixToGlobal)
-        matrix.postConcat(Matrix().also { Matrix().also(image::transformMatrixToGlobal).invert(it) })
-        return matrix
+    private fun inFront(readable: Boolean): Float {
+        val now = SystemClock.uptimeMillis()
+        val target = if (readable) 1f else 0f
+        val elapsed = (now - easedAt) / MS_PER_SECOND
+        easedAt = now
+        // After a pause, as when the subject was not shown at all, it starts where it belongs; with animations
+        // off it is always where it belongs, and otherwise it keeps to the system's animator duration scale.
+        val shown = if (elapsed > LONGEST_EASING_STEP_SECONDS || SystemMotion.isReduced) inFrontSpring.also { it.jumpTo(target) }.value.toFloat()
+        else inFrontSpring.follow(target, SystemMotion.scaled(elapsed))
+        if (abs(shown - target) > SETTLED) faceView.postInvalidateOnAnimation()
+        return shown.coerceIn(0f, 1f)
     }
 
     /**
-     * Lays the always-on wallpaper over the cut-out, as far in as the display has
-     * dozed, exactly as [AodWallpaperLayer] lays it over the photo behind the whole
-     * lock screen. The subject stands in front of the clock, over that layer, so
-     * without this the always-on wallpaper stopped at the subject's edges and the
-     * time's bounds showed as a box in it.
+     * The face's foreground while the subject stands in front of it: the subject's
+     * shape, erased from the face's layer within the time's bounds, as far as
+     * [strength] says.
      */
-    private fun drawAodWallpaper(canvas: Canvas) {
-        val parent = image.parent as? ViewGroup ?: return
-        val look = aodLook() ?: return
-        val alpha = (face.dozeFraction * OPAQUE).toInt()
-        if (alpha <= 0) return
-        val saved = canvas.save()
-        canvas.concat(parentToImage(parent))
-        val placed = feed.place(WallpaperPlacement.Size(parent.width, parent.height), look.surface)
-        aodPaint.drawAtop(canvas, look, parent.width, parent.height, placed, alpha)
-        canvas.restoreToCount(saved)
-    }
+    private inner class Eraser : Drawable() {
+        var strength = 0f
+        var time = RectF()
 
-    /**
-     * The cut-out, with the light reveal scrim laid over it while that hides the
-     * photo beneath, and then the always-on wallpaper, in the order the lock
-     * screen lays the two over the photo itself.
-     */
-    private inner class SubjectView(context: Context) : ImageView(context) {
-        override fun onDraw(canvas: Canvas) {
-            super.onDraw(canvas)
-            if (revealing) scrims?.darkenAsRevealed(canvas, this)
-            if (canvas.isHardwareAccelerated) drawAodWallpaper(canvas)
+        /** Where the face was on screen when the subject was last erased from it. */
+        var erasedAt: Matrix? = null
+            private set
+
+        override fun draw(canvas: Canvas) {
+            erasedAt = ViewBounds.toWindow(faceView)
+            if (strength <= 0f) return
+            val saved = canvas.save()
+            canvas.clipRect(time)
+            drawSubject(canvas, faceView, ERASE.apply { alpha = (strength * OPAQUE).toInt() })
+            canvas.restoreToCount(saved)
         }
+
+        override fun setAlpha(alpha: Int) = Unit
+
+        override fun setColorFilter(colorFilter: ColorFilter?) = Unit
+
+        @Deprecated("Deprecated in Java")
+        override fun getOpacity(): Int = PixelFormat.TRANSLUCENT
     }
 
-    /** Whether [parent] is the lock screen itself, as big as the screen, rather than a scaled-down preview of it. */
-    private fun coversScreen(parent: ViewGroup): Boolean {
-        val screen = parent.resources.displayMetrics
-        return parent.width >= screen.widthPixels * SCREEN_SHARE && parent.height >= screen.heightPixels * SCREEN_SHARE
-    }
+    /** Excludes picker previews while accepting Compose's clock-sized holder. */
+    private fun isNotificationShade(): Boolean =
+        (faceView.rootView.layoutParams as? WindowManager.LayoutParams)?.type == TYPE_NOTIFICATION_SHADE
 
     private companion object {
-        const val SCREEN_SHARE = 0.9f
         const val OPAQUE = 255
-        const val MATRIX_VALUES = 9
-        const val HUNDREDTHS = 100f
+        /** `WindowManager.LayoutParams.TYPE_NOTIFICATION_SHADE`, hidden from the public SDK. */
+        const val TYPE_NOTIFICATION_SHADE = 2040
+
+        /** How firmly the subject eases in front of the time or out from it: settled in about a third of a second. */
+        const val IN_FRONT_STIFFNESS = 256f
+        const val LONGEST_EASING_STEP_SECONDS = 0.1f
+        const val SETTLED = 0.002f
+        const val MS_PER_SECOND = 1000f
 
         /** The most of the time's ink the subject may hide and still stand in front of it. */
         const val MOST_HIDDEN = 0.5f

@@ -6,8 +6,6 @@ import android.graphics.BitmapShader
 import android.graphics.Canvas
 import android.graphics.Matrix
 import android.graphics.Paint
-import android.graphics.PorterDuff
-import android.graphics.PorterDuffXfermode
 import android.graphics.RuntimeShader
 import android.graphics.Shader
 import android.util.TypedValue
@@ -20,12 +18,6 @@ import kotlin.math.sin
  * How the always-on display draws the lock screen photo: dimmed, in greys, or as
  * sparse dots ([AodWallpaperStyle]), through one GPU shader.
  *
- * Kept apart from the view that shows it ([AodWallpaperLayer]) because the depth
- * effect's subject is drawn in front of the clock, over that view, and has to lay
- * the same look over itself ([DepthLayer]); drawn in only one of the two the
- * always-on wallpaper stopped at the subject's edges, and a box showed around the
- * time as the display woke.
- *
  * An always-on display lights the same pixels for hours, so everything moves a
  * little each minute ([burnInShift]): the photo drifts within a few pixels, and
  * the dots' grid steps through its cell, so no pixel stays lit.
@@ -34,10 +26,6 @@ internal class AodWallpaperPaint(resources: Resources) {
 
     private val shader = RuntimeShader(SHADER)
     private val whole = Paint().apply { shader = this@AodWallpaperPaint.shader }
-    private val atop = Paint().apply {
-        shader = this@AodWallpaperPaint.shader
-        xfermode = PorterDuffXfermode(PorterDuff.Mode.SRC_ATOP)
-    }
     private val cell = TypedValue.applyDimension(TypedValue.COMPLEX_UNIT_DIP, DOT_CELL_DP, resources.displayMetrics)
     private val drift = TypedValue.applyDimension(TypedValue.COMPLEX_UNIT_DIP, DRIFT_DP, resources.displayMetrics)
 
@@ -47,16 +35,6 @@ internal class AodWallpaperPaint(resources: Resources) {
     /** Draws [look], [placed] over [width] by [height] of [canvas], over whatever [canvas] already holds. */
     fun draw(canvas: Canvas, look: AodWallpaperLook, width: Int, height: Int, placed: WallpaperPlacement.Placed) {
         paint(canvas, look, width, height, placed, whole)
-    }
-
-    /**
-     * Lays [look] over only what [canvas] has already drawn, [alpha] of the way in,
-     * from 0 to 255, as the always-on wallpaper lies that far over the photo. Needs
-     * a canvas of its own, a hardware layer or a saved one, or it covers what was
-     * drawn behind the caller too.
-     */
-    fun drawAtop(canvas: Canvas, look: AodWallpaperLook, width: Int, height: Int, placed: WallpaperPlacement.Placed, alpha: Int) {
-        paint(canvas, look, width, height, placed, atop.apply { this.alpha = alpha })
     }
 
     private fun paint(canvas: Canvas, look: AodWallpaperLook, width: Int, height: Int, placed: WallpaperPlacement.Placed, paint: Paint) {

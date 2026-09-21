@@ -50,7 +50,7 @@ internal class DepthCutout(cacheDirectory: File) {
         val width = photo.width
         val height = photo.height
         val stretched = Bitmap.createScaledBitmap(mask, width, height, true)
-        val alpha = ByteBuffer.allocate(width * height).also(stretched::copyPixelsToBuffer).array()
+        val alpha = alphaBytes(stretched)
         if (stretched !== mask) stretched.recycle()
 
         val pixels = IntArray(width * height).also { photo.getPixels(it, 0, width, 0, 0, width, height) }
@@ -71,6 +71,11 @@ internal class DepthCutout(cacheDirectory: File) {
         }
     }.getOrNull()
 
+    /** Forgets the mask stored for the photo [key] names, so it is found again. */
+    fun forgetMask(key: String) {
+        File(masks, "$key$MASK_SUFFIX").delete()
+    }
+
     /**
      * Stores [mask] for the photo [key] names, keeping only the few most recent
      * masks. Its alpha is written as it is, since Android cannot encode an
@@ -79,7 +84,7 @@ internal class DepthCutout(cacheDirectory: File) {
     fun storeMask(key: String, mask: Bitmap) {
         masks.mkdirs()
         masks.listFiles()?.sortedByDescending(File::lastModified)?.drop(KEPT_MASKS - 1)?.forEach(File::delete)
-        val alpha = ByteBuffer.allocate(mask.width * mask.height).also(mask::copyPixelsToBuffer).array()
+        val alpha = alphaBytes(mask)
         DataOutputStream(File(masks, "$key$MASK_SUFFIX").outputStream().buffered()).use { output ->
             output.writeInt(mask.width)
             output.writeInt(mask.height)
@@ -111,6 +116,18 @@ internal class DepthCutout(cacheDirectory: File) {
             val crc = CRC32()
             pixels.forEach { crc.update(it) }
             return "${photo.width}x${photo.height}-${crc.value.toString(16)}"
+        }
+
+        /** Reads ALPHA_8 without assuming its native row stride equals width. */
+        private fun alphaBytes(bitmap: Bitmap): ByteArray {
+            val rowBytes = bitmap.rowBytes
+            val raw = ByteBuffer.allocate(rowBytes * bitmap.height).also(bitmap::copyPixelsToBuffer).array()
+            if (rowBytes == bitmap.width) return raw
+            return ByteArray(bitmap.width * bitmap.height).also { compact ->
+                repeat(bitmap.height) { y ->
+                    raw.copyInto(compact, y * bitmap.width, y * rowBytes, y * rowBytes + bitmap.width)
+                }
+            }
         }
 
         private fun CRC32.update(value: Int) {

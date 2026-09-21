@@ -1,5 +1,6 @@
 package my.github.MrxSiN.pixellockscreenevolved.host
 
+import android.annotation.SuppressLint
 import android.app.Notification
 import android.app.NotificationChannel
 import android.app.NotificationManager
@@ -52,6 +53,7 @@ internal class DepthProgressNotice(
     /** No subject could be found for the new photo. */
     fun failed() = post(R.string.depth_notice_failed_title, R.string.depth_notice_failed_text) {}
 
+    @SuppressLint("NotificationPermission") // SystemUI owns [context] and already has permission to post notifications.
     private fun post(title: Int, text: Int, configure: Notification.Builder.() -> Unit) {
         val resources = strings ?: return
         runCatching {

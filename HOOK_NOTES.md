@@ -10,6 +10,100 @@ picker's sheet and slider lookups are in `host/PickerSliderApi.kt`.
 
 Framework: Vector (JingMatrix/Vector) v2.2, modern libxposed API 102.
 
+## What Android 17 QPR1 changed
+
+Read off the same phone on `CP3A.260905.009` (September 2026). The sections
+below still describe `CP2A`; where the two disagree, this section wins.
+
+The lock screen moved to a Compose element system, which is how a face is drawn:
+
+- `ClockFaceLayout` now extends
+  `com.android.systemui.plugins.keyguard.ui.composable.elements.LockscreenElementProvider`,
+  and SystemUI places a face through its `getElements()` rather than through
+  `getViews()` and `applyConstraints()`, neither of which it calls any more.
+  Returning an empty element list leaves the clock created, themed and ticking
+  but never drawn, which is exactly what a missing clock looks like.
+- A clock element is a `MovableLockscreenElement`, which also inherits
+  `getContext()` and `getSource()` from `BaseLockscreenElement`; `getSource()`
+  answers `ElementSource.DYNAMIC`, as Google's own faces do. SystemUI checks
+  the interface before choosing `LockscreenScope.MovableElement`; using plain
+  `LockscreenElement` bypasses the clock region's placement. Its key comes from
+  `LockscreenElementKeys$Clock.getLarge()` or `.getSmall()`.
+- Its composable, `LockscreenElement(LockscreenScope, Composer, int)`, need not
+  be compiled as one. SystemUI carries
+  `DefaultClockFaceLayout$Companion.clockView(View, Modifier, Composer)`, a
+  public static composable that hosts a plain view, so the module builds the
+  modifier Google builds — `SizeKt.wrapContentSize$default`, then the scope's
+  `burnInAware` and `nonAuthUI` — and hands its own view to that. Everything is
+  reached by reflection, and the module compiles against no Compose at all.
+  `host/LockscreenElementApi.kt` holds those lookups.
+- The large face's inner view is translated to the legacy top inset after
+  Compose lays it out. The translation stays on the inner view, so the movable
+  element remains under SystemUI's transition and burn-in modifiers.
+- The scene draws the face's `AndroidViewHolder` inside graphics layers (the
+  large clock sits at a scale of 0.9 on the lock screen, and moves further as
+  it wakes), which no view matrix carries, and changing them invalidates no
+  view. `View.transformMatrixToGlobal` is therefore wrong for anything in the
+  holder; the true placement is
+  `AndroidViewHolder.layoutNode` -> `LayoutNode.nodes` ->
+  `NodeChain.innerCoordinator` -> `NodeCoordinator.localToWindow-MK-Hz9U(J)J`
+  (a packed `Offset`). `host/ComposedViewPlacement.kt` reads it, and
+  `ViewBounds.toWindow` uses it.
+- The notification shade's `scrim_behind`, `scrim_in_front` and
+  `light_reveal_scrim` still exist but sit under a hidden
+  `NotificationShadeWindowView`. The scene draws its own `LightRevealScrim`,
+  without an id, and dims the lock screen photo itself by
+  `KEYGUARD_SCRIM_ALPHA` (0.2, measured against the photo on screen), with no
+  `ScrimView` to read. That scrim is `LockscreenBehindScrim`: black at
+  `ColorUtils.compositeAlpha(AodDimRepository.wallpaperDimAmount, 51)`, and
+  `DozeServiceHost.setAodWallpaperDimmingScrim` kept that amount at 0 here.
+- `ClockRegistry.registerListeners` is gone from SystemUI's shrunk copy, which
+  now reaches its clocks through `querySettings()`; Wallpaper & style keeps
+  `registerListeners`. `ClockPluginApi.registryReady` takes whichever exists,
+  and the registry calls it again on every clock change, so the injector only
+  adds the styles it is missing.
+- `ClockProvider.createClock` takes a third `ClockAssets` argument, and
+  `initialize` takes `(Executor, ClockMessageBuffers, ClockProviderEventListener)`.
+  Both are absorbed by `InterfaceProxy`, which dispatches on method name.
+- `KeyguardPreviewRenderer.updateClockAppearance` is a suspending method of the
+  renderer, reached through the synthetic `access$updateClockAppearance` before.
+  It is called on the renderer, and its first argument is the `ClockController`.
+- `ClockSizeTransition` and the whole
+  `keyguard/ui/view/layout/sections/transitions` package are gone, as is
+  `KeyguardSmartspaceViewBinder`. `SmartspaceSection` lost `applyConstraints`
+  and `dateView`, keeping `keyguardSmartspaceViewModel`, whose members R8 has
+  inlined away entirely. The old custom clock-size morph has no target left;
+  the Compose scene moves its `MovableLockscreenElement` itself. The live date
+  row placement also has no legacy target, and the lock screen shows SystemUI's
+  date row beside the clock's own until that half is ported. The preview half
+  (`KeyguardPreviewSmartspaceViewBinder$bind$1$1$1$4`) is intact and is kept, so
+  the lookups the live half needs are optional.
+
+In Wallpaper & style:
+
+- `CustomizationPickerFragment.initCustomizationOptionEntries` is a method of
+  the fragment, not the synthetic accessor it was, so the fragment arrives as
+  the call's target. The root and the screen are picked out of the arguments by
+  type rather than by position.
+- `ClockFloatingSheetBinder.bind` is folded into its one caller. What it set up
+  now lives in `ClockFloatingSheetBinder$bind$13$1`, whose captured fields hold
+  the sheet's `$view`, the `$optionsViewModel` and every slider; hooking its
+  `invokeSuspend` stands in for the old `bind`, and runs more than once per
+  sheet because it is a coroutine resuming.
+- Material's `BaseSlider` keeps `defaultThumbDrawables`, a list with one thumb
+  per value, where it kept a single `defaultThumbDrawable`.
+- The picker's Kotlin is shrunk far enough that `kotlin.Pair` has no `getFirst`;
+  the field behind it is still there.
+- The page is `picker_motion_layout`, a `MotionLayout` whose swipe transition
+  collapses `preview_header` as the option list scrolls. How far is set by
+  `CustomizationPickerFragment.updateHeaderHeightConstraints(MotionLayout,
+  WallpaperPickerEntry, int labelHeight, int optionListHeight,
+  PackThemeSuggestedChip, int bottomInset)`: the collapsed header is the page's
+  height less the option list's, floored at a dimension, so the whole list just
+  fits. This module's rows made the header hit that floor (tiny thumbnails);
+  `host/PickerPreviewCollapse.kt` passes the list's height without them, so it
+  collapses as far as on a stock picker and the added rows scroll under it.
+
 ## Where clocks come from
 
 Both SystemUI and Wallpaper & style build their own
@@ -95,7 +189,7 @@ override what SystemUI set. The small clock's height is SystemUI's
 its own date and weather line on the lock screen. The picker preview does not
 consult it, so the preview still shows that line.
 
-## Style tab: font slider
+## Style tab: clock face width slider
 
 The picker has no free-form axis slider for clocks. It draws a stepped slider
 for any clock whose `ClockPickerConfig` carries an `AxisPresetConfig`:
@@ -116,15 +210,15 @@ ClockSettings.getAxes() ClockAxisStyle
 `ClockAxisPresetSliderViewModel(valueTo = presets.size - 1, onSliderStopTrackingTouch)`
 for the current group. While the slider moves, the picker calls
 `ClockAnimations.onFontAxesChanged(preset)` on both faces of its preview clock.
-The module's presets are one per font (`PIXEL_LOCK_SCREEN_EVOLVED_FONT`), and
-`current` is built from the stored font so the slider reopens on it.
+The module's presets are one per width step (`PIXEL_LOCK_SCREEN_EVOLVED_WIDTH`,
+kept apart from `wdth`, which SystemUI reads to place its date line), and
+`current` is built from the stored width so the slider reopens on it.
 
 The slider's label is `layout/floating_sheet_clock_style_content.xml`'s
 `id/clock_face_width_label`, fixed to `string/clock_face_width` ("Clock face
-width"). It is rebound in
+width"). The module keeps that label. The slider is rebound in
 `ClockFloatingSheetBinder$bind$13$1$12$1.emit(Object, Continuation)`, whose
-argument is the slider view model and whose `$axisPresetSlider` field is the
-`Slider`. The group sits in the R8 lambda held by the view model's
+argument is the slider view model. The group sits in the R8 lambda held by the view model's
 `onSliderStopTrackingTouch`, found by field type. Only this binder class name
 is R8-generated; if it moves, the slider still works under Google's label.
 
@@ -259,152 +353,30 @@ decelerate over 500ms, a screen recording showed 69% of the resize in the
 first 25ms and the rest crawling; the spring starts from rest and settles in
 about 440ms. `ClockFaceAdapter.arrival` carries the fade to the depth layer.
 
-## Unlock flight to the status bar clock
+## Compatibility checks and Safe Mode
 
-`KeyguardUnlockAnimationController` is told about every unlock:
-`onKeyguardDismissAmountChanged()` while a swipe drags the keyguard,
-`onKeyguardGoingAwayChanged()` when it starts going away, and
-`notifyStartSurfaceBehindRemoteAnimation(AnimatedSurface[], AnimatedSurface[],
-AnimatedSurface[], long, boolean)` when the app behind appears. Its
-`keyguardStateController` (`KeyguardStateControllerImpl`) holds `mShowing`,
-`mKeyguardGoingAway`, `mFlingingToDismissKeyguard` and `mDismissAmount`.
+`diagnostics/HostContracts.kt` lists every class and member each feature looks
+up, per host; `HostContractsTest` fails the build when a name there is no longer
+in the sources. Each host checks the list with `Class.forName(name, false,
+classLoader)` and a walk of declared members up the class hierarchy before any
+patch installs, and `FeatureGate` leaves out a feature missing a required
+member. On `CP3A.260905.009` SystemUI selects `ClockRegistry.querySettings` in
+place of `registerListeners`, and the Compose scene owns clock
+size motion without a module hook.
 
-The keyguard window's views fade to alpha 0 within about 130ms of an unlock
-starting, and the smartspace card's flight to the home screen is drawn by the
-launcher (`ILauncherUnlockAnimationController`), so nothing in the keyguard
-window can be seen travelling. The module adds its own window
-(`TYPE_SECURE_SYSTEM_OVERLAY`, 2015, not touchable) with a picture of the
-time, hides the time, and moves the picture on `Choreographer` frames: by the
-keyguard's fade while dragged, then toward the status bar clock once going
-away or flung, all on one critically damped spring whose stiffness eases from
-120 to 500 over 120ms at the commit, aimed at 1.02 so it lands on crossing 1.
+Once the host's `Application` is created (`Instrumentation.callApplicationOnCreate`)
+it writes a JSON snapshot to the secure setting
+`pixel_lock_screen_evolved_snapshot_<host>`, which Wallpaper & style reads for
+the compatibility page and its switches. A snapshot counts only if its boot time
+matches the current boot within a minute.
 
-Measured on a Pixel 8 Pro (120Hz), the flight's own frames cost about 0.2ms.
-Started from nothing it cost about 20ms (drawing the time 3ms, erasing the
-depth subject from it 9.5ms, adding the window 7ms), its window first drew
-some 46ms later, and SystemUI's unlock work stalls the main thread up to about
-120ms besides. So `host/ClockFlightStandby.kt` gets it ready while the lock
-screen is up. `host/LockScreenReadiness.kt` looks at the lock screen 250ms
-after each burst of its frames and reports it settled when the display is
-awake (doze fraction 0) and the time fully shown, or left when it dozes or the
-clock detaches. On settling, the flight's window is added, empty
-(`host/OverlayWindowStandby.kt`), and its pictures are drawn (about 12ms),
-calling `Bitmap.prepareToDraw()`; later looks cost about 0.1ms and draw again
-only what no longer matches. With it, starting the flight costs about 0.5ms
-and its pictures reach the screen 24-34ms later. The lock screen's window is
-told apart by `WindowManager.LayoutParams.type` 2040 (`TYPE_NOTIFICATION_SHADE`)
-on the time's root, which leaves out the picker's preview clocks.
-
-The status icons' picture is small and changes with every signal and battery
-change, so only its window is kept ready, by another `OverlayWindowStandby`;
-the picture is still drawn as the unlock begins.
-
-A swipe to unlock lifts the clock face against the depth layer (the layer's
-position in the time's pixels moved from -572 to -545px on one swipe), so the
-depth layer's state for these pictures (`DepthLayer.occlusionState`) is its own
-placement and the time's laid-out offset, leaving out SystemUI's moves of the
-clock; otherwise every unlock found the pictures stale and drew them again.
-The spring advances at most 17ms per frame, so the picture never leaps after
-a stalled frame. A 250ms adb swipe first reports the unlock with the keyguard
-already about 50% faded, and the time faded to about 5% by the picture's first
-frame, so the picture starts at the time's opacity then and comes up to full
-over the next 30% of the flight. The size shrinks geometrically: a linear
-height went from 346 to 108px in 40ms near the end, which read as a collapse.
-
-The status bar clock is `com.android.systemui.statusbar.policy.Clock`, a
-`TextView`, tracked through `onAttachedToWindow`/`onDetachedFromWindow`; the
-one outside the notification shade window is the status bar's. SystemUI fades
-it in over about 300ms, some 400ms after the keyguard has gone. The picture
-turns into a drawing of that clock's text with its own `Paint`, waits at full
-opacity until the clock's alpha (with its parents') reaches 1, and is then
-removed; fading the picture out meanwhile dims the two together.
-
-The path is a cubic Bézier curve from the time to the status bar clock, held
-below any `DisplayCutout` bounding rect between them (on a Pixel 8 Pro,
-x 616-726 down to y 151).
-
-Hooking the same method twice from this module replaces the first hook, so the
-unlock controller's methods are hooked once, in `host/UnlockFrameLoop.kt`, and
-every motion that follows an unlock (the clock flight, the status bar) adds
-itself to it.
-
-With the depth effect on, the flight's first picture of the time has the
-subject's cut-out erased from it (`DepthLayer.eraseSubjectFrom`, the layer's
-bitmap drawn through `transformMatrixToGlobal` of the layer and the inverse of
-the time's, `DST_OUT`), and a whole picture fills in beneath it over the first
-35% of the flight. Where the subject hides more than half of the time's ink,
-the layer is hidden and the time stays in front, so nothing is erased. The
-share (`TimeCoverage`) is the same erase drawn onto a 128 px alpha-only picture
-of the time; it costs about 0.8 ms on a Pixel 8 Pro, so it runs once the time
-and the layer have held still for a frame, not on every frame of waking up.
-
-## Status bar through an unlock
-
-`com.android.systemui.statusbar.phone.KeyguardStatusBarView` (hooked at
-`onFinishInflate`) holds the lock screen's right side in
-`mSystemIconsContainer`. The status bar window is a view hierarchy:
-`status_bar_contents` > `status_bar_start_side_container` (`clock`,
-`notification_icon_area` > `notificationIcons`, a `NotificationIconContainer`)
-and `status_bar_end_side_container` > `status_bar_end_side_content` (`system_icons` > `statusIcons`, and the battery).
-`cmd window dump-visible-window-views` writes it out.
-
-The two rows are not spaced alike. With six status icons the lock screen's
-`statusIcons` was 9px wider than the status bar's (264 against 255 on a Pixel
-8 Pro), its icons laid out from the same left, so they sat 9px further from the
-battery; with five the rows matched. A single picture eased onto the status
-bar by its right edge doubled the status icons for its last frames and jumped
-9px as it went. The picture is cut at `statusIcons`: that piece lands on the
-status bar's `statusIcons` by the right edge of its visible children, and the
-rest (the battery) on `status_bar_end_side_content` the same way.
-
-The icons picture is shown from its window's first frame and the lock screen's
-icons are hidden 3 frames after that first draw
-(`OverlayWindow.onFirstFrameShown`). Showing the picture and hiding the icons
-in the same callback, the frame after the first draw, left neither on screen
-for 1 frame (at 81 and 120fps recordings). A frame commit callback registered
-during that first draw never fired: the still picture draws no further frame.
-
-`host/StatusIconsHandover.kt` holds a picture of the lock screen's icons in its
-own window and eases it onto the status bar's `status_bar_end_side_content`, tinted toward the
-status bar clock's text colour. The battery's empty part is translucent, so a
-picture over its own icons draws a brighter battery. The overlays only hide the
-lock screen's views once the overlay window has drawn
-(`OverlayWindow.onFirstFrame`), and hold the status bar's views at
-`transitionAlpha` 0 while SystemUI fades them in; `status_bar_end_side_content`
-is what is held. (Holding `system_icons` alone appeared to leave the battery doubling under the
-picture.) Windows draw independently, and the status bar can present a frame or more
-after the overlay: swapping a picture for its view in one frame, or crossfading
-them in about 60ms, left the status bar clock missing for up to 8 frames. The
-flight therefore never hides or fades the status bar clock: the landed picture
-stays solid over it while SystemUI fades it in, and goes once it is fully
-shown, as the first version did. Hiding the clock with `transitionAlpha` during
-the flight and showing it again on landing blinked even with the picture held
-300ms longer, the clock invalidated every frame and a frame commit awaited:
-logged view state was correct, a screenshot during a longer hold showed the
-clock, and removing the window without the picture over it did not blink, yet
-recordings with a chip showed the clock missing for 5 to 8 frames once the
-picture went. Changes to the status bar's own views
-made the same way for the icons (hiding them, then crossfading) dipped for the
-same reason, so the icons picture also stays solid over SystemUI's icons and
-goes once they are shown and the status bar has committed a frame of them
-(`registerFrameCommitCallback`) and drawn two more. SystemUI can bring the
-status bar back before the time has landed; the committed flight takes 280ms
-on a stiff spring, and hurries in if the status bar clock is already shown. Chips can be added mid-frame, so the containers of the
-notification icons and chips are held hidden too until the entrance starts. A
-chip SystemUI adds after the entrance has started showed for about 4 frames
-before a late hide took effect, then grew back in; such late arrivals are left
-shown and only bounce (`ExpressiveSpring.kickAt` on the animation matrix).
-The large clock face is scaled by SystemUI
-(`applyCsToLargeClock: scale=0.9`), so the flight starts from the time's bounds
-through `transformMatrixToGlobal`, not its width and height. The battery draws its level as a dark cut in a
-light fill, so the picture is tinted by multiplying (`PorterDuff.Mode.MULTIPLY`);
-`SRC_IN` filled the level in. `host/NotificationIconsEntrance.kt` hides the
-status bar's notification icons, and the chips beside them in
-`start_side_notif_and_chip_container` (the screen recording chip), with
-`transitionAlpha` on every frame from the start of the unlock, since icons are
-rebound as it goes on, and brings them in, once their row is fully shown, with
-`setAnimationMatrix` and `transitionAlpha`: `NotificationIconContainer` sets
-each icon's translation, scale and alpha itself and never touches those two.
+Safe Mode records each uncaught crash in
+`<deviceProtectedDataDir>/pixel_lock_screen_evolved_safe_mode` (readable before
+a context exists and before first unlock). Three within 60 seconds hold every
+feature of that host off on the next start. An answer is written to
+`pixel_lock_screen_evolved_safe_mode_<host>` as `RESTORE:<time>` or
+`KEEP_DISABLED:<time>`; the host observes it, carries it out and clears it, and
+restoring kills the process so it starts again with the features installed.
 
 ## Lock screen spacing
 
@@ -511,6 +483,15 @@ photo). Drawn straight on the window, `SRC_ATOP` darkened the time behind the
 subject too; inside a `Canvas.saveLayer` around the subject it darkened
 nothing on screen, whether the scrim's `RenderNode` was drawn or its paint.
 
+Since Android 17 QPR1 none of that is needed: the subject is no longer a copy
+drawn over the time but its shape erased (`DST_OUT`) from the face, drawn as
+one hardware layer while it erases (`host/DepthLayer.kt`). The photo itself
+then shows through, so the reveal scrim, the lock screen's dimming and the
+always-on wallpaper cover it as they cover the photo, and `KeyguardScrims` was
+removed. The copy had a worse flaw on the composed lock screen: the scene fades
+the clock per drawn element rather than as a group, so a half-faded copy let
+the digits show through as the display woke or a screen saver ended.
+
 ## Depth effect notification
 
 The module's app has no activity, so it cannot be granted `POST_NOTIFICATIONS`;
@@ -544,13 +525,17 @@ dimmed, but gave no say over its brightness, colour or burn-in, so the module
 does not use it.
 
 Instead `host/KeyguardAodWallpaper.kt` keeps a copy of the lock screen photo
-(half the screen's size, `Bitmap.Config.HARDWARE`, about 5MB) and
-`host/AodWallpaperLayer.kt` adds a view as the first child of `KeyguardRootView`,
-over the black scrims beneath the keyguard and behind everything in it. Its
-alpha is the clock's doze fraction. It draws with one AGSL `RuntimeShader`: the
-photo, through a `BitmapShader` placed as `WallpaperPlacement` places the
-wallpaper, multiplied by the brightness, made grey, or sampled at each dot
-cell's middle (5dp) to light a disc whose radius is 0.36 of the cell times
+(half the screen's size, `Bitmap.Config.HARDWARE`, about 5MB) and draws after
+`LightRevealScrim.onDraw`. The reveal scrim sits above the real wallpaper and
+below the composed lock-screen elements, so the clock, smartspace and unlock
+affordances stay above the custom wallpaper. Adding a child beside the Compose
+root no longer works on Android 17 QPR1: Compose draws its opaque AOD surface
+over that child, while `AndroidViewsHandler` only draws registered interop
+views. The drawing's alpha is the clock's doze fraction. It uses one AGSL
+`RuntimeShader`: the photo, through a `BitmapShader` placed as
+`WallpaperPlacement` places the wallpaper, multiplied by the brightness, made
+grey, or sampled at each dot cell's middle (5dp) to light a disc whose radius
+is 0.36 of the cell times
 `smoothstep(0.3, 0.95, lightness)`, times the depth cut-out's alpha there when
 the depth effect has one (`KeyguardDepthEffect.addSubjectListener`, copied to
 the GPU at the same half size). Every minute the photo drifts on a 3dp circle
@@ -561,14 +546,10 @@ pixels (mean level 8 of 255), and 8.4% with the subject alone (6 of 255); a
 3.5dp cell and `smoothstep(0.18, 0.85)` had lit 42.6% (27 of 255). Colour and
 grey light every pixel.
 
-`KeyguardRootView` is a `ConstraintLayout` that SystemUI's blueprint transitions
-clone into a `ConstraintSet`: a child without an id crashed SystemUI ("All
-children of ConstraintLayout must have ids to use ConstraintSet"), and a
-match-parent child is sized in pixels instead. The photo is drawn once as
-SystemUI starts, often before the style setting is read, and not again until it
-changes, so its copy is always kept. While charging, turning the screen off
-with the power key starts the clock screensaver, not the always-on display;
-`KEYCODE_SLEEP` dozes.
+The photo is drawn once as SystemUI starts, often before the style setting is
+read, and not again until it changes, so its copy is always kept. While
+charging, turning the screen off with the power key starts the clock
+screensaver, not the always-on display; `KEYCODE_SLEEP` dozes.
 
 Over the always-on wallpaper the depth layer is not darkened by the light reveal
 scrim, whose black it hides, and only fades with the doze. BiRefNet_lite leaves
@@ -617,8 +598,8 @@ Roboto Flex (`/system/fonts/RobotoFlex-Regular.ttf`, family `roboto-flex`) has
 the registered axes `wght` 100-1000 and `wdth` 25-151 and the parametric axes
 `XTRA` 323-603 (counter width), `XOPQ` 27-175 (vertical stroke), `YOPQ` 25-135
 (horizontal stroke) and `YTFI` 560-788 (figure height). Larger sizes move from
-`wght 600, wdth 100` to `wght 700, wdth 25`, the font's own designed cuts, so
-strokes stay even; the time is set as large as the height and the screen width
+`wght 600` to `wght 700`, so strokes stay even, and the chosen width sets `wdth`
+from 50 to 150; the time is set as large as the height and the screen width
 allow, and is stretched vertically by at most 1.6 for the rest. Past that a
 stretched diagonal (the stem of a 7) reads clearly thinner than a bar. `YOPQ`
 is divided by the stretch so horizontal strokes keep their weight.
@@ -626,18 +607,11 @@ is divided by the stretch so horizontal strokes keep their weight.
 Android sets `opsz` from the text size when a variation leaves it out, so the
 stroke would change with size. The module always sets it.
 
-Inter 4.1 (`assets/fonts/InterVariable.ttf`, from the official rsms/inter
-release, SIL OFL 1.1) is the second font: the closest open design to SF Pro,
-which cannot be redistributed. It has `opsz` 14-32 and `wght` 100-900 and no
-width axis, so its time reaches the screen width at a small size; larger sizes
-are stretched vertically by up to 2 while the weight rises from 600 to 800.
-`IosClockScale` spreads the six sizes between the smallest and the tallest the
-font can reach for the time shown, so every step grows whatever the font. `Paint.setFontVariationSettings` (and `TextView`'s) returns early when given
+`Paint.setFontVariationSettings` (and `TextView`'s) returns early when given
 the settings it last applied, even after `setTypeface` replaced the derived
 typeface they were applied to, so the time view clears them before setting
 them again. Otherwise every relayout after the first draws the font's default
-instance (Inter Regular). It is loaded from the module's own APK through
-`PackageManager.getResourcesForApplication(moduleApplicationInfo).assets`.
+instance.
 
 R8 rewrites string literals naming `kotlin.*` classes in the release build, so
 methods taking a `Continuation` are found by name and parameter count instead.

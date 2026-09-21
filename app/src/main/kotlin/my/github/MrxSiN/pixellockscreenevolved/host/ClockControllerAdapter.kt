@@ -6,6 +6,7 @@ import java.io.PrintWriter
 
 import my.github.MrxSiN.pixellockscreenevolved.clock.ClockStyle
 import my.github.MrxSiN.pixellockscreenevolved.clock.FaceSize
+import my.github.MrxSiN.pixellockscreenevolved.clock.WeatherClockFace
 
 /**
  * A [ClockStyle] presented to SystemUI as one `ClockController`: a large and a
@@ -28,10 +29,10 @@ internal class ClockControllerAdapter(
     val faces: List<ClockFaceAdapter> = listOf(large, small)
 
     init {
-        val font = api.axis(settings, ClockAxes.FONT_KEY)
+        val width = api.axis(settings, ClockAxes.WIDTH_KEY)
         val sizeStep = api.axis(settings, ClockAxes.SIZE_KEY)
         faces.forEach {
-            it.setFont(font)
+            it.setWidth(width)
             it.setSizeStep(sizeStep)
         }
     }
@@ -57,7 +58,10 @@ internal class ClockControllerAdapter(
             "onTimeFormatChanged" to refreshFaces,
             "onLocaleChanged" to refreshFaces,
             "onAlarmDataChanged" to IgnoreCall,
-            "onWeatherDataChanged" to IgnoreCall,
+            "onWeatherDataChanged" to { args ->
+                val weather = api.weather(args.firstOrNull())
+                faces.forEach { (it.viewFace as? WeatherClockFace)?.setWeather(weather) }
+            },
             "onZenDataChanged" to IgnoreCall,
         ),
     )
@@ -94,7 +98,6 @@ internal class ClockControllerAdapter(
         proxies = proxies,
         face = style.createFace(context, size),
         size = size,
-        fontCount = style.fontNames.size,
         context = context,
         initialTheme = initialTheme,
     )

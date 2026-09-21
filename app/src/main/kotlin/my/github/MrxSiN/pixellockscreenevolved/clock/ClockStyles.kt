@@ -1,6 +1,10 @@
 package my.github.MrxSiN.pixellockscreenevolved.clock
 
 import my.github.MrxSiN.pixellockscreenevolved.clock.ios.IosClockStyle
+import my.github.MrxSiN.pixellockscreenevolved.clock.styles.AnalogClockStyle
+import my.github.MrxSiN.pixellockscreenevolved.clock.styles.NumeralsClockStyle
+import my.github.MrxSiN.pixellockscreenevolved.clock.styles.SplitClockStyle
+import my.github.MrxSiN.pixellockscreenevolved.clock.styles.StackedClockStyle
 
 /**
  * Every clock style this module offers.
@@ -10,7 +14,11 @@ import my.github.MrxSiN.pixellockscreenevolved.clock.ios.IosClockStyle
  */
 object ClockStyles {
 
-    fun all(fonts: FontSource): List<ClockStyle> = listOf(
-        IosClockStyle(fonts),
+    fun all(): List<ClockStyle> = listOf(
+        IosClockStyle(),
+        StackedClockStyle(),
+        NumeralsClockStyle(),
+        AnalogClockStyle(),
+        SplitClockStyle(),
     )
 }

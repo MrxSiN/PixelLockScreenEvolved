@@ -17,6 +17,12 @@ internal class SpringFollower(stiffness: Float, initial: Float = 0f) {
 
     private var velocity = 0.0
 
+    /** Puts the value at [target], at rest. */
+    fun jumpTo(target: Float) {
+        value = target.toDouble()
+        velocity = 0.0
+    }
+
     /** Moves toward [target] over [seconds], in steps short enough to stay stable, and answers where it is. */
     fun follow(target: Float, seconds: Float): Float {
         var left = seconds.toDouble().coerceIn(0.0, LONGEST_STEP_SECONDS * MAX_STEPS)

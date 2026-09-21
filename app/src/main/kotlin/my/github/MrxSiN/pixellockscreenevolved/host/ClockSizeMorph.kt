@@ -5,6 +5,9 @@ import android.graphics.RectF
 import android.view.ViewGroup
 import android.view.ViewTreeObserver
 
+import my.github.MrxSiN.pixellockscreenevolved.motion.ExpressiveSpring
+import my.github.MrxSiN.pixellockscreenevolved.motion.SystemMotion
+
 /**
  * Carries the time from one clock face to the other as the lock screen changes
  * clock size, so it moves and resizes in one piece rather than fading out in
@@ -23,6 +26,8 @@ internal class ClockSizeMorph {
 
     fun start(from: ClockFaceAdapter, to: ClockFaceAdapter) {
         running?.end()
+        // With animations off the new face simply shows, as SystemUI's own faces do.
+        if (SystemMotion.isReduced) return
         val origin = ViewBounds.inWindow(from.timeView).takeUnless { it.isEmpty } ?: return
         val face = to.view
         face.viewTreeObserver.addOnPreDrawListener(object : ViewTreeObserver.OnPreDrawListener {

@@ -39,6 +39,7 @@ internal class SubjectMaskClient(
         val photo: Bitmap,
         val onMask: (Bitmap) -> Unit,
         val onFailed: () -> Unit,
+        val careful: Boolean,
         var attempts: Int = 0,
     )
 
@@ -60,11 +61,12 @@ internal class SubjectMaskClient(
     }
 
     /**
-     * Asks for [photo]'s subject mask; [onMask] hears it, or [onFailed] that it was
-     * given up, on the main thread. Call on the main thread.
+     * Asks for [photo]'s subject mask, looked for twice over where [careful]
+     * ([SubjectMaskContract.KEY_CAREFUL]); [onMask] hears it, or [onFailed] that
+     * it was given up, on the main thread. Call on the main thread.
      */
-    fun request(photo: Bitmap, onMask: (Bitmap) -> Unit, onFailed: () -> Unit) {
-        pending = Pending(++requestId, photo, onMask, onFailed)
+    fun request(photo: Bitmap, careful: Boolean, onMask: (Bitmap) -> Unit, onFailed: () -> Unit) {
+        pending = Pending(++requestId, photo, onMask, onFailed, careful)
         if (service != null) send(requireNotNull(pending)) else bind()
     }
 
@@ -79,7 +81,10 @@ internal class SubjectMaskClient(
 
     private fun send(request: Pending) {
         val message = Message.obtain(null, SubjectMaskContract.SEGMENT, request.id, 0).apply {
-            data = Bundle().apply { putParcelable(SubjectMaskContract.KEY_PHOTO, request.photo) }
+            data = Bundle().apply {
+                putParcelable(SubjectMaskContract.KEY_PHOTO, request.photo)
+                putBoolean(SubjectMaskContract.KEY_CAREFUL, request.careful)
+            }
             replyTo = replies
         }
         runCatching { requireNotNull(service).send(message) }

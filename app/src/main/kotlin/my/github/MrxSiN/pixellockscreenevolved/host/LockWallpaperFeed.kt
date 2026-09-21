@@ -64,14 +64,19 @@ internal class LockWallpaperFeed(
         listeners += listener
     }
 
-    /** Where a photo stretched to [surface] is on [screen] now; on the main thread. */
-    fun place(screen: WallpaperPlacement.Size, surface: WallpaperPlacement.Size): WallpaperPlacement.Placed =
+    /**
+     * Where a photo stretched to [surface] is on [screen] now; on the main
+     * thread. [zoomed] false places it as it rests, leaving out the zoom the
+     * lock screen breathes the wallpaper with as it comes and goes, for
+     * whatever should not follow that breath.
+     */
+    fun place(screen: WallpaperPlacement.Size, surface: WallpaperPlacement.Size, zoomed: Boolean = true): WallpaperPlacement.Placed =
         WallpaperPlacement.place(
             screen = screen,
             surface = surface,
             crop = crop ?: WallpaperPlacement.Crop(0, 0, surface.width, surface.height),
             scroll = scroll,
-            zoom = zoom,
+            zoom = if (zoomed) zoom else RESTING_ZOOM,
             zoomScales = zoomScales,
         )
 
@@ -155,4 +160,9 @@ internal class LockWallpaperFeed(
      */
     private fun isLockScreen(api: LockWallpaperApi, engine: Any): Boolean =
         !(engine as WallpaperService.Engine).isPreview && api.drawsLockScreen(engine)
+
+    private companion object {
+        /** The zoom of a wallpaper at rest, fully zoomed out, which the window manager reports as 1. */
+        const val RESTING_ZOOM = 1f
+    }
 }
