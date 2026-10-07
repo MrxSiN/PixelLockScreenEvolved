@@ -7,7 +7,7 @@ import org.junit.Test
 
 class ContractAnalyzerTest {
 
-    private val analyzer = ContractAnalyzer { name -> runCatching { Class.forName(name) }.getOrNull() }
+    private val analyzer = ContractAnalyzer(ReflectedHostTypes { name -> runCatching { Class.forName(name) }.getOrNull() })
 
     @Test
     fun aMethodWithMatchingParametersResolves() {

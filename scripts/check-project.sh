@@ -55,6 +55,16 @@ grep -q 'models/birefnet_lite.onnx' "$SRC/depth/SubjectSegmenter.kt"
 [ "$(wc -c < "$ROOT/app/src/main/assets/models/birefnet_lite.onnx")" -lt 100000000 ]
 [ -f "$ROOT/app/src/main/assets/models/BiRefNet-LICENSE.txt" ]
 
+# Host compatibility: each verified build the tests read is recorded for both hosts.
+for BUILD_DIR in "$ROOT"/app/src/test/resources/hosts/*/; do
+    [ -s "$BUILD_DIR/com.android.systemui.txt" ]
+    [ -s "$BUILD_DIR/com.google.android.apps.wallpaper.txt" ]
+    grep -q "\"$(basename "$BUILD_DIR")\"" "$SRC/diagnostics/VerifiedBuilds.kt"
+done
+
+# The segmentation service is exported for SystemUI; binding needs a permission only it holds.
+grep -q 'android:permission="android.permission.STATUS_BAR_SERVICE"' "$ROOT/app/src/main/AndroidManifest.xml"
+
 # The module has no screen of its own.
 ! grep -q '<activity' "$ROOT/app/src/main/AndroidManifest.xml"
 

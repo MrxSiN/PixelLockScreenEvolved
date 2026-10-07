@@ -19,54 +19,63 @@ import java.util.concurrent.Executors
  *
  * It runs in the module's own app, where the segmentation model and its
  * runtime live ([SubjectSegmenter]); SystemUI binds to it and sends the lock
- * screen photo ([SubjectMaskContract]). Segmentation runs off the main thread,
- * one photo at a time, and needs neither the network nor Play services.
+ * screen photo ([SubjectMaskContract]). Only SystemUI is answered
+ * ([SubjectMaskCallers]); docs/depth-effect.md sets out why the service is
+ * exported and what guards it. Segmentation runs off the main thread, one
+ * photo at a time, newest first ([NewestOnlyWorker]), and needs neither the
+ * network nor Play services.
  */
 class SubjectMaskService : Service() {
 
-    private val worker = Executors.newSingleThreadExecutor()
+    private class Request(val reply: Messenger, val id: Int, val photo: Bitmap, val careful: Boolean)
+
+    private val executor = Executors.newSingleThreadExecutor()
+    private val worker = NewestOnlyWorker(executor, ::segment) { fail(it.reply, it.id, SUPERSEDED) }
     private var segmenter: SubjectSegmenter? = null
+    private val callers by lazy { SubjectMaskCallers(packageManager::getPackagesForUid) }
 
     private val messenger = Messenger(Handler(Looper.getMainLooper()) { message ->
-        if (message.what == SubjectMaskContract.SEGMENT) segment(Message.obtain(message))
+        if (message.what == SubjectMaskContract.SEGMENT) receive(message)
         true
     })
 
     override fun onBind(intent: Intent?): IBinder = messenger.binder
 
     override fun onDestroy() {
-        worker.execute {
+        executor.execute {
             segmenter?.close()
             segmenter = null
         }
-        worker.shutdown()
+        executor.shutdown()
         super.onDestroy()
     }
 
-    private fun segment(request: Message) {
-        val reply = request.replyTo ?: return
-        val id = request.arg1
-        if (SubjectMaskContract.CALLER_PACKAGE !in packageManager.getPackagesForUid(request.sendingUid).orEmpty()) {
-            fail(reply, id, "caller not allowed")
+    private fun receive(message: Message) {
+        // Checked before the message's data is unparcelled, which a stranger could make throw.
+        if (!callers.isAllowed(message.sendingUid)) {
+            Log.w(TAG, "Ignored a subject mask request from uid ${message.sendingUid}")
             return
         }
+        val reply = message.replyTo ?: return
+        val id = message.arg1
         @Suppress("DEPRECATION")
-        val photo = request.data.getParcelable<Bitmap>(SubjectMaskContract.KEY_PHOTO)
+        val photo = runCatching { message.data.getParcelable<Bitmap>(SubjectMaskContract.KEY_PHOTO) }.getOrNull()
             ?: return fail(reply, id, "no photo")
-        val careful = request.data.getBoolean(SubjectMaskContract.KEY_CAREFUL)
+        worker.submit(Request(reply, id, photo, message.data.getBoolean(SubjectMaskContract.KEY_CAREFUL)))
+    }
 
-        worker.execute {
-            val started = SystemClock.elapsedRealtime()
-            runCatching {
-                val model = segmenter ?: SubjectSegmenter(assets).also { segmenter = it }
-                model.maskOf(photo, careful)
-            }.onSuccess { mask ->
-                Log.i(TAG, "Found the subject of a ${photo.width}x${photo.height} photo${if (careful) " carefully" else ""} in ${SystemClock.elapsedRealtime() - started} ms")
-                send(reply, SubjectMaskContract.MASK, id, Bundle().apply { putParcelable(SubjectMaskContract.KEY_MASK, mask) })
-            }.onFailure { error ->
-                Log.w(TAG, "Subject segmentation failed", error)
-                fail(reply, id, error.message ?: error.javaClass.simpleName)
-            }
+    private fun segment(request: Request) {
+        val photo = request.photo
+        val started = SystemClock.elapsedRealtime()
+        runCatching {
+            val model = segmenter ?: SubjectSegmenter(assets).also { segmenter = it }
+            model.maskOf(photo, request.careful)
+        }.onSuccess { mask ->
+            Log.i(TAG, "Found the subject of a ${photo.width}x${photo.height} photo${if (request.careful) " carefully" else ""} in ${SystemClock.elapsedRealtime() - started} ms")
+            send(request.reply, SubjectMaskContract.MASK, request.id, Bundle().apply { putParcelable(SubjectMaskContract.KEY_MASK, mask) })
+        }.onFailure { error ->
+            Log.w(TAG, "Subject segmentation failed", error)
+            fail(request.reply, request.id, error.message ?: error.javaClass.simpleName)
         }
     }
 
@@ -81,5 +90,8 @@ class SubjectMaskService : Service() {
 
     private companion object {
         const val TAG = "PixelLockScreenEvolved"
+
+        /** A request replaced by a newer one before it ran; the client has already moved on from it. */
+        const val SUPERSEDED = "superseded"
     }
 }

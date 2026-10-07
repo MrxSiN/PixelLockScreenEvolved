@@ -1,5 +1,27 @@
 # Changelog
 
+## Unreleased
+
+### Added
+
+- Host compatibility tests: every host contract is checked in CI against a
+  recorded description of each verified Pixel build (class, field and method
+  names only, under `app/src/test/resources/hosts/`), starting with
+  `CP3A.260905.009`. The hosts write these descriptions themselves on request
+  (`scripts/capture-host-fixture.sh`).
+
+### Changed
+
+- The depth effect's segmentation keeps only the newest waiting photo: the run
+  under way finishes, and requests it replaces are dropped, so several
+  wallpaper changes in a row cost at most two runs.
+- Binding the segmentation service needs `STATUS_BAR_SERVICE`, which SystemUI
+  holds and no downloaded app can, on top of the existing check of the sending
+  uid; messages from anyone else are now dropped unanswered, before their data
+  is read.
+- The README keeps to screenshots, supported builds, install and recovery;
+  implementation notes moved to `docs/`.
+
 ## 0.0.5 — 2026-09-22
 
 ### Added

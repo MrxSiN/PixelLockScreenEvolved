@@ -206,18 +206,22 @@ object HostContracts {
         Host.PICKER -> picker
     }
 
+    /** Every class a contract of [host] names, alternatives included: what a host description has to cover. */
+    fun classesNamed(host: Host): Set<String> =
+        of(host).flatMapTo(sortedSetOf()) { contract -> (listOf(contract.signature) + contract.alternatives).map(Signature::owner) }
+
     /**
      * Contracts for the implementation this host actually uses. QPR1's Compose
      * scene animates movable clock elements itself, so the removed legacy view
      * transition is neither installed nor reported as broken there.
      */
-    fun forRuntime(host: Host, load: (String) -> Class<*>?): List<HostContract> {
+    fun forRuntime(host: Host, types: HostTypes): List<HostContract> {
         var contracts = of(host)
         if (host != Host.SYSTEMUI) return contracts
 
-        val registryMethods = load(REGISTRY)?.declaredMethods.orEmpty()
-        val hasRegisterListeners = registryMethods.any { it.name == "registerListeners" && it.parameterCount == 0 }
-        val hasQuerySettings = registryMethods.any { it.name == "querySettings" && it.parameterCount == 0 }
+        val registryMethods = types.find(REGISTRY)?.methods.orEmpty()
+        val hasRegisterListeners = registryMethods.any { it.name == "registerListeners" && it.parameters.isEmpty() }
+        val hasQuerySettings = registryMethods.any { it.name == "querySettings" && it.parameters.isEmpty() }
         if (!hasRegisterListeners && hasQuerySettings) {
             contracts = contracts.map { contract ->
                 val isRegistryReady = contract.signature.owner == REGISTRY &&
@@ -233,8 +237,8 @@ object HostContracts {
             }
         }
 
-        val composeClock = load("$ELEMENTS.MovableLockscreenElement") != null
-        val legacyMotion = load("$SIZE_TRANSITION\$ClockFaceTransition") != null
+        val composeClock = types.find("$ELEMENTS.MovableLockscreenElement") != null
+        val legacyMotion = types.find("$SIZE_TRANSITION\$ClockFaceTransition") != null
         if (composeClock && !legacyMotion) {
             contracts = contracts.mapNotNull { contract ->
                 if (CLOCK_SIZE_MOTION !in contract.features) return@mapNotNull contract
@@ -243,7 +247,7 @@ object HostContracts {
             }
         }
 
-        val composeSmartspace = load("$SMARTSPACE_ELEMENTS\$DWARowElement") != null
+        val composeSmartspace = types.find("$SMARTSPACE_ELEMENTS\$DWARowElement") != null
         return contracts.filterNot { contract ->
             val signature = contract.signature
             if (composeSmartspace) {

@@ -7,7 +7,10 @@ package my.github.MrxSiN.pixellockscreenevolved.diagnostics
  * own ([ContractAnalyzer]) and stopped if it keeps failing ([FeatureFaults]).
  * Knowing the build only lets the compatibility page say whether what it shows
  * was seen working, or is the module finding its way on a build it has not met.
- * HOOK_NOTES.md records what was read off each.
+ * HOOK_NOTES.md records what was read off each, and `HostCompatibilityTest`
+ * checks every contract against the builds recorded under
+ * `src/test/resources/hosts/` (all of them, except `CP2A.260805.005`, which
+ * was verified before descriptions were recorded).
  */
 object VerifiedBuilds {
 

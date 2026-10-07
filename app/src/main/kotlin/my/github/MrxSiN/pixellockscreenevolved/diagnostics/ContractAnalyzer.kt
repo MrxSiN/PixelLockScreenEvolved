@@ -1,15 +1,14 @@
 package my.github.MrxSiN.pixellockscreenevolved.diagnostics
 
 /**
- * Checks each [HostContract] against the host that is actually running.
+ * Checks each [HostContract] against a host: the one that is running, or a
+ * recorded description of a host build ([HostTypes]).
  *
  * Every lookup walks the class and its superclasses, declared members included,
  * because that is how the features themselves look members up: a member the
  * host declares privately on a base class is one a feature can reach.
- *
- * @param load the host's class by binary name, or null when it has none.
  */
-class ContractAnalyzer(private val load: (String) -> Class<*>?) {
+class ContractAnalyzer(private val types: HostTypes) {
 
     fun analyze(contracts: List<HostContract>): ContractReport =
         ContractReport(contracts.map(::check))
@@ -21,7 +20,7 @@ class ContractAnalyzer(private val load: (String) -> Class<*>?) {
             return ContractResult(contract, ContractOutcome.FALLBACK, alternative)
         }
 
-        val outcome = if (load(contract.signature.owner) == null) {
+        val outcome = if (types.find(contract.signature.owner) == null) {
             ContractOutcome.MISSING_CLASS
         } else {
             ContractOutcome.MISSING_MEMBER
@@ -30,21 +29,18 @@ class ContractAnalyzer(private val load: (String) -> Class<*>?) {
     }
 
     private fun find(signature: Signature): Boolean {
-        val type = load(signature.owner) ?: return false
+        val type = types.find(signature.owner) ?: return false
         val member = signature.member ?: return true
 
-        return runCatching { hierarchy(type).any { declares(it, member) } }.getOrDefault(false)
+        return runCatching { type.hierarchy().any { declares(it, member) } }.getOrDefault(false)
     }
 
-    private fun declares(type: Class<*>, member: Member): Boolean = when (member) {
-        is Member.Field -> type.declaredFields.any { it.name == member.name }
-        is Member.Method -> type.declaredMethods.any { method ->
-            method.name == member.name &&
-                (member.parameters == null || method.parameterTypes.map(Class<*>::getName) == member.parameters)
+    private fun declares(type: HostType, member: Member): Boolean = when (member) {
+        is Member.Field -> member.name in type.fields
+        is Member.Method -> type.methods.any { method ->
+            method.name == member.name && (member.parameters == null || method.parameters == member.parameters)
         }
     }
-
-    private fun hierarchy(type: Class<*>): Sequence<Class<*>> = generateSequence(type) { it.superclass }
 }
 
 enum class ContractOutcome { RESOLVED, FALLBACK, MISSING_MEMBER, MISSING_CLASS }

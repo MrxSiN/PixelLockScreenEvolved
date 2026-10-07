@@ -222,13 +222,16 @@ contract moved when it is not.
 
 ---
 
-## Status
+## Supported versions
 
-**v0.0.5.** Fully compatible with **Android 17 QPR1 (September 2026)**, tested
-on a Pixel 8 Pro (`CP3A.260905.009`). Hooks reach into SystemUI and Wallpaper &
-style internals that can move between Android releases; when one moves, the
-feature that needs it switches itself off and says so in **Compatibility &
-diagnostics**, and the rest keep working.
+| Build | Android | Device | Status |
+|---|---|---|---|
+| `CP3A.260905.009` | 17 QPR1 (September 2026) | Pixel 8 Pro | Verified; every contract checked in CI |
+| `CP2A.260805.005` | 17 (August 2026) | Pixel 8 Pro | Verified before build descriptions were recorded |
+
+Any other build still runs: each feature is checked against the host on start,
+and one whose host API moved switches itself off and says so in
+**Compatibility & diagnostics** while the rest keep working.
 
 Known limits:
 
@@ -261,111 +264,31 @@ The module declares a **static scope**, so there is nothing to pick. It has no
 icon in the app drawer and no screen of its own: every control is in Wallpaper
 & style.
 
----
+## Recovery
 
-## How it works
+- **Crash loop:** three crashes of System UI or Wallpaper & style within a
+  minute turn on Safe Mode, which holds the module's features off in that
+  process and posts a notification. Restore them from the notification or from
+  **Compatibility & diagnostics** once the cause is fixed.
+- **One feature misbehaving:** a feature whose hooks keep failing stops alone;
+  the compatibility page shows it as faulted.
+- **Anything else:** disable the module in your Xposed manager and restart
+  System UI. The lock screen falls back to the default clock; nothing else was
+  written but the clock choice the picker itself stores.
 
-System UI and Wallpaper & style each build their own `ClockRegistry`. Just
-before each registry reads which clock is chosen, the module adds its styles to
-it, presented as an ordinary `ClockProvider`:
+## Under the hood
 
-```
-ClockStyle ──▶ host/ adapters ──▶ ClockProvider ──▶ SystemUI's ClockRegistry ──▶ lock screen, preview, AOD
-                                                └──▶ Wallpaper & style's ClockRegistry ──▶ Clock list, sliders
-```
+Clocks are added to SystemUI's own clock registry, so the system lays them out,
+themes and previews them. Every host member a feature needs is declared as a
+contract, checked on the phone before anything installs, and checked in CI
+against a recorded description of each verified Pixel build.
 
-From there each process treats them as its own. The width and size are axis
-values in the clock setting the picker already writes, so choosing one keeps
-the other and nothing else is stored.
-
-<details>
-<summary><b>Android 17 QPR1's Compose lock screen, in detail</b></summary>
-<br>
-
-QPR1 hosts each clock face inside a Compose scene, through an
-`AndroidViewHolder`, and places that holder with graphics layers that no view
-matrix carries. Anything drawn to line up with the screen — the depth effect's
-subject over the wallpaper — therefore came out scaled and shifted. The
-holder's own Compose coordinates are read instead, and the face is re-pinned
-before every draw the scene moves anything in, so the clock never lands a frame
-late. The date row and smartspace card, which the scene lays out above the
-clock, are stacked back under it the same way.
-
-</details>
-
-<details>
-<summary><b>The depth effect, in detail</b></summary>
-<br>
-
-SystemUI draws a still lock screen photo itself. Each time it draws one it has
-not drawn before, the photo is taken as drawn, copied at the wallpaper
-surface's size, and sent to the module's app, which finds the subject's mask
-with BiRefNet_lite and answers only SystemUI. A mask already found is read back
-from disk. The subject cut out of the photo becomes a layer beside the large
-clock face, placed as `WallpaperController` places the wallpaper — crop, scroll
-and zoom — erased from the time alone, left out while it would hide more than
-half of the time's ink, and drawn as one layer with the face so whatever fades,
-dims or darkens the photo does the same to the subject.
-
-</details>
-
-`HOOK_NOTES.md` records the SystemUI and Wallpaper & style internals each part
-relies on, and how they were verified on a device.
-
----
-
-## Build
-
-```bash
-./gradlew clean testDebugUnitTest assembleRelease
-```
-
-Vector hot reloads only when the installed `versionCode` differs from the code
-already loaded in a host process. For iterative device builds, pass a new,
-monotonically increasing value each time:
-
-```bash
-./gradlew assembleRelease -PmoduleVersionCode=8
-```
-
-`META-INF/xposed/module.prop` opts in with `autoHotReload=true`; the module hands
-over each live host and rebuilds its current clock without restarting it.
-
-A local release build is unsigned unless `ANDROID_KEYSTORE_PATH`,
-`ANDROID_KEYSTORE_ALIAS`, `ANDROID_KEYSTORE_PASSWORD` and `ANDROID_KEY_PASSWORD`
-are set. `scripts/check-project.sh` runs the static invariants that CI enforces,
-and `PUBLISHING.md` describes the signed releases GitHub Actions builds.
-
-Release builds are shrunk with R8; the module entry class is kept by name,
-because the framework resolves it from `META-INF/xposed/java_init.list` rather
-than from any call site.
-
-## Design
-
-```
-PixelLockScreenEvolvedModule   Xposed entry: hands each process the patches it needs
-clock/                         clock styles and faces; knows nothing of SystemUI
-  parts/                       what every face shares: numerals, date line, digit roll, thumbnails
-  styles/                      one file per design
-host/                          adapters to SystemUI and Wallpaper & style, one patch per concern
-hook/                          the hooking contract, over the libxposed API
-diagnostics/                   host contracts, per-feature gating and the compatibility snapshot
-safemode/                      crash-loop detection and the Safe Mode switch
-depth/                         the app side of the depth effect: subject segmentation
-motion/                        springs and the system's own animation timing
-core/                          logging
-```
-
-Adding a style means implementing `clock.ClockStyle` and a `ClockFace` in
-`clock/styles/` and listing the style in `clock.ClockStyles.all`. For a size
-slider, set `isResizable` and make its faces `ResizableClockFace`; for the width
-slider, set `isWidthAdjustable` and make its faces `AdjustableWidthClockFace`;
-to lay a face out around the photo's subject, make it `SubjectAwareClockFace`.
-Nothing in `host/` changes.
-
-Every SystemUI clock plugin class is named in `host/ClockPluginApi.kt` alone,
-and each other part of SystemUI in one `…Api` class, so a SystemUI update that
-moves something is absorbed in one file.
+- [Architecture](docs/architecture.md): the clock registry path, contracts and
+  host compatibility tests, package layout, building
+- [Android 17 QPR1](docs/android-17-qpr1.md): the Compose lock screen port
+- [Depth effect](docs/depth-effect.md): segmentation, job coalescing and the
+  exported service's threat model
+- `HOOK_NOTES.md`: every host signature and how it was verified
 
 ---
 

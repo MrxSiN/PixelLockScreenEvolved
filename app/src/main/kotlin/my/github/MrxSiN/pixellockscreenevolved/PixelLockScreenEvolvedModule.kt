@@ -18,7 +18,9 @@ import my.github.MrxSiN.pixellockscreenevolved.diagnostics.FeatureFaults
 import my.github.MrxSiN.pixellockscreenevolved.diagnostics.FeatureGate
 import my.github.MrxSiN.pixellockscreenevolved.diagnostics.Host
 import my.github.MrxSiN.pixellockscreenevolved.diagnostics.HostContracts
+import my.github.MrxSiN.pixellockscreenevolved.diagnostics.HostDescriptorCapture
 import my.github.MrxSiN.pixellockscreenevolved.diagnostics.HostStartupReport
+import my.github.MrxSiN.pixellockscreenevolved.diagnostics.ReflectedHostTypes
 import my.github.MrxSiN.pixellockscreenevolved.hook.Hooks
 import my.github.MrxSiN.pixellockscreenevolved.hook.HostPatch
 import my.github.MrxSiN.pixellockscreenevolved.hook.XposedHooks
@@ -134,7 +136,8 @@ class PixelLockScreenEvolvedModule : XposedModule() {
             }
         }
         val loadClass = { name: String -> runCatching { Class.forName(name, false, loaded.classLoader) }.getOrNull() }
-        val report = ContractAnalyzer(loadClass).analyze(HostContracts.forRuntime(host, loadClass))
+        val types = ReflectedHostTypes(loadClass)
+        val report = ContractAnalyzer(types).analyze(HostContracts.forRuntime(host, types))
         val faults = FeatureFaults(logger)
         val gate = FeatureGate(report, safeMode.disabled(), logger, faults)
         val hooks = XposedHooks(this, logger, hookIds)
@@ -150,7 +153,8 @@ class PixelLockScreenEvolvedModule : XposedModule() {
             application = loaded.application,
         )
         // One patch failing to install never keeps the next from installing.
-        (listOf(startup) + patchesFor(loaded, hooks, hooksFor, gate, logger)).forEach { patch ->
+        val capture = HostDescriptorCapture(host, ReflectedHostTypes(loadClass), File(loaded.dataDir, HostDescriptorCapture.FILE), logger)
+        (listOf(startup, capture) + patchesFor(loaded, hooks, hooksFor, gate, logger)).forEach { patch ->
             runCatching { patch.install(loaded.classLoader) }.onFailure { logger.warn("A patch failed to install in ${host.packageName}", it) }
         }
     }

@@ -359,8 +359,11 @@ about 440ms. `ClockFaceAdapter.arrival` carries the fade to the depth layer.
 up, per host; `HostContractsTest` fails the build when a name there is no longer
 in the sources. Each host checks the list with `Class.forName(name, false,
 classLoader)` and a walk of declared members up the class hierarchy before any
-patch installs, and `FeatureGate` leaves out a feature missing a required
-member. On `CP3A.260905.009` SystemUI selects `ClockRegistry.querySettings` in
+patch installs (`ReflectedHostTypes`), and `FeatureGate` leaves out a feature
+missing a required member. `HostCompatibilityTest` runs the same check against
+the recorded builds under `app/src/test/resources/hosts/`, which the hosts write
+when `debug.pixel_lock_screen_evolved.capture` is 1
+(`scripts/capture-host-fixture.sh`). On `CP3A.260905.009` SystemUI selects `ClockRegistry.querySettings` in
 place of `registerListeners`, and the Compose scene owns clock
 size motion without a module hook.
 

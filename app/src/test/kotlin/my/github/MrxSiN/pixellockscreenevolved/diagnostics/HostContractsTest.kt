@@ -53,18 +53,18 @@ class HostContractsTest {
 
     @Test
     fun composeSystemUiDoesNotProbeTheRemovedViewClockTransition() {
-        val contracts = HostContracts.forRuntime(Host.SYSTEMUI) { name ->
+        val contracts = HostContracts.forRuntime(Host.SYSTEMUI, ReflectedHostTypes { name ->
             Any::class.java.takeIf { name.endsWith("MovableLockscreenElement") }
-        }
+        })
 
         assertTrue(contracts.none { Feature.CLOCK_SIZE_MOTION in it.features })
     }
 
     @Test
     fun composeSystemUiDoesNotProbeTheRemovedConstraintSmartspacePath() {
-        val contracts = HostContracts.forRuntime(Host.SYSTEMUI) { name ->
+        val contracts = HostContracts.forRuntime(Host.SYSTEMUI, ReflectedHostTypes { name ->
             Any::class.java.takeIf { name.endsWith("SmartspaceElementProvider\$DWARowElement") }
-        }
+        })
 
         assertTrue(contracts.none {
             it.signature.owner.endsWith("SmartspaceSection") &&
@@ -74,16 +74,16 @@ class HostContractsTest {
 
     @Test
     fun legacySystemUiDoesNotProbeTheComposeSmartspacePath() {
-        val contracts = HostContracts.forRuntime(Host.SYSTEMUI) { null }
+        val contracts = HostContracts.forRuntime(Host.SYSTEMUI, ReflectedHostTypes { null })
 
         assertTrue(contracts.none { it.signature.owner.contains("SmartspaceElementProvider\$") })
     }
 
     @Test
     fun systemUiContractUsesItsActualRegistryEntryPoint() {
-        val contracts = HostContracts.forRuntime(Host.SYSTEMUI) { name ->
+        val contracts = HostContracts.forRuntime(Host.SYSTEMUI, ReflectedHostTypes { name ->
             QueryOnlyRegistry::class.java.takeIf { name.endsWith("ClockRegistry") }
-        }
+        })
         val registryReady = contracts.first()
 
         assertTrue(registryReady.signature.member == Member.Method("querySettings", emptyList()))

@@ -15,11 +15,15 @@
 
         <!--
             Finds the subject of the lock screen photo for the depth effect.
-            SystemUI binds to it; it answers no other caller.
+            SystemUI binds to it, so it has to be exported. Binding needs
+            STATUS_BAR_SERVICE, a signature permission SystemUI holds that no
+            downloaded app can be granted, and the service then answers only
+            SystemUI's own uid. docs/depth-effect.md has the threat model.
         -->
         <service
             android:name=".depth.SubjectMaskService"
-            android:exported="true" />
+            android:exported="true"
+            android:permission="android.permission.STATUS_BAR_SERVICE" />
     </application>
 
 </manifest>
