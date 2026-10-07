@@ -40,8 +40,9 @@ class NumeralView(context: Context, private var cut: FlexCut) : View(context) {
 
     private val paint = Paint(Paint.ANTI_ALIAS_FLAG).apply { typeface = FlexCut.typeface }
     private val ink = DozeInk(context)
-    private val digits = DigitRoll(this) { canvas, shape, alpha -> ink.draw(canvas, shape, alpha) }
+    private val digits = DigitRoll(this, ink)
     private val numerals = Rect()
+    private val stretching = Matrix()
 
     private var text = ""
     private var numeralHeight = 0f
@@ -223,11 +224,12 @@ class NumeralView(context: Context, private var cut: FlexCut) : View(context) {
     private fun glyphs(): List<DigitRoll.Glyph> {
         paint.fontVariationSettings = null
         paint.fontVariationSettings = cut.settings
-        val lefts = text.indices.map { paint.measureText(text, 0, it) }
-        val advances = text.indices.map { paint.measureText(text, it, it + 1) }
+        // Primitive arrays: this runs on every frame the strokes thin or fill.
+        val lefts = FloatArray(text.length) { paint.measureText(text, 0, it) }
+        val advances = FloatArray(text.length) { paint.measureText(text, it, it + 1) }
         paint.fontVariationSettings = shownCut().settings
         // Drawn from the baseline, so stretching about it leaves the line's own top where the draw expects it.
-        val stretching = Matrix().apply { setScale(1f, stretch) }
+        stretching.setScale(1f, stretch)
         val glyphs = text.indices.map { index ->
             val path = Path()
             // A thinner glyph is centred in the awake one's advance, so the line keeps its rhythm as it thins.

@@ -19,9 +19,10 @@ import android.view.animation.PathInterpolator
  * curve, as Material 3 Expressive moves things into place, and follows the
  * animator duration scale.
  *
- * [host] is redrawn as it runs; [ink] draws one shape as opaque as asked.
+ * [host] is redrawn as it runs; [ink] draws one shape as opaque as asked, called
+ * directly so no alpha is boxed per glyph per frame.
  */
-class DigitRoll(private val host: View, private val ink: (canvas: Canvas, shape: Path, alpha: Float) -> Unit) {
+class DigitRoll(private val host: View, private val ink: DozeInk) {
 
     /** One character as laid out: its shape, and where its advance starts. */
     class Glyph(val path: Path, val left: Float)
@@ -75,18 +76,27 @@ class DigitRoll(private val host: View, private val ink: (canvas: Canvas, shape:
 
     /** Draws the time, or the roll to it, [rise] being how far a rolling digit travels. */
     fun draw(canvas: Canvas, rise: Float) {
-        val current = roll ?: return glyphs.forEach { ink(canvas, it.path, 1f) }
+        // Walked by index, with no lambda or iterator: this runs on every frame of a roll.
+        val glyphs = glyphs
+        val current = roll
+        if (current == null) {
+            for (i in glyphs.indices) ink.draw(canvas, glyphs[i].path, 1f)
+            return
+        }
         val eased = EASING.getInterpolation(current.progress)
-        current.places.forEach { place ->
-            val old = place.before?.let(current.before::get)
-            val new = place.after?.let(glyphs::get)
+        val places = current.places
+        for (i in places.indices) {
+            val place = places[i]
+            val before = place.before
+            val after = place.after
+            val old = if (before != null) current.before[before] else null
+            val new = if (after != null) glyphs[after] else null
             // An old glyph laid out for the old width sits [Roll.shift] further right in the new one.
-            val oldX = old?.let { it.left + current.shift }
             // How far the place is from its new left across the roll: from its old left to none.
-            val glide = if (oldX != null && new != null) (oldX - new.left) * (1f - eased) else 0f
+            val glide = if (old != null && new != null) (old.left + current.shift - new.left) * (1f - eased) else 0f
             if (!place.changes) {
-                new?.let { drawMoved(canvas, it.path, glide, 0f, 1f) }
-                return@forEach
+                if (new != null) drawMoved(canvas, new.path, glide, 0f, 1f)
+                continue
             }
             if (old != null) {
                 val sideways = if (new != null) new.left + glide - old.left else current.shift
@@ -110,11 +120,11 @@ class DigitRoll(private val host: View, private val ink: (canvas: Canvas, shape:
 
     private fun drawMoved(canvas: Canvas, shape: Path, dx: Float, dy: Float, alpha: Float) {
         if (alpha <= 0f) return
-        if (dx == 0f && dy == 0f) return ink(canvas, shape, alpha)
+        if (dx == 0f && dy == 0f) return ink.draw(canvas, shape, alpha)
         move.setTranslate(dx, dy)
         placed.set(shape)
         placed.transform(move)
-        ink(canvas, placed, alpha)
+        ink.draw(canvas, placed, alpha)
     }
 
     private fun start(next: Roll) {
@@ -123,7 +133,8 @@ class DigitRoll(private val host: View, private val ink: (canvas: Canvas, shape:
         rolling = ValueAnimator.ofFloat(0f, 1f).apply {
             duration = ROLL_MS
             addUpdateListener {
-                next.progress = it.animatedValue as Float
+                // From 0 to 1, the value is the eased fraction itself, read without boxing.
+                next.progress = it.animatedFraction
                 host.invalidate()
             }
             addListener(object : AnimatorListenerAdapter() {

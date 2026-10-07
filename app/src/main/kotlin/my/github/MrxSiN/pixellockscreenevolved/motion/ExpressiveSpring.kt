@@ -64,15 +64,20 @@ class ExpressiveSpring(private val dampingRatio: Float, stiffness: Float) {
      * [update] the seconds since it started, after [delayMillis]; [end] runs once
      * it is done or ended early.
      */
-    fun animator(delayMillis: Long = 0L, update: (seconds: Float) -> Unit, end: () -> Unit): ValueAnimator =
+    fun animator(delayMillis: Long = 0L, update: Update, end: () -> Unit): ValueAnimator =
         ValueAnimator.ofFloat(0f, 1f).apply {
             duration = settleMillis
             startDelay = delayMillis
-            addUpdateListener { update(it.currentPlayTime / MILLIS_PER_SECOND) }
+            addUpdateListener { update.at(it.currentPlayTime / MILLIS_PER_SECOND) }
             addListener(object : AnimatorListenerAdapter() {
                 override fun onAnimationEnd(animation: Animator) = end()
             })
         }
+
+    /** A frame of a spring's animator, [seconds] after it started; its seconds are passed unboxed, as each frame calls it. */
+    fun interface Update {
+        fun at(seconds: Float)
+    }
 
     companion object {
         private const val SETTLED = 0.001

@@ -21,6 +21,13 @@
   is read.
 - The README keeps to screenshots, supported builds, install and recovery;
   implementation notes moved to `docs/`.
+- A second inference in one segmentation session, as a careful look or a
+  retry makes, peaks at 2.3 GB instead of 4.4 GB: ONNX Runtime's memory
+  pattern planning is off. The masks found are byte-identical.
+- The lock screen's per-frame work (the depth effect's placement, the large
+  clock's pin, the smartspace placement) allocates about 4 objects per
+  callback instead of about 48, and the clock faces' digits draw without
+  allocating. Measurements are in `PERFORMANCE.md`.
 
 ## 0.0.5 — 2026-09-22
 

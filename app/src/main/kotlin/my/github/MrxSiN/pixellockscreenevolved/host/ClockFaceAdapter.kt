@@ -221,11 +221,23 @@ internal object ModuleClockFaces {
 
     fun track(view: View, size: FaceSize) = synchronized(faces) { faces[view] = size }
 
+    /** Scratch for [largeIn], under the lock. */
+    private val location = IntArray(2)
+
     /** The large module face shown in [root], the highest where there are several. */
     fun largeIn(root: View): View? = synchronized(faces) {
-        faces.entries
-            .filter { (view, size) -> size == FaceSize.LARGE && view.isAttachedToWindow && view.isShown && view.rootView === root }
-            .minByOrNull { (view, _) -> IntArray(2).also(view::getLocationOnScreen)[1] }
-            ?.key
+        var highest: View? = null
+        var highestTop = 0
+        // Walked without a list or a lambda: it runs every frame the lock screen draws.
+        for (entry in faces.entries) {
+            val view = entry.key ?: continue
+            if (entry.value != FaceSize.LARGE || !view.isAttachedToWindow || !view.isShown || view.rootView !== root) continue
+            view.getLocationOnScreen(location)
+            if (highest == null || location[1] < highestTop) {
+                highest = view
+                highestTop = location[1]
+            }
+        }
+        highest
     }
 }

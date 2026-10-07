@@ -58,7 +58,8 @@ internal class LockWallpaperFeed(
     private var zoomScales = WallpaperPlacement.ZoomScales(1f, 1f)
 
     /** The crop and scroll the placement follows, for telling one placement from another; on the main thread. */
-    val placementKey: Any get() = crop to scroll
+    val placementCrop: Any? get() = crop
+    val placementScroll: Any get() = scroll
 
     fun addListener(listener: Listener) {
         listeners += listener

@@ -1,5 +1,6 @@
 package my.github.MrxSiN.pixellockscreenevolved.host
 
+import android.graphics.RectF
 import android.view.View
 
 import kotlin.math.abs
@@ -29,6 +30,9 @@ internal class ClockFacePlacement(
     private val size: FaceSize,
     private val largeClockTop: Int,
 ) {
+
+    /** Where the face is drawn, measured again before each draw. */
+    private val drawn = RectF()
 
     fun onLockScreen(editor: ConstraintSetEditor) {
         when (size) {
@@ -101,7 +105,7 @@ internal class ClockFacePlacement(
      */
     private fun pinComposedTop(view: View, doze: Float) {
         if (view.height == 0) return
-        val drawn = ViewBounds.inWindow(view)
+        ViewBounds.inWindow(view, drawn)
         val scale = drawn.height() / view.height
         if (scale <= 0f) return
         val awakePin = view.translationY + (largeClockTop - drawn.top) / scale

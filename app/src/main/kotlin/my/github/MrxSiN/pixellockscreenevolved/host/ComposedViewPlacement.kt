@@ -6,6 +6,8 @@ import android.view.View
 import java.lang.reflect.Field
 import java.lang.reflect.Method
 
+import my.github.MrxSiN.pixellockscreenevolved.core.Invoke
+
 /**
  * Where Compose really draws a plain view it hosts.
  *
@@ -29,6 +31,9 @@ internal object ComposedViewPlacement {
 
     private val lookups = HashMap<Class<*>, Lookup?>()
 
+    /** Whether each view class seen is a holder, so a frame's walk up the parents scans no class hierarchy. */
+    private val holderClasses = HashMap<Class<*>, Boolean>()
+
     /** The reflective path from a holder to its layout coordinates, per holder class. */
     private class Lookup(
         val layoutNode: Field,
@@ -37,39 +42,63 @@ internal object ComposedViewPlacement {
         val localToWindow: Method,
     )
 
+    // Scratch for the per-frame callers ([ViewBounds]), all on the main thread: one frame allocates only
+    // the three Longs reflection boxes its answers in.
+    private val local = floatArrayOf(0f, 0f, SPAN, 0f, 0f, SPAN)
+    private val window = FloatArray(local.size)
+    private val points = Array(local.size / 2) { arrayOf<Any?>(packOffset(local[2 * it], local[2 * it + 1])) }
+    private val holderToWindow = Matrix()
+    private val holderToGlobal = Matrix()
+    private val globalToHolder = Matrix()
+
     /**
-     * [view]'s pixels in its window's, with every graphics layer of the Compose
-     * scene around it applied; null when [view] is not hosted by Compose, or its
-     * coordinates cannot be read, where its view matrices are the whole story.
+     * Writes [view]'s pixels in its window's into [out], with every graphics
+     * layer of the Compose scene around it applied; false, leaving [out] as it
+     * was, when [view] is not hosted by Compose, or its coordinates cannot be
+     * read, where its view matrices are the whole story. On the main thread.
      */
-    fun toWindow(view: View): Matrix? {
-        val holder = generateSequence(view) { it.parent as? View }.firstOrNull(::isHolder) ?: return null
-        val holderToWindow = runCatching { holderToWindow(holder) }.getOrNull() ?: return null
+    fun toWindow(view: View, out: Matrix): Boolean {
+        var holder: View? = view
+        while (holder != null && !isHolder(holder.javaClass)) holder = holder.parent as? View
+        if (holder == null) return false
+        val placed = try {
+            holderToWindow(holder)
+        } catch (_: Throwable) {
+            false
+        }
+        if (!placed) return false
         // The views between [view] and the holder are still placed by their own matrices.
-        val viewToHolder = Matrix().also(view::transformMatrixToGlobal)
-        viewToHolder.postConcat(Matrix().also { Matrix().also(holder::transformMatrixToGlobal).invert(it) })
-        return viewToHolder.apply { postConcat(holderToWindow) }
+        holderToGlobal.reset()
+        holder.transformMatrixToGlobal(holderToGlobal)
+        holderToGlobal.invert(globalToHolder)
+        out.reset()
+        view.transformMatrixToGlobal(out)
+        out.postConcat(globalToHolder)
+        out.postConcat(holderToWindow)
+        return true
     }
 
-    private fun isHolder(view: View): Boolean =
-        generateSequence(view.javaClass as Class<*>?) { it.superclass }.any { it.name == HOLDER }
+    private fun isHolder(type: Class<*>): Boolean = holderClasses[type] ?: run {
+        var superclass: Class<*>? = type
+        while (superclass != null && superclass.name != HOLDER) superclass = superclass.superclass
+        (superclass != null).also { holderClasses[type] = it }
+    }
 
     /**
-     * The holder's pixels in the window's, from where Compose puts three of its
-     * points, which is enough for any scale, move or rotation a layer applies.
+     * Sets [holderToWindow] to the holder's pixels in the window's, from where
+     * Compose puts three of its points, which is enough for any scale, move or
+     * rotation a layer applies.
      */
-    private fun holderToWindow(holder: View): Matrix? {
-        val lookup = lookupFor(holder.javaClass) ?: return null
-        val node = lookup.layoutNode.get(holder) ?: return null
-        val coordinates = lookup.innerCoordinator.get(lookup.nodes.get(node)) ?: return null
-        val local = floatArrayOf(0f, 0f, SPAN, 0f, 0f, SPAN)
-        val window = FloatArray(local.size)
-        for (i in local.indices step 2) {
-            val mapped = lookup.localToWindow.invoke(coordinates, packOffset(local[i], local[i + 1])) as Long
-            window[i] = unpackX(mapped)
-            window[i + 1] = unpackY(mapped)
+    private fun holderToWindow(holder: View): Boolean {
+        val lookup = lookupFor(holder.javaClass) ?: return false
+        val node = lookup.layoutNode.get(holder) ?: return false
+        val coordinates = lookup.innerCoordinator.get(lookup.nodes.get(node)) ?: return false
+        for (i in points.indices) {
+            val mapped = Invoke.with(lookup.localToWindow, coordinates, points[i]) as Long
+            window[2 * i] = unpackX(mapped)
+            window[2 * i + 1] = unpackY(mapped)
         }
-        return Matrix().takeIf { it.setPolyToPoly(local, 0, window, 0, 3) }
+        return holderToWindow.setPolyToPoly(local, 0, window, 0, 3)
     }
 
     /** A lookup that failed is remembered too, so a build without these fields is not searched each frame. */

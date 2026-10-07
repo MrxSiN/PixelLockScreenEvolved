@@ -58,7 +58,8 @@ internal class SharedAxisTransition(private val page: View, private val under: V
             duration = SETTLE_MS
             interpolator = EMPHASIZED_DECELERATE
             addUpdateListener {
-                val left = it.animatedValue as Float
+                // The value from 1 to 0, as the animator's evaluator works it out, read without boxing.
+                val left = 1f + it.animatedFraction * (0f - 1f)
                 page.scaleX = 1f + (scale - 1f) * left
                 page.scaleY = page.scaleX
                 page.translationX = lean * left
@@ -76,7 +77,8 @@ internal class SharedAxisTransition(private val page: View, private val under: V
         running = ValueAnimator.ofFloat(0f, SLIDE_MS.toFloat()).apply {
             duration = SLIDE_MS
             interpolator = null
-            addUpdateListener { frame(it.animatedValue as Float, opening, scale, lean) }
+            // The value from 0 to SLIDE_MS, as the animator's evaluator works it out, read without boxing.
+            addUpdateListener { frame(0f + it.animatedFraction * (SLIDE_MS.toFloat() - 0f), opening, scale, lean) }
             addListener(object : AnimatorListenerAdapter() {
                 private var cancelled = false
                 override fun onAnimationCancel(animation: Animator) {

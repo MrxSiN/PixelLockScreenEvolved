@@ -1,0 +1,10 @@
+photo 683x1024 threads 0 opt all ep cpu arena true pattern true
+rss_start_kb 196116
+e2e_init_ms 4928.70
+e2e_mask_ms 33393.48
+rss_hwm_e2e_kb 4446360
+photo 683x1024 threads 0 opt all ep cpu arena true pattern true
+rss_start_kb 196476
+e2e_init_ms 3873.86
+e2e_mask_ms 29290.05
+rss_hwm_e2e_kb 2322772

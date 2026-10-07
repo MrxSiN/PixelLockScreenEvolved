@@ -36,7 +36,7 @@ import ai.onnxruntime.OrtSession
 internal class SubjectSegmenter(assets: AssetManager) : AutoCloseable {
 
     private val environment = OrtEnvironment.getEnvironment()
-    private val session: OrtSession = environment.createSession(map(assets, MODEL_PATH), OrtSession.SessionOptions())
+    private val session: OrtSession = environment.createSession(map(assets, MODEL_PATH), sessionOptions())
     private val inputName = session.inputNames.first()
 
     /**
@@ -75,6 +75,14 @@ internal class SubjectSegmenter(assets: AssetManager) : AutoCloseable {
     private companion object {
         const val MODEL_PATH = "models/birefnet_lite.onnx"
         const val SIDE = SubjectInput.SIDE
+
+        /**
+         * Without memory pattern planning: with it, the second run of a session
+         * (the mirror image of a careful look, or a retry) allocated its planned
+         * block on top of the arena the first run had grown, and peaked at
+         * 4.4 GB instead of 2.3 GB, no faster (SEGMENTATION_BENCHMARK.md).
+         */
+        fun sessionOptions() = OrtSession.SessionOptions().apply { setMemoryPatternOptimization(false) }
 
         fun map(assets: AssetManager, path: String): ByteBuffer = assets.openFd(path).use { file ->
             FileInputStream(file.fileDescriptor).channel.use { channel ->

@@ -4,26 +4,52 @@ import android.graphics.Matrix
 import android.graphics.RectF
 import android.view.View
 
-/** Where views are drawn, with every move and scale of theirs and their parents' applied. */
+/**
+ * Where views are drawn, with every move and scale of theirs and their parents' applied.
+ *
+ * Every answer is written into a matrix or rectangle the caller owns, since
+ * several callers ask before each frame; on the main thread.
+ */
 internal object ViewBounds {
 
+    private val viewToWindow = Matrix()
+    private val ancestorToWindow = Matrix()
+    private val windowToAncestor = Matrix()
+
     /**
-     * [view]'s pixels in its window's, including what a Compose scene hosting it
-     * applies ([ComposedViewPlacement]), which its view matrices leave out.
+     * Writes [view]'s pixels in its window's into [out], including what a Compose
+     * scene hosting it applies ([ComposedViewPlacement]), which its view matrices leave out.
      */
-    fun toWindow(view: View): Matrix =
-        ComposedViewPlacement.toWindow(view) ?: Matrix().also(view::transformMatrixToGlobal)
+    fun toWindow(view: View, out: Matrix): Matrix {
+        if (!ComposedViewPlacement.toWindow(view, out)) {
+            out.reset()
+            view.transformMatrixToGlobal(out)
+        }
+        return out
+    }
 
-    /** The window's pixels in [view]'s own. */
-    fun fromWindow(view: View): Matrix = Matrix().also { toWindow(view).invert(it) }
+    /** Writes the window's pixels in [view]'s own into [out]. */
+    fun fromWindow(view: View, out: Matrix): Matrix {
+        // A matrix that cannot be inverted leaves the identity, as a new matrix would be.
+        out.reset()
+        toWindow(view, viewToWindow).invert(out)
+        return out
+    }
 
-    /** [view]'s bounds in its window. */
-    fun inWindow(view: View): RectF =
-        RectF(0f, 0f, view.width.toFloat(), view.height.toFloat()).also(toWindow(view)::mapRect)
+    /** Writes [view]'s bounds in its window into [out]. */
+    fun inWindow(view: View, out: RectF): RectF {
+        out.set(0f, 0f, view.width.toFloat(), view.height.toFloat())
+        toWindow(view, viewToWindow).mapRect(out)
+        return out
+    }
 
-    /** [view]'s bounds in [ancestor]'s own pixels, with every move and scale between them applied and none above. */
-    fun inAncestor(ancestor: View, view: View): RectF {
-        val toAncestor = toWindow(view).apply { postConcat(fromWindow(ancestor)) }
-        return RectF(0f, 0f, view.width.toFloat(), view.height.toFloat()).also(toAncestor::mapRect)
+    /** Writes [view]'s bounds in [ancestor]'s own pixels into [out], with every move and scale between them applied and none above. */
+    fun inAncestor(ancestor: View, view: View, out: RectF): RectF {
+        windowToAncestor.reset()
+        toWindow(ancestor, ancestorToWindow).invert(windowToAncestor)
+        toWindow(view, viewToWindow).postConcat(windowToAncestor)
+        out.set(0f, 0f, view.width.toFloat(), view.height.toFloat())
+        viewToWindow.mapRect(out)
+        return out
     }
 }

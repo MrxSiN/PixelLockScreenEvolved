@@ -56,19 +56,48 @@ internal class DepthLayer(
     private var enabled = false
     private var attached = false
     private var faceLayerType = View.LAYER_TYPE_NONE
-    private var measured: Measured? = null
-    private var unsettled: Measured? = null
+    private val measured = Measured()
+    private val unsettled = Measured()
     private var timeReadable = true
     private val inFrontSpring = SpringFollower(IN_FRONT_STIFFNESS, initial = 1f)
     private var easedAt = 0L
 
-    /** What the share of the time the subject hides depends on. */
-    private data class Measured(
-        val cutout: Bitmap,
-        val placement: Any,
-        val time: RectF,
-        val timeChanges: Int,
-    )
+    // Scratch for the work done before each frame, on the main thread.
+    private val faceToWindow = Matrix()
+    private val timeInFace = RectF()
+    private val subjectToView = Matrix()
+    private val windowToView = Matrix()
+
+    /** What the share of the time the subject hides depends on, as last taken; kept in place, since it is compared before each frame. */
+    private class Measured {
+        private var taken = false
+        private var cutout: Bitmap? = null
+        private var crop: Any? = null
+        private var scroll: Any? = null
+        private val time = RectF()
+        private var timeChanges = 0
+
+        fun isEmpty(): Boolean = !taken
+
+        fun matches(cutout: Bitmap, crop: Any?, scroll: Any?, time: RectF, timeChanges: Int): Boolean =
+            taken && cutout == this.cutout && crop == this.crop && scroll == this.scroll && time == this.time && timeChanges == this.timeChanges
+
+        fun take(cutout: Bitmap, crop: Any?, scroll: Any?, time: RectF, timeChanges: Int) {
+            taken = true
+            this.cutout = cutout
+            this.crop = crop
+            this.scroll = scroll
+            this.time.set(time)
+            this.timeChanges = timeChanges
+        }
+
+        fun clear() {
+            taken = false
+            cutout = null
+            crop = null
+            scroll = null
+        }
+    }
 
     /**
      * Erases the subject again on each frame the scene has moved the face on screen since it
@@ -76,7 +105,7 @@ internal class DepthLayer(
      * kept as it was drawn.
      */
     private val sceneFrames = SceneFrames(faceView) {
-        if (ViewBounds.toWindow(faceView) != eraser.erasedAt) faceView.invalidate()
+        if (!eraser.erased || ViewBounds.toWindow(faceView, faceToWindow) != eraser.erasedAt) faceView.invalidate()
     }
 
     init {
@@ -113,12 +142,10 @@ internal class DepthLayer(
             WallpaperPlacement.Size(screen.widthPixels, screen.heightPixels),
             WallpaperPlacement.Size(subject.width, subject.height),
         )
-        val subjectToView = Matrix().apply {
-            setScale(placed.width / subject.width, placed.height / subject.height)
-            postTranslate(placed.left, placed.top)
-            postScale(placed.scale, placed.scale, placed.pivotX, placed.pivotY)
-            postConcat(ViewBounds.fromWindow(view))
-        }
+        subjectToView.setScale(placed.width / subject.width, placed.height / subject.height)
+        subjectToView.postTranslate(placed.left, placed.top)
+        subjectToView.postScale(placed.scale, placed.scale, placed.pivotX, placed.pivotY)
+        subjectToView.postConcat(ViewBounds.fromWindow(view, windowToView))
         canvas.drawBitmap(subject, subjectToView, paint)
     }
 
@@ -129,7 +156,7 @@ internal class DepthLayer(
             return
         }
 
-        val time = ViewBounds.inAncestor(faceView, face.timeView)
+        val time = ViewBounds.inAncestor(faceView, face.timeView, timeInFace)
         // None on the always-on display, where the time is drawn in outline and nothing goes over it. The
         // time comes out in front of the subject before SystemUI moves it to its AOD region, and goes
         // back behind it only once it has moved back ([AodClockMotion]).
@@ -143,7 +170,7 @@ internal class DepthLayer(
         attach()
         if (eraser.strength != strength || eraser.time != time) {
             eraser.strength = strength
-            eraser.time = time
+            eraser.time.set(time)
             faceView.invalidate()
         }
         sceneFrames.start()
@@ -186,15 +213,17 @@ internal class DepthLayer(
             return timeReadable
         }
         if (face.dozeFraction > 0f) return timeReadable
-        val now = Measured(subject, feed.placementKey, time, face.timeChanges)
-        if (now == measured) return timeReadable
-        if (measured != null && now != unsettled) {
-            unsettled = now
+        val crop = feed.placementCrop
+        val scroll = feed.placementScroll
+        val timeChanges = face.timeChanges
+        if (measured.matches(subject, crop, scroll, time, timeChanges)) return timeReadable
+        if (!measured.isEmpty() && !unsettled.matches(subject, crop, scroll, time, timeChanges)) {
+            unsettled.take(subject, crop, scroll, time, timeChanges)
             faceView.postInvalidateOnAnimation()
             return timeReadable
         }
-        measured = now
-        unsettled = null
+        measured.take(subject, crop, scroll, time, timeChanges)
+        unsettled.clear()
         timeReadable = TimeCoverage.of(face.timeView) { eraseSubject(it, OPAQUE) } <= MOST_HIDDEN
         return timeReadable
     }
@@ -224,14 +253,18 @@ internal class DepthLayer(
      */
     private inner class Eraser : Drawable() {
         var strength = 0f
-        var time = RectF()
+        val time = RectF()
 
-        /** Where the face was on screen when the subject was last erased from it. */
-        var erasedAt: Matrix? = null
+        /** Whether the subject has been erased at all, so [erasedAt] holds a place. */
+        var erased = false
             private set
 
+        /** Where the face was on screen when the subject was last erased from it. */
+        val erasedAt = Matrix()
+
         override fun draw(canvas: Canvas) {
-            erasedAt = ViewBounds.toWindow(faceView)
+            ViewBounds.toWindow(faceView, erasedAt)
+            erased = true
             if (strength <= 0f) return
             val saved = canvas.save()
             canvas.clipRect(time)

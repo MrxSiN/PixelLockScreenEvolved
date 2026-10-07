@@ -28,7 +28,7 @@ internal class ClockSizeMorph {
         running?.end()
         // With animations off the new face simply shows, as SystemUI's own faces do.
         if (SystemMotion.isReduced) return
-        val origin = ViewBounds.inWindow(from.timeView).takeUnless { it.isEmpty } ?: return
+        val origin = ViewBounds.inWindow(from.timeView, RectF()).takeUnless { it.isEmpty } ?: return
         val face = to.view
         face.viewTreeObserver.addOnPreDrawListener(object : ViewTreeObserver.OnPreDrawListener {
             override fun onPreDraw(): Boolean {
@@ -41,7 +41,7 @@ internal class ClockSizeMorph {
 
     private fun begin(origin: RectF, to: ClockFaceAdapter) {
         val time = to.timeView
-        val place = ViewBounds.inWindow(time)
+        val place = ViewBounds.inWindow(time, RectF())
         if (place.isEmpty || time.width == 0 || time.height == 0) return
 
         // The face may itself be scaled, so the move is worked out in its own pixels.
@@ -54,6 +54,7 @@ internal class ClockSizeMorph {
         val around = (to.view as? ViewGroup)?.let { group -> (0 until group.childCount).map(group::getChildAt) }
             .orEmpty()
             .filter { it !== time }
+            .toTypedArray()
 
         time.pivotX = 0f
         time.pivotY = 0f
@@ -62,7 +63,7 @@ internal class ClockSizeMorph {
             time.translationY = fromY * (1f - progress)
             time.scaleX = lerp(fromScaleX, 1f, progress)
             time.scaleY = lerp(fromScaleY, 1f, progress)
-            around.forEach { view -> view.alpha = faded }
+            for (view in around) view.alpha = faded
             to.arrival = faded
         }
         show(0f, 0f)

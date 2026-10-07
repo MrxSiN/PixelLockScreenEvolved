@@ -46,7 +46,7 @@ internal class IosTimeView(context: Context) : View(context) {
     private val bounds = Rect()
 
     /** The time as laid out, a glyph per character, and its roll to each new minute. */
-    private val digits = DigitRoll(this) { canvas, shape, alpha -> ink.draw(canvas, shape, alpha) }
+    private val digits = DigitRoll(this, ink)
 
     private var text = ""
     private var size = 0f

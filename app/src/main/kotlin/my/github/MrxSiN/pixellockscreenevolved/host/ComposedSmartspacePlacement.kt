@@ -1,6 +1,7 @@
 package my.github.MrxSiN.pixellockscreenevolved.host
 
 import android.graphics.Matrix
+import android.graphics.RectF
 import android.view.View
 import android.view.ViewGroup
 
@@ -24,6 +25,12 @@ internal class ComposedSmartspacePlacement {
 
     private val followed = Collections.newSetFromMap(WeakHashMap<View, Boolean>())
     private val hiddenRows = WeakHashMap<View, Int>()
+
+    // Scratch for the placement run every frame, on the main thread.
+    private val clockBounds = RectF()
+    private val toWindow = Matrix()
+    private val values = FloatArray(MATRIX_VALUES)
+    private val origin = FloatArray(2)
 
     /** Starts keeping [card] under the large clock, once per card. */
     fun followCard(card: View) = follow(card) { placeCard(card) }
@@ -53,22 +60,25 @@ internal class ComposedSmartspacePlacement {
     }
 
     private fun placeCard(card: View) {
-        val clock = ModuleClockFaces.largeIn(card.rootView)
-        moveUnder(card, clock?.let { ViewBounds.inWindow(it).bottom }, LockScreenInsets.cardGap(card.context))
+        moveUnder(card, ModuleClockFaces.largeIn(card.rootView), LockScreenInsets.cardGap(card.context))
     }
 
-    /** Moves [view] so its top sits [gap] pixels under [bottom], in window pixels, or back to its place where there is none. */
-    private fun moveUnder(view: View, bottom: Float?, gap: Int) {
-        val moved = if (bottom == null || view.height == 0) 0f else offset(view, bottom + gap)
+    /** Moves [view] so its top sits [gap] pixels under [clock]'s bottom, in window pixels, or back to its place where there is none. */
+    private fun moveUnder(view: View, clock: View?, gap: Int) {
+        val moved = if (clock == null || view.height == 0) 0f else offset(view, ViewBounds.inWindow(clock, clockBounds).bottom + gap)
         if (view.translationY != moved) view.translationY = moved
         (view.parent as? ViewGroup)?.takeIf { it.clipChildren }?.clipChildren = false
     }
 
     /** How far [view] moves down, in its parent's pixels, for its top to land on [wanted] in the window. */
     private fun offset(view: View, wanted: Float): Float {
-        val toWindow = ViewBounds.toWindow(view)
-        val scale = FloatArray(MATRIX_VALUES).also(toWindow::getValues)[Matrix.MSCALE_Y].takeIf { it > 0f } ?: return 0f
-        val top = floatArrayOf(0f, 0f).also(toWindow::mapPoints)[1]
+        ViewBounds.toWindow(view, toWindow).getValues(values)
+        val scale = values[Matrix.MSCALE_Y]
+        if (!(scale > 0f)) return 0f
+        origin[0] = 0f
+        origin[1] = 0f
+        toWindow.mapPoints(origin)
+        val top = origin[1]
         val laidOutTop = top - view.translationY * scale
         return (wanted - laidOutTop) / scale
     }
