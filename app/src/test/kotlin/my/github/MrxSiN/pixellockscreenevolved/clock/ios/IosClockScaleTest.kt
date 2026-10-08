@@ -7,72 +7,37 @@ class IosClockScaleTest {
 
     private val shortSide = 1000f
     private val numeral = 0.7f
+    private val column = 900f
+    private val stock = shortSide * IosClockScale.STOCK_NUMERAL_TO_SHORT_SIDE
 
     @Test
-    fun aNarrowTimeGrowsWithoutStretching() {
-        val fit = IosClockScale.fit(size = 0f, shortSide, numeral, widestWidthPerTextSize = 1f, maxStretch = 1.6f)
-        assertEquals(300f / numeral, fit.textSize, 1e-3f)
+    fun everySizeSpansTheColumn() {
+        listOf(0f, 0.5f, 1f).forEach { size ->
+            val fit = IosClockScale.spanning(size, shortSide, numeral, inkWidthPerTextSize = 2.5f, columnWidth = column)
+            assertEquals(column, fit.textSize * 2.5f, 1e-2f)
+        }
+    }
+
+    @Test
+    fun theHeightRunsFromTheStockClockToTheLargest() {
+        val smallest = IosClockScale.spanning(0f, shortSide, numeral, 2.5f, column)
+        val largest = IosClockScale.spanning(1f, shortSide, numeral, 2.5f, column)
+        assertEquals(stock, smallest.textSize * numeral * smallest.stretch, 1e-2f)
+        assertEquals(stock * IosClockScale.LARGEST_TO_STOCK, largest.textSize * numeral * largest.stretch, 1e-2f)
+    }
+
+    @Test
+    fun aWiderTimeIsSetSmallerButStretchedToTheSameHeight() {
+        val narrow = IosClockScale.spanning(0.4f, shortSide, numeral, 2f, column)
+        val wide = IosClockScale.spanning(0.4f, shortSide, numeral, 3f, column)
+        assert(wide.textSize < narrow.textSize)
+        assertEquals(narrow.textSize * numeral * narrow.stretch, wide.textSize * numeral * wide.stretch, 1e-2f)
+    }
+
+    @Test
+    fun beforeAnyTimeTheStockHeightIsSetUnstretched() {
+        val fit = IosClockScale.unstretched(IosClockScale.STOCK_NUMERAL_TO_SHORT_SIDE, shortSide, numeral)
         assertEquals(1f, fit.stretch, 0f)
-    }
-
-    @Test
-    fun aWideTimeIsStretchedOnlyUpToTheFontsLimit() {
-        val fit = IosClockScale.fit(size = 1f, shortSide, numeral, widestWidthPerTextSize = 2.3f, maxStretch = 1.6f)
-        assertEquals(920f / 2.3f, fit.textSize, 1e-3f)
-        assertEquals(1.6f, fit.stretch, 0f)
-    }
-
-    @Test
-    fun aWideTimeStillGrowsAtEveryStep() {
-        val heights = (0..5).map { step ->
-            val fit = IosClockScale.fit(size = step / 5f, shortSide, numeral, widestWidthPerTextSize = 3f, maxStretch = 1.6f)
-            fit.textSize * numeral * fit.stretch
-        }
-        heights.zipWithNext().forEach { (smaller, larger) -> assert(larger > smaller) { "$heights" } }
-        assertEquals(920f / 3f * numeral * 1.6f, heights.last(), 1e-2f)
-    }
-
-    @Test
-    fun aWideTimeThatMayNotStretchStillGrowsAtEveryStep() {
-        val heights = (0..5).map { step ->
-            val fit = IosClockScale.fit(size = step / 5f, shortSide, numeral, widestWidthPerTextSize = 3f, maxStretch = 1f)
-            assertEquals(1f, fit.stretch, 1e-5f)
-            fit.textSize * numeral
-        }
-        heights.zipWithNext().forEach { (smaller, larger) -> assert(larger > smaller) { "$heights" } }
-        assertEquals(920f / 3f * numeral, heights.last(), 1e-2f)
-    }
-
-    @Test
-    fun aTimeThatNeedsLittleStretchGetsExactlyThat() {
-        val fit = IosClockScale.fit(size = 1f, shortSide, numeral, widestWidthPerTextSize = 1.1f, maxStretch = 1.6f)
-        assertEquals(880f, fit.textSize * numeral * fit.stretch, 1e-2f)
-    }
-
-    /**
-     * The fit is the one the widest width needs, so every width of a size draws
-     * the same numerals; only the cut they are set in, and so the time's own
-     * width, changes with the slider.
-     */
-    @Test
-    fun aSizeIsTheSameHeightAtEveryWidth() {
-        val widest = 2.4f
-        listOf(0f, 0.4f, 1f).forEach { size ->
-            val fit = IosClockScale.fit(size, shortSide, numeral, widest, maxStretch = 1.6f)
-            val height = fit.textSize * numeral * fit.stretch
-            listOf(1f, 1.6f, widest).forEach { width ->
-                assertEquals("width $width at size $size", height, fit.textSize * numeral * fit.stretch, 1e-2f)
-                assert(fit.textSize * width <= shortSide * 0.92f + 1e-2f) { "width $width at size $size overflows" }
-            }
-        }
-    }
-
-    @Test
-    fun aNarrowerWidthDrawsANarrowerTime() {
-        val widest = 2.4f
-        val fit = IosClockScale.fit(size = 1f, shortSide, numeral, widest, maxStretch = 1.6f)
-        val widths = listOf(1f, 1.6f, widest).map { fit.textSize * it }
-        widths.zipWithNext().forEach { (narrower, wider) -> assert(wider > narrower) { "$widths" } }
-        assertEquals(shortSide * 0.92f, widths.last(), 1e-2f)
+        assertEquals(stock, fit.textSize * numeral, 1e-2f)
     }
 }

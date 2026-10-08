@@ -105,8 +105,6 @@ internal class PickerClockSection(
         private fun stateValue(flow: Any?): Any? = flow?.javaClass?.methods
             ?.firstOrNull { it.name == "getValue" && it.parameterTypes.isEmpty() }
             ?.invoke(flow)
-
-        private fun Class<*>.field(name: String): Field = getDeclaredField(name).apply { isAccessible = true }
     }
 
     private companion object {

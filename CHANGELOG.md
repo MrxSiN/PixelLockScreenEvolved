@@ -1,9 +1,25 @@
 # Changelog
 
-## Unreleased
+## 0.0.6 — 2026-10-09
 
 ### Added
 
+- Clock position: a **Position** tab in Wallpaper & style → Clock for the
+  module's movable clocks. **Adaptive position** stands the clock where it
+  hides least of the wallpaper's subject; off, the clock is dragged in the
+  preview itself, snapping to the top, the quarters and the bottom, and kept
+  clear of the fingerprint sensor and the smartspace card. Stored as a share
+  of the screen in the clock setting.
+- Double tap to turn off screen: double tap an empty space on the lock screen
+  to turn the screen off. SystemUI already carries Google's gesture with its
+  flag off; the module sets that flag from the stock `double_tap_to_sleep`
+  setting (default on) and adds no gesture of its own. Off under touch
+  exploration, and left alone where SystemUI turns the flag on itself.
+  Switch in Wallpaper & style → Lock screen. The screen goes dark as a circle
+  closing on the tapped point (SystemUI's light reveal scrim, as Pixel
+  Launcher Evolved's home screen double tap does).
+- `CP3A.261005.005` recorded and verified; the `CP3A.260905.009` description
+  predates the double tap contracts and is retired.
 - Host compatibility tests: every host contract is checked in CI against a
   recorded description of each verified Pixel build (class, field and method
   names only, under `app/src/test/resources/hosts/`), starting with
@@ -12,6 +28,48 @@
 
 ### Changed
 
+- The iOS clock is set in the Pixel clock's own font, the one Google's default
+  clock loads (`google-sans-flex-clock`, its proportional figures), on one
+  line. The "Clock face width" slider moves the same seven cuts as before.
+- The iOS time always spans the lock screen's text column, from the edge the
+  date row and the smartspace card start at to the one they end at, every
+  minute. The size slider sets only its height: from the Pixel's own large
+  clock to three times it, the numerals stretched vertically, the colon's dots
+  kept round. The face beside notifications is the smallest size. The time may
+  run past the scene's clock box, which is narrower and shorter than it, and is
+  not clipped there. The rows around it keep one gap: status bar to date,
+  date to time, and, beside notifications, time to SystemUI's date row to the
+  smartspace card.
+- Beside notifications, the lock screen's small-clock band is made as tall as
+  the module's small face (SystemUI caps it at `small_clock_height`), so the
+  date row, the card and the notifications stack below the time instead of
+  under it.
+- On the always-on display a tall face is lifted to stand above the
+  fingerprint sensor, where SystemUI's own position would have it reach down to
+  it, and shrunk to the screen's text margins, where the scene's larger
+  always-on scale ran it past the screen's edges.
+- The iOS time's characters are spaced by their ink, one gap between every
+  pair, so the minutes no longer sit tighter than the hour.
+- The iOS clock's size slider has four stops (the largest the old fourth);
+  other styles keep six. Each style now says how many it has.
+- As the clock changes size on Android 17's composed lock screen, the
+  smartspace card glides to its new place instead of jumping, and SystemUI's
+  date row fades in and out with the clock; the two faces crossfade as
+  Google's do there. Carrying the time across was tried and dropped: the
+  scene fades one face out before the other in, so the carried time only slid
+  into place after the fade.
+- The iOS time no longer resizes part way through a wake: it is fitted to the
+  scene's scale only once that scale has held for a quarter second.
+- Its minute roll travels 15% of the numerals' height, not 45%, so a tall
+  time's old digits no longer rise past it and get cut off flat.
+- In Wallpaper & style, the size and width sliders glide the time to each
+  step on the expressive spatial spring instead of swapping it.
+- Switching between the Size and Position tabs, whose content shares one
+  slot, crossfades the rows and glides the sheet's height instead of snapping.
+- Clock → Position is the last tab (Style | Color | Size | Position) and holds
+  only the Adaptive switch. The Clock position row is gone: with Adaptive off,
+  "Drag the clock to reposition it", with a fingertip-and-arrows icon, stands
+  beside the preview and the preview clock is dragged.
 - The depth effect's segmentation keeps only the newest waiting photo: the run
   under way finishes, and requests it replaces are dropped, so several
   wallpaper changes in a row cost at most two runs.
@@ -28,6 +86,17 @@
   clock's pin, the smartspace placement) allocates about 4 objects per
   callback instead of about 48, and the clock faces' digits draw without
   allocating. Measurements are in `PERFORMANCE.md`.
+
+### Fixed
+
+- The Size tab could not be tapped: adding or removing the Position tab left
+  a tab view behind, drawn over its neighbours and taking their taps, and a
+  tap on Size while Position was open did nothing.
+- The clock size slider's label was announced as "Clock face width", and its
+  row stood lower in the sheet than its padding below.
+- Opening Position from Style or Color first grew the sheet to the size rows'
+  height, the Adaptive row at its top, then snapped to its own; its height is
+  now recorded before the sheet animates, as the picker's own tabs are.
 
 ## 0.0.5 — 2026-09-22
 

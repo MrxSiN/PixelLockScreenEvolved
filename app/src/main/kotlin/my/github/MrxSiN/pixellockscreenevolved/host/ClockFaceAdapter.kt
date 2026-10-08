@@ -9,6 +9,7 @@ import java.util.WeakHashMap
 import my.github.MrxSiN.pixellockscreenevolved.clock.AdjustableWidthClockFace
 import my.github.MrxSiN.pixellockscreenevolved.clock.ClockFace
 import my.github.MrxSiN.pixellockscreenevolved.clock.DozingClockFace
+import my.github.MrxSiN.pixellockscreenevolved.clock.EdgeToEdgeClockFace
 import my.github.MrxSiN.pixellockscreenevolved.clock.ExpressiveClockFace
 import my.github.MrxSiN.pixellockscreenevolved.clock.FaceSize
 import my.github.MrxSiN.pixellockscreenevolved.clock.ResizableClockFace
@@ -26,6 +27,10 @@ internal class ClockFaceAdapter(
     proxies: InterfaceProxy,
     private val face: ClockFace,
     private val size: FaceSize,
+    /** The stops of the style's size slider ([ClockStyle.sizeSteps]). */
+    private val sizeSteps: Int,
+    /** Whether the large face may stand lower than the top ([ClockStyle.isMovable]). */
+    movable: Boolean,
     /** The host's own context, for whatever places the face against what SystemUI lays out around it. */
     val context: Context,
     initialTheme: Any,
@@ -50,7 +55,10 @@ internal class ClockFaceAdapter(
     var dozeFraction = 0f
         private set
 
-    private val placement = ClockFacePlacement(api.viewId(size), size, LockScreenInsets.largeClockTop(context))
+    /** Where the large face stands awake. */
+    val clockLayout = ClockLayout(face.view, movable = movable && size == FaceSize.LARGE)
+
+    private val placement = ClockFacePlacement(api.viewId(size), size, LockScreenInsets.largeClockTop(context), clockLayout)
 
     /**
      * This face as the lock screen scene composes it, or null on a build whose
@@ -146,7 +154,10 @@ internal class ClockFaceAdapter(
         // The rows under a small clock are spaced against SystemUI's own band for it ([LockScreenInsets]).
         if (size == FaceSize.SMALL) face.view.minimumHeight = LockScreenInsets.smallClockHeight(context)
         if (api.elements != null && context.packageName == SYSTEMUI_PACKAGE) {
-            placement.inComposedLockScreen(face.view) { dozeFraction }
+            val edgeToEdge = face as? EdgeToEdgeClockFace
+            placement.inComposedLockScreen(face.view, { dozeFraction }, edgeToEdge?.let { edge -> DrawnScale(edge::setDrawnScale) })
+        } else if (context.packageName != SYSTEMUI_PACKAGE) {
+            placement.inPickerPreview(face.view)
         }
         recolor()
     }
@@ -172,6 +183,14 @@ internal class ClockFaceAdapter(
     private fun setAxes(axisStyle: Any) {
         api.axisOf(axisStyle, ClockAxes.WIDTH_KEY)?.let(::setWidth)
         api.axisOf(axisStyle, ClockAxes.SIZE_KEY)?.let(::setSizeStep)
+        val mode = api.axisOf(axisStyle, ClockAxes.POSITION_KEY)
+        val share = api.axisOf(axisStyle, ClockAxes.POSITION_SHARE_KEY)
+        if (mode != null || share != null) setPosition(mode, share)
+    }
+
+    /** Places the large face where stored position values choose ([ClockPosition]). */
+    fun setPosition(mode: Float?, share: Float?) {
+        clockLayout.position = ClockPosition.of(mode, share)
     }
 
     /**
@@ -182,7 +201,7 @@ internal class ClockFaceAdapter(
     fun setSizeStep(step: Float?) {
         val shown = if (size == FaceSize.SMALL) ClockAxes.SMALL_CLOCK_SIZE_STEP else step
         timeChanges++
-        (face as? ResizableClockFace)?.setSize(ClockAxes.sizeOf(shown))
+        (face as? ResizableClockFace)?.setSize(ClockAxes.sizeOf(shown, sizeSteps))
     }
 
     /** Shows the width a stored width value chooses; a face with one width has nothing to change. */
@@ -240,4 +259,32 @@ internal object ModuleClockFaces {
         }
         highest
     }
+
+    /**
+     * The height of the small module face on screen, in dp as Compose reads a
+     * dimension, or 0 where there is none ([KeyguardSmallClockBand]). When the
+     * scene first makes room for it, the face is not yet on screen; the faces
+     * built for the lock screen are then measured instead, so the room is right
+     * from the first frame. Faces built for previews are left out: they are
+     * laid out for another window, and are taller.
+     */
+    fun smallFaceHeightDp(): Float = synchronized(faces) {
+        var shown = 0f
+        var waiting = 0f
+        for (entry in faces.entries) {
+            val view = entry.key ?: continue
+            if (entry.value != FaceSize.SMALL) continue
+            val density = view.resources.displayMetrics.density
+            if (view.isAttachedToWindow) {
+                if (!view.isInNotificationShade()) continue
+                shown = maxOf(shown, view.measuredHeight / density)
+            } else {
+                if (view.measuredHeight == 0) view.measure(UNBOUNDED, UNBOUNDED)
+                waiting = maxOf(waiting, view.measuredHeight / density)
+            }
+        }
+        if (shown > 0f) shown else waiting
+    }
+
+    private val UNBOUNDED = View.MeasureSpec.makeMeasureSpec(0, View.MeasureSpec.UNSPECIFIED)
 }

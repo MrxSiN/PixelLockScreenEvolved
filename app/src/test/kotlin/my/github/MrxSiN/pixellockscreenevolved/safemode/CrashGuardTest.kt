@@ -14,7 +14,7 @@ import my.github.MrxSiN.pixellockscreenevolved.diagnostics.SafeModeAnswer
 
 class CrashGuardTest {
 
-    private val store = FileSafeModeStore(Files.createTempDirectory("safe_mode").resolve("store").toFile())
+    private val store = SafeModeStore(Files.createTempDirectory("safe_mode").resolve("store").toFile())
     private val now = 1_000_000L
     private val guard = CrashGuard(store, SilentLogger) { now }
     private val features = Feature.of(Host.SYSTEMUI)

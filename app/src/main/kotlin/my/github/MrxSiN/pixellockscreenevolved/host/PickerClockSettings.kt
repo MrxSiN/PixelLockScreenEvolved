@@ -7,10 +7,10 @@ import my.github.MrxSiN.pixellockscreenevolved.hook.HostPatch
 
 /**
  * Makes every clock setting Wallpaper & style writes for this module's clocks
- * carry both the width and the size.
+ * carry the width, the size and the position.
  *
  * The picker writes one set of axes: the preset its "Clock face width"
- * slider is on, which holds the width. The size comes from the slider this module adds, so it is merged in
+ * slider is on, which holds the width. The size and position come from the controls this module adds, so they are merged in
  * just before the registry writes. Whatever the write does not choose is kept
  * from the setting already in effect, so choosing a colour does not reset the
  * width or the size.
@@ -47,8 +47,14 @@ internal class PickerClockSettings(
                 ?: state.storedAxis(ClockAxes.SIZE_KEY)?.takeIf { sameClock }
                 ?: 0f
 
+            val position = state.chosenPosition
+                ?: state.storedPosition().takeIf { sameClock }
+                ?: ClockPosition.TOP
+
             api.putAxis(settings, ClockAxes.WIDTH_KEY, width)
             api.putAxis(settings, ClockAxes.SIZE_KEY, size)
+            api.putAxis(settings, ClockAxes.POSITION_KEY, position.modeValue)
+            api.putAxis(settings, ClockAxes.POSITION_SHARE_KEY, position.share)
             api.putAxis(settings, ClockAxes.WIDTH_AXIS_KEY, ClockAxes.WIDE_CLOCK_WIDTH)
         }
     }

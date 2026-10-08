@@ -19,6 +19,8 @@ module's app process, never in SystemUI or the picker. No frame path logs or bui
 | `DepthLayer` scene-frame check | `toWindow` per frame | into an owned `Matrix`, compared with `Matrix.equals` as before |
 | `DepthLayer.Eraser.draw` / `drawSubject` (draw) | `toWindow`, 3 `Matrix` | owned matrices; left: 2 `WallpaperPlacement.Size` and the `Placed` result per draw (only on frames that actually redraw) |
 | `ClockFacePlacement.pinComposedTop` (pre-draw and holder layout) | `inWindow` `RectF` + `toWindow` | owned `RectF` |
+| `ClockFacePlacement.pinComposedTop` doze fraction | `() -> Float` provider: a boxed `Float` per pre-draw | `fun interface DozeFraction` returning a primitive |
+| `ClockLayout.awakeTop`, `LockScreenFloor.of`, `ClockLayoutReport.putFloor` (clock position, every pin) | — (new) | primitive compares of the band, face size, position, cut-out, crop and scroll; no allocation, reflection or logging on a frame whose inputs are unchanged (DEX audit). On a change only: 2 `WallpaperPlacement.Size` and a `Placed` per adaptive score, a spring animator per move, one secure-setting write off the main thread per reported change |
 | `ComposedSmartspacePlacement.placeCard/offset` (pre-draw and every scene frame) | `ModuleClockFaces.largeIn` built a filtered `ArrayList` and an `IntArray(2)` per candidate; `offset` built a `FloatArray(9)` and a `FloatArray(2)`; boxed `Float?` bottom | one loop under the lock with a shared `IntArray`; reused arrays; no boxing. Left: the `WeakHashMap` entry iterator |
 
 Measured on the device during lock screen wake transitions (large clock, depth effect on), allocations

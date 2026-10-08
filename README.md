@@ -20,8 +20,8 @@ Wallpaper & style → **Clock** → iOS, Stacked, Numerals, Analog or Split, bes
 ---
 
 > [!NOTE]
-> **v0.0.5 is fully compatible with the latest Android release: Android 17 QPR1
-> (September 2026, `CP3A.260905.009`), tested on a Pixel 8 Pro.** QPR1 moved the
+> **v0.0.6 is fully compatible with the latest Android release: Android 17 QPR1
+> (October 2026, `CP3A.261005.005`), tested on a Pixel 8 Pro.** QPR1 moved the
 > lock screen into a Compose scene and dropped a number of older clock APIs;
 > every feature in this module runs on that scene, and the compatibility report
 > in Wallpaper & style shows each hook it depends on resolving on your own build.
@@ -52,12 +52,13 @@ for any clock.
 <br>
 
 Each is a full Wallpaper & style clock, with Google's own **Style**, **Color**
-and **Size** tabs, its own thumbnail in the clock list, and its own small face
-for when notifications share the screen.
+and **Size** tabs (and a **Position** tab for the clocks that can move), its own
+thumbnail in the clock list, and its own small face for when notifications
+share the screen.
 
 | Style | Large face | Small face |
 |---|---|---|
-| **iOS** | The date over a large, centred time. 12-hour time without AM/PM or a leading zero; 24-hour time padded. | The time alone, with Pixel's date and weather row below. |
+| **iOS** | The date over a time on one line, set in the Pixel clock's own font (Google Sans Flex Clock, the first clock in the picker), spanning the same margins as the date and smartspace. 12-hour time without AM/PM or a leading zero; 24-hour time padded. | The same line at the stock clock's height, with Pixel's date and weather row below. |
 | **Stacked** | Hour over minute, flush to the start of the screen, date below. | One line. |
 | **Numerals** | Giant Roboto Flex figures whose minute grows heavier and wider as the hour passes. | One line. |
 | **Analog** | A dial with rounded hands, the date below. Its ticks fade and its hands go to outline on the always-on display. | A small dial. |
@@ -89,16 +90,45 @@ the size slider; the iOS clock has the width slider as well.
 | Control | Where | What it does |
 |---|---|---|
 | **Clock face width** (iOS) | Clock → Style | The same seven cuts Google's flex clock steps through, read from its own presets: `wght` 200 at `wdth` 120 through to `wght` 800 at `wdth` 30, widest and lightest first. The numerals grow heavier as they narrow, so every stop keeps about the same ink on screen. |
-| **Clock size** | Clock → Size | Six steps, each taller than the last, in place of the Large switch. Moving the slider alone enables Apply. |
+| **Clock size** | Clock → Size | In place of the Large switch. Four steps for iOS, from the height of Google's own large clock to 2.2 times it; six for the other styles. Moving the slider alone enables Apply. |
 
-Every width of one size is the same height: the size is chosen at the point the
-widest cut fits the screen, so a narrower stop draws a narrower time rather
-than the same block of screen in a different cut.
+The iOS time always spans the lock screen's text column, edge to edge with the
+date and smartspace: the width cut sets how heavy the figures are, and the size
+sets only how tall, so a taller size stretches the figures upward rather than
+crowding the screen. Every pair of figures stands the same gap apart, and the
+sliders glide the preview to each step.
 
 <table>
 <tr>
-<td align="center"><img src="docs/screenshots/ios-width-widest.png" width="250"><br><sub>iOS at the first stop: <code>wght</code> 200, <code>wdth</code> 120</sub></td>
-<td align="center"><img src="docs/screenshots/ios-width-narrowest.png" width="250"><br><sub>iOS at the last stop: <code>wght</code> 800, <code>wdth</code> 30</sub></td>
+<td align="center"><img src="docs/screenshots/ios-width-widest.png" width="250"><br><sub>iOS at the first width stop: <code>wght</code> 200, <code>wdth</code> 120</sub></td>
+<td align="center"><img src="docs/screenshots/ios-width-narrowest.png" width="250"><br><sub>At the last width stop: <code>wght</code> 800, <code>wdth</code> 30</sub></td>
+</tr>
+<tr>
+<td align="center"><img src="docs/screenshots/style-ios.png" width="250"><br><sub>The smallest size: Google's own clock height</sub></td>
+<td align="center"><img src="docs/screenshots/ios-size-largest.png" width="250"><br><sub>The largest size, behind the depth effect's subject</sub></td>
+</tr>
+<tr>
+<td align="center"><img src="docs/screenshots/page-size.png" width="250"><br><sub>Clock → Size</sub></td>
+<td></td>
+</tr>
+</table>
+
+</details>
+
+<details open>
+<summary><b>📍 Clock position</b></summary>
+<br>
+
+Clock → **Position**, the last tab. With **Adaptive position** on, the clock
+stands where it hides least of the wallpaper's subject. Off, drag the clock in
+the preview itself: it follows the finger, snaps to the top, the quarters and
+the bottom, and keeps clear of the fingerprint sensor and the smartspace card.
+A hint beside the preview says so. Apply stores the place as a share of the
+screen, so it holds at every resolution.
+
+<table>
+<tr>
+<td align="center"><img src="docs/screenshots/page-position.png" width="250"><br><sub>Clock → Position, Adaptive off</sub></td>
 </tr>
 </table>
 
@@ -196,6 +226,22 @@ so the date row and the notifications below it keep their distances.
 </details>
 
 <details open>
+<summary><b>👆 Double tap to turn off screen</b></summary>
+<br>
+
+Double tap an empty space on the lock screen to turn the screen off: the
+screen goes dark as a circle closing on your finger, the reverse of a tap on
+the always-on display, then shows the always-on display as usual. It is Google's own
+gesture, which SystemUI already carries unfinished: the module only switches
+it on from the stock `double_tap_to_sleep` setting. Taps on notifications,
+media, smartspace, shortcuts or the fingerprint area stay theirs, and the
+gesture is off while TalkBack's touch exploration is on. The switch sits in
+**Wallpaper & style → Lock screen**; on a build where SystemUI turns the
+gesture on itself, the module stays out of its way.
+
+</details>
+
+<details open>
 <summary><b>🩺 Compatibility, diagnostics and Safe Mode</b></summary>
 <br>
 
@@ -214,7 +260,7 @@ contract moved when it is not.
 
 <table>
 <tr>
-<td align="center"><img src="docs/screenshots/page-diagnostics.png" width="250"><br><sub>v0.0.5 on Android 17 QPR1: every feature compatible</sub></td>
+<td align="center"><img src="docs/screenshots/page-diagnostics.png" width="250"><br><sub>On Android 17 QPR1: every feature compatible</sub></td>
 </tr>
 </table>
 
@@ -226,7 +272,8 @@ contract moved when it is not.
 
 | Build | Android | Device | Status |
 |---|---|---|---|
-| `CP3A.260905.009` | 17 QPR1 (September 2026) | Pixel 8 Pro | Verified; every contract checked in CI |
+| `CP3A.261005.005` | 17 QPR1 (October 2026) | Pixel 8 Pro | Verified; every contract checked in CI |
+| `CP3A.260905.009` | 17 QPR1 (September 2026) | Pixel 8 Pro | Verified; recorded before the double tap contracts |
 | `CP2A.260805.005` | 17 (August 2026) | Pixel 8 Pro | Verified before build descriptions were recorded |
 
 Any other build still runs: each feature is checked against the host on start,

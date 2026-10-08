@@ -12,13 +12,10 @@ import my.github.MrxSiN.pixellockscreenevolved.clock.styles.StackedClockStyle
  * This list is the only thing that changes when a style is added, and nothing
  * here knows how any style draws.
  */
-object ClockStyles {
-
-    fun all(): List<ClockStyle> = listOf(
-        IosClockStyle(),
-        StackedClockStyle(),
-        NumeralsClockStyle(),
-        AnalogClockStyle(),
-        SplitClockStyle(),
-    )
-}
+fun clockStyles(): List<ClockStyle> = listOf(
+    IosClockStyle(),
+    StackedClockStyle(),
+    NumeralsClockStyle(),
+    AnalogClockStyle(),
+    SplitClockStyle(),
+)

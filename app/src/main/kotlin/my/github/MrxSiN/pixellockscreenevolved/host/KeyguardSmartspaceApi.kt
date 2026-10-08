@@ -2,7 +2,6 @@ package my.github.MrxSiN.pixellockscreenevolved.host
 
 import android.view.View
 
-import java.lang.reflect.Field
 import java.lang.reflect.Method
 
 /**
@@ -128,7 +127,5 @@ internal class KeyguardSmartspaceApi(
         const val SMARTSPACE_ELEMENTS = "com.android.systemui.keyguard.ui.composable.elements.SmartspaceElementProvider"
 
         fun load(name: String, classLoader: ClassLoader): Class<*> = Class.forName(name, false, classLoader)
-
-        fun Class<*>.field(name: String): Field = getDeclaredField(name).apply { isAccessible = true }
     }
 }

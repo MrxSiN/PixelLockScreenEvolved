@@ -46,5 +46,5 @@ back under it the same way.
 - R8 inlined many synthetic accessors into their callers, in SystemUI and
   in Wallpaper & style. When a lookup dies on a new build, check that first.
 
-All of these are recorded for `CP3A.260905.009` under
+All of these are recorded for `CP3A.261005.005` under
 `app/src/test/resources/hosts/`, and checked in CI ([architecture](architecture.md#host-compatibility-tests)).

@@ -9,7 +9,7 @@ import io.github.libxposed.api.XposedModuleInterface.HotReloadedParam
 import io.github.libxposed.api.XposedModuleInterface.HotReloadingParam
 import io.github.libxposed.api.XposedModuleInterface.PackageReadyParam
 
-import my.github.MrxSiN.pixellockscreenevolved.clock.ClockStyles
+import my.github.MrxSiN.pixellockscreenevolved.clock.clockStyles
 import my.github.MrxSiN.pixellockscreenevolved.core.AndroidLogger
 import my.github.MrxSiN.pixellockscreenevolved.core.Logger
 import my.github.MrxSiN.pixellockscreenevolved.diagnostics.ContractAnalyzer
@@ -27,15 +27,18 @@ import my.github.MrxSiN.pixellockscreenevolved.hook.XposedHooks
 import my.github.MrxSiN.pixellockscreenevolved.hook.forFeature
 import my.github.MrxSiN.pixellockscreenevolved.host.ClockRegistryInjector
 import my.github.MrxSiN.pixellockscreenevolved.host.KeyguardAodWallpaper
+import my.github.MrxSiN.pixellockscreenevolved.host.KeyguardClockLayout
+import my.github.MrxSiN.pixellockscreenevolved.host.KeyguardSmallClockBand
 import my.github.MrxSiN.pixellockscreenevolved.host.KeyguardClockSizeMotion
 import my.github.MrxSiN.pixellockscreenevolved.host.KeyguardDepthEffect
+import my.github.MrxSiN.pixellockscreenevolved.host.KeyguardDoubleTapToSleep
 import my.github.MrxSiN.pixellockscreenevolved.host.KeyguardPreviewWallpapers
 import my.github.MrxSiN.pixellockscreenevolved.host.KeyguardSmartspacePlacement
 import my.github.MrxSiN.pixellockscreenevolved.host.LockWallpaperFeed
 import my.github.MrxSiN.pixellockscreenevolved.host.PickerClockPatches
 import my.github.MrxSiN.pixellockscreenevolved.host.SafeModeNotice
 import my.github.MrxSiN.pixellockscreenevolved.safemode.CrashGuard
-import my.github.MrxSiN.pixellockscreenevolved.safemode.FileSafeModeStore
+import my.github.MrxSiN.pixellockscreenevolved.safemode.SafeModeStore
 
 /**
  * Module entry point.
@@ -43,9 +46,10 @@ import my.github.MrxSiN.pixellockscreenevolved.safemode.FileSafeModeStore
  * Its job is to hand each scoped process the patches it can take. Both need
  * the clock styles: SystemUI draws the lock screen clock and its preview, and
  * Wallpaper & style keeps its own registry to list the clocks on offer.
- * SystemUI also places its smartspace around the clock and moves the clock
- * smoothly between its sizes, and the picker gets the width presets, the size
- * slider and the compatibility page.
+ * SystemUI also places its smartspace around the clock, moves the clock
+ * smoothly between its sizes and stands it where its position says, and the
+ * picker gets the width presets, the size and position controls and the
+ * compatibility page.
  *
  * Before any patch installs, the host is checked twice: whether it has been
  * crash looping, which holds this module's features off ([CrashGuard]), and
@@ -128,7 +132,7 @@ class PixelLockScreenEvolvedModule : XposedModule() {
         val logger = AndroidLogger
         logger.info("${if (reloaded) "Reloading" else "Loading"} in ${host.packageName}")
 
-        val safeMode = FileSafeModeStore(File(loaded.dataDir, SAFE_MODE_FILE))
+        val safeMode = SafeModeStore(File(loaded.dataDir, SAFE_MODE_FILE))
         if (!reloaded) {
             CrashGuard(safeMode, logger).apply {
                 watch()
@@ -169,7 +173,7 @@ class PixelLockScreenEvolvedModule : XposedModule() {
         val host = loaded.host
         val reloadedRegistry = loaded.registry
         val onRegistry = { registry: Any -> loaded.registry = registry }
-        val styles = ClockStyles.all()
+        val styles = clockStyles()
         return when (host) {
             Host.SYSTEMUI -> {
                 val depth = gate.allows(Feature.DEPTH_EFFECT)
@@ -184,6 +188,9 @@ class PixelLockScreenEvolvedModule : XposedModule() {
                     depthEffect.addSubjectListener(aodWallpaper::onSubject)
                 }
                 val sizeMotion = KeyguardClockSizeMotion(hooksFor(Feature.CLOCK_SIZE_MOTION), logger)
+                val position = gate.allows(Feature.CLOCK_POSITION)
+                val clockLayout = KeyguardClockLayout(wallpaperFeed)
+                if (position && depth) depthEffect.addSubjectListener(clockLayout::onSubject)
                 listOfNotNull(
                     gate.gate(
                         Feature.CLOCK_STYLES,
@@ -195,14 +202,17 @@ class PixelLockScreenEvolvedModule : XposedModule() {
                                 if (depth) depthEffect.track(clock)
                                 if (aod) aodWallpaper.track(clock)
                                 if (gate.allows(Feature.CLOCK_SIZE_MOTION)) sizeMotion.track(clock)
+                                if (position) clockLayout.track(clock)
                             },
                         ),
                     ),
                     gate.gate(Feature.SMARTSPACE_PLACEMENT, KeyguardSmartspacePlacement(hooksFor(Feature.SMARTSPACE_PLACEMENT), styles, logger)),
+                    gate.gate(Feature.SMARTSPACE_PLACEMENT, KeyguardSmallClockBand(hooksFor(Feature.SMARTSPACE_PLACEMENT), logger)),
                     gate.gate(Feature.CLOCK_SIZE_MOTION, sizeMotion),
                     previewWallpapers.takeIf { depth },
                     wallpaperFeed.takeIf { depth || aod },
                     aodWallpaper.takeIf { aod }?.let { gate.gate(Feature.AOD_WALLPAPER, it) },
+                    gate.gate(Feature.DOUBLE_TAP_TO_SLEEP, KeyguardDoubleTapToSleep(hooksFor(Feature.DOUBLE_TAP_TO_SLEEP), logger)),
                 )
             }
             Host.PICKER -> listOf(PickerClockPatches(hooks, hooksFor, styles, gate, moduleApplicationInfo, logger, onRegistry, reloadedRegistry))

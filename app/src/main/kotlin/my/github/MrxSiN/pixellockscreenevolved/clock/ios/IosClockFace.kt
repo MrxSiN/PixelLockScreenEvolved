@@ -16,6 +16,7 @@ import kotlin.math.roundToInt
 
 import my.github.MrxSiN.pixellockscreenevolved.clock.AdjustableWidthClockFace
 import my.github.MrxSiN.pixellockscreenevolved.clock.DozingClockFace
+import my.github.MrxSiN.pixellockscreenevolved.clock.EdgeToEdgeClockFace
 import my.github.MrxSiN.pixellockscreenevolved.clock.ResizableClockFace
 import my.github.MrxSiN.pixellockscreenevolved.clock.ClockWeather
 import my.github.MrxSiN.pixellockscreenevolved.clock.WeatherClockFace
@@ -33,13 +34,13 @@ import my.github.MrxSiN.pixellockscreenevolved.clock.parts.DateLine
 internal class IosClockFace(
     private val context: Context,
     showsInfo: Boolean,
-) : ResizableClockFace, AdjustableWidthClockFace, DozingClockFace, WeatherClockFace {
+) : ResizableClockFace, AdjustableWidthClockFace, EdgeToEdgeClockFace, DozingClockFace, WeatherClockFace {
 
     override val timeView = IosTimeView(context)
 
     private val info: DateLine? = if (showsInfo) DateLine(context, DATE) else null
 
-    override val view: View = LinearLayout(context).apply {
+    override val view: View = WideFace(context).apply {
         orientation = LinearLayout.VERTICAL
         // The small face is given the band the lock screen lays its own small clock out in, and sits in the middle of it.
         gravity = if (showsInfo) Gravity.CENTER_HORIZONTAL else Gravity.CENTER
@@ -60,12 +61,14 @@ internal class IosClockFace(
 
     override fun refresh() {
         val now = Calendar.getInstance()
+        val is24Hour = DateFormat.is24HourFormat(context)
+        val locale = Locale.getDefault()
         timeView.setText(
             IosTimeText.format(
                 hourOfDay = now[Calendar.HOUR_OF_DAY],
                 minute = now[Calendar.MINUTE],
-                is24Hour = DateFormat.is24HourFormat(context),
-                locale = Locale.getDefault(),
+                is24Hour = is24Hour,
+                locale = locale,
             ),
         )
         info?.refresh()
@@ -88,20 +91,67 @@ internal class IosClockFace(
         timeView.setSize(size)
     }
 
+    override fun setDrawnScale(scale: Float) {
+        timeView.setDrawnScale(scale)
+    }
+
     override fun setWidth(width: Float) {
         timeView.setWidth(width)
     }
 
-    /** Keeps [IosClockTypography.DATE_TO_TIME_GAP_DP] between the date row's baseline and the time, whatever its size. */
+    /**
+     * Spaces the rows around the time by the lock screen's one row gap,
+     * whatever its size: the large face's date row above it, with room above
+     * that from the status bar; below, the smartspace card is spaced by the
+     * lock screen itself, and SystemUI's date row under the small face by room
+     * added under it.
+     */
     private fun spaceInfoFromTime() {
-        val row = info?.view ?: return
-        val gap = TypedValue.applyDimension(
-            TypedValue.COMPLEX_UNIT_DIP, IosClockTypography.DATE_TO_TIME_GAP_DP, context.resources.displayMetrics,
-        )
+        val row = info?.view
+        if (row == null) {
+            val bottom = dp(IosClockTypography.SMALL_BOTTOM_DP).roundToInt()
+            view.setPadding(0, 0, 0, bottom)
+            // The scene lowers the small band by all it grows, so the time is lifted back by the room added under it.
+            view.translationY = -bottom.toFloat()
+            return
+        }
+        view.setPadding(0, dp(IosClockTypography.TOP_EXTRA_DP).roundToInt(), 0, 0)
         val params = timeView.layoutParams as? ViewGroup.MarginLayoutParams ?: return
-        // The row ends its font's descent below the baseline.
-        params.topMargin = (gap - row.paint.fontMetrics.descent).roundToInt().coerceAtLeast(0)
+        params.topMargin = dp(IosClockTypography.DATE_TO_TIME_DP).roundToInt()
         timeView.layoutParams = params
+    }
+
+    private fun dp(value: Float): Float = TypedValue.applyDimension(TypedValue.COMPLEX_UNIT_DIP, value, context.resources.displayMetrics)
+
+    /**
+     * The face's column, as wide and as tall as the time it holds even where that is wider
+     * than the room its host lays it out in ([EdgeToEdgeClockFace]): the lock
+     * screen's clock element is narrower than the screen. Drawn whole rather
+     * than clipped to that room (the depth effect draws the face as one layer,
+     * which ends at the face's bounds), and kept centred on it: a host that
+     * puts it at its start, as the scene's view holder does, has it moved back
+     * by half the overflow.
+     */
+    private class WideFace(context: Context) : LinearLayout(context) {
+        init {
+            // A rolling digit may pass a little beyond the time's own box.
+            clipChildren = false
+            clipToPadding = false
+        }
+
+        override fun onMeasure(widthMeasureSpec: Int, heightMeasureSpec: Int) {
+            // As tall as the time asks too: the scene's clock box is shorter than the largest sizes, and the
+            // depth effect's layer, which ends at the face's bounds, would cut the numerals off at its edge.
+            val unbounded = MeasureSpec.makeMeasureSpec(0, MeasureSpec.UNSPECIFIED)
+            super.onMeasure(unbounded, unbounded)
+        }
+
+        override fun onLayout(changed: Boolean, l: Int, t: Int, r: Int, b: Int) {
+            super.onLayout(changed, l, t, r, b)
+            val room = (parent as? View)?.width ?: return
+            val shift = if (left == 0 && width > room) (room - width) / 2f else 0f
+            if (translationX != shift) translationX = shift
+        }
     }
 
     private companion object {

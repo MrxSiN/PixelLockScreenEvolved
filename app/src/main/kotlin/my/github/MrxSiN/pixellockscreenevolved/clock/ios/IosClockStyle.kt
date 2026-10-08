@@ -10,7 +10,7 @@ import my.github.MrxSiN.pixellockscreenevolved.clock.ClockStyle
 import my.github.MrxSiN.pixellockscreenevolved.clock.FaceSize
 import my.github.MrxSiN.pixellockscreenevolved.clock.parts.ClockThumbnail
 
-/** The iOS lock screen clock: the date over a large, centred time, set in Roboto Flex. */
+/** The iOS lock screen clock: the date over a large, centred time, set in the Pixel clock's own numerals ([FlexClockNumerals]). */
 class IosClockStyle : ClockStyle {
 
     override val id: String = "PIXEL_LOCK_SCREEN_EVOLVED_IOS"
@@ -18,6 +18,9 @@ class IosClockStyle : ClockStyle {
     override val description: String = "iOS style clock with the date above the time"
     override val isResizable: Boolean = true
     override val isWidthAdjustable: Boolean = true
+
+    /** Four: past [IosClockScale.LARGEST_TO_STOCK] the stretched figures stop reading as the Pixel's. */
+    override val sizeSteps: Int = 4
 
     /**
      * The large face writes the date above the time. The small face leaves it
@@ -29,7 +32,9 @@ class IosClockStyle : ClockStyle {
 
     /** A fixed 9:41, the time every iOS product shot shows, set in the face's own type. */
     override fun createThumbnail(context: Context): Drawable = ClockThumbnail(context) { canvas, box, paint ->
-        paint.fontVariationSettings = RobotoFlexNumerals.variationFor(width = AdjustableWidthClockFace.DEFAULT_WIDTH, stretch = 1f)
+        paint.typeface = FlexClockNumerals.typeface
+        paint.fontFeatureSettings = FlexClockNumerals.FEATURES
+        paint.fontVariationSettings = FlexClockNumerals.variationFor(AdjustableWidthClockFace.DEFAULT_WIDTH)
         paint.letterSpacing = IosClockTypography.TIME_LETTER_SPACING
         paint.textAlign = Paint.Align.CENTER
         paint.textSize = box.height() * THUMBNAIL_TEXT_HEIGHT

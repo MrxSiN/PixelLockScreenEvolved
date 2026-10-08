@@ -4,7 +4,6 @@ import android.content.res.ColorStateList
 import android.graphics.Paint
 import android.view.View
 
-import java.lang.reflect.Field
 import java.lang.reflect.Method
 import java.lang.reflect.Proxy
 
@@ -17,10 +16,7 @@ import java.lang.reflect.Proxy
  * the fields and the one method R8 kept. Lambda fields R8 generated are found by
  * type rather than by name. HOOK_NOTES.md records the shapes.
  */
-internal class PickerSliderApi(
-    classLoader: ClassLoader,
-    private val clocks: ClockPluginApi,
-) {
+internal class PickerSliderApi(classLoader: ClassLoader) {
 
     private val sheetBinding = load(SHEET_BINDING, classLoader)
 
@@ -36,11 +32,8 @@ internal class PickerSliderApi(
 
     private val bindingView = sheetBinding.field("\$view")
     private val bindingOptions = sheetBinding.field("\$optionsViewModel")
-
-    /** Rebinds the preset slider each time a clock is chosen; its argument is the slider's view model, or null. */
-    val bindPresetSlider: Method = load(PRESET_SLIDER_COLLECTOR, classLoader).declaredMethods
-        .firstOrNull { it.name == "emit" && it.parameterCount == 2 }
-        ?: throw NoSuchMethodException("$PRESET_SLIDER_COLLECTOR.emit")
+    private val bindingColors = runCatching { sheetBinding.field("\$colorUpdateViewModel") }.getOrNull()
+    private val bindingLifecycle = runCatching { sheetBinding.field("\$lifecycleOwner") }.getOrNull()
 
     private val sheetHeights = load(SHEET_BINDER, classLoader).field("_clockFloatingSheetHeights")
     private val heightsType = load("com.android.customization.picker.clock.ui.viewmodel.ClockFloatingSheetHeightsViewModel", classLoader)
@@ -75,16 +68,6 @@ internal class PickerSliderApi(
     private val shapeFillColor = load("com.google.android.material.shape.MaterialShapeDrawable\$MaterialShapeDrawableState", classLoader)
         .field("fillColor")
     private val shapeSetFillColor = shapeDrawableType.getMethod("setFillColor", ColorStateList::class.java)
-
-    /** Whether a preset slider view model steps through this module's width presets. */
-    fun holdsWidthPresets(sliderModel: Any): Boolean {
-        val callback = sliderModel.javaClass.getDeclaredField("onSliderStopTrackingTouch")
-            .apply { isAccessible = true }.get(sliderModel) ?: return false
-        val group = callback.javaClass.declaredFields
-            .firstOrNull { it.type == clocks.presetGroupType }
-            ?.apply { isAccessible = true }?.get(callback) ?: return false
-        return clocks.isWidthPresetGroup(group)
-    }
 
     /**
      * Records the size tab's content as [height] tall in the sheet heights the
@@ -155,10 +138,20 @@ internal class PickerSliderApi(
     /** The picker's options, which hold the clock picker's view model. */
     fun sheetOptions(binding: Any): Any? = bindingOptions.get(binding)
 
+    /**
+     * The picker's colours as the sheet follows them, for a switch of this
+     * module's in the sheet ([PickerThemeColors]), or null where the sheet's
+     * binding no longer holds them.
+     */
+    fun sheetColors(binding: Any, colors: PickerThemeColors): PickerThemeColors.InFragment? {
+        val viewModel = bindingColors?.get(binding) ?: return null
+        val owner = bindingLifecycle?.get(binding) ?: return null
+        return colors.InFragment(viewModel, owner)
+    }
+
     private companion object {
         const val SHEET_BINDER = "com.android.customization.picker.clock.ui.binder.ClockFloatingSheetBinder"
         const val SHEET_BINDING = "$SHEET_BINDER\$bind\$13\$1"
-        const val PRESET_SLIDER_COLLECTOR = "$SHEET_BINDING\$12\$1"
 
         const val SIZE_HEIGHT = 2
 
@@ -166,7 +159,5 @@ internal class PickerSliderApi(
         val PAINT_FIELDS = listOf("activeTrackPaint", "inactiveTrackPaint", "activeTicksPaint", "inactiveTicksPaint")
 
         fun load(name: String, classLoader: ClassLoader): Class<*> = Class.forName(name, false, classLoader)
-
-        fun Class<*>.field(name: String): Field = getDeclaredField(name).apply { isAccessible = true }
     }
 }

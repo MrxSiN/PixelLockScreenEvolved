@@ -21,8 +21,4 @@ internal class KeyguardClockViewModelApi(classLoader: ClassLoader) {
     /** The current value of a `StateFlow` field, read through the flow's own `getValue`. */
     private fun flowValue(owner: Any, flow: Field): Any? =
         flow.get(owner)?.let { it.javaClass.getMethod("getValue").invoke(it) }
-
-    private companion object {
-        fun Class<*>.field(name: String): Field = getDeclaredField(name).apply { isAccessible = true }
-    }
 }

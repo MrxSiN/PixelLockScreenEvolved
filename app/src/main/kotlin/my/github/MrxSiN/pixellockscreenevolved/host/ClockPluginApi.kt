@@ -88,9 +88,7 @@ internal class ClockPluginApi(private val classLoader: ClassLoader) {
     private val axisStyleConstructor = axisStyleType.getConstructor(Map::class.java)
     private val axisStyleGet = axisStyleType.getMethod("get", STRING)
     private val axisStylePut = axisStyleType.getMethod("put", STRING, Float::class.java)
-    val presetGroupType: Class<*> = load("$CLOCKS.AxisPresetConfig\$Group")
-    private val presetGroupConstructor = presetGroupType.getConstructor(List::class.java, Drawable::class.java)
-    private val presetGroupPresets = presetGroupType.getMethod("getPresets")
+    private val presetGroupConstructor = load("$CLOCKS.AxisPresetConfig\$Group").getConstructor(List::class.java, Drawable::class.java)
     private val presetConfigType = load("$CLOCKS.AxisPresetConfig")
     private val indexedStyleType = load("$CLOCKS.AxisPresetConfig\$IndexedStyle")
     private val presetConfigConstructor = presetConfigType.getConstructor(List::class.java, indexedStyleType)
@@ -207,24 +205,26 @@ internal class ClockPluginApi(private val classLoader: ClassLoader) {
         settingsAxes.invoke(settings)?.let { axisStylePut.invoke(it, key, value) }
     }
 
-    /** Whether a preset group is the width presets this module lists. */
-    fun isWidthPresetGroup(group: Any): Boolean {
-        val firstPreset = (presetGroupPresets.invoke(group) as List<*>).firstOrNull() ?: return false
-        return axisOf(firstPreset, ClockAxes.WIDTH_KEY) != null
-    }
-
     /** Whether an `AxisPresetConfig.IndexedStyle` is one of this module's width presets. */
     fun isWidthPreset(indexedStyle: Any): Boolean = axisOf(requireNotNull(indexedStyleStyle.invoke(indexedStyle)), ClockAxes.WIDTH_KEY) != null
 
     /** Which preset an `AxisPresetConfig.IndexedStyle` is, within its group. */
     fun presetIndex(indexedStyle: Any): Int = indexedStylePreset.invoke(indexedStyle) as Int
 
-    /** [indexedStyle], the same preset in the same group, with its axes also choosing [sizeStep]. */
-    fun withSizeStep(indexedStyle: Any, sizeStep: Float): Any {
+    /** [indexedStyle], the same width preset in the same group, with its axes also holding [chosen]. */
+    fun withAxes(indexedStyle: Any, chosen: Map<String, Float>): Any {
         val preset = presetIndex(indexedStyle)
-        val style = axisStyleConstructor.newInstance(ClockAxes.sizedWidthPreset(preset, sizeStep))
+        val style = axisStyleConstructor.newInstance(ClockAxes.widthPresetWith(preset, chosen))
         return indexedStyleConstructor.newInstance(indexedStyleGroup.invoke(indexedStyle), preset, style)
     }
+
+    /**
+     * A preset holding [chosen] axes alone, for a clock that lists no width
+     * presets: chosen in the picker, it carries them to the preview clock and
+     * to the setting Apply writes, as a width preset does.
+     */
+    fun axesOnlyPreset(chosen: Map<String, Float>): Any =
+        indexedStyleConstructor.newInstance(0, 0, axisStyleConstructor.newInstance(chosen))
 
     /** The setting a registry holds now, or null before it has read one. */
     fun registrySettings(registry: Any): Any? = registrySettingsField.get(registry)

@@ -3,7 +3,6 @@ package my.github.MrxSiN.pixellockscreenevolved.host
 import android.app.WallpaperColors
 import android.content.Context
 
-import java.lang.reflect.Field
 import java.lang.reflect.Method
 
 /**
@@ -47,7 +46,5 @@ internal class KeyguardPreviewApi(classLoader: ClassLoader) {
         const val UPDATE_CLOCK_APPEARANCE = "updateClockAppearance"
 
         fun load(name: String, classLoader: ClassLoader): Class<*> = Class.forName(name, false, classLoader)
-
-        fun Class<*>.field(name: String): Field = getDeclaredField(name).apply { isAccessible = true }
     }
 }

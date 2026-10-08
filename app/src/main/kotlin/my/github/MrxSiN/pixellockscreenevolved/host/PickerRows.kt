@@ -37,7 +37,7 @@ internal class PickerRows(
     /** An inflated entry: the row and its two lines of text. */
     class Row(val view: ViewGroup, val title: TextView, val description: TextView)
 
-    private val themed = colors?.let { runCatching { it.InFragment(fragment) }.getOrNull() }
+    private val themed = colors?.let { runCatching { it.inFragment(fragment) }.getOrNull() }
 
     /** The latest colour of each theme colour followed, and the views painted with it. */
     private val tones = mutableMapOf<String, Tone>()

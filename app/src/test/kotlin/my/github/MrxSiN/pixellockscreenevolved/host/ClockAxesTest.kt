@@ -8,16 +8,19 @@ class ClockAxesTest {
 
     @Test
     fun sizeStepsRunFromSmallestToLargest() {
-        assertEquals(0f, ClockAxes.sizeOf(0f), 0f)
-        assertEquals(0.4f, ClockAxes.sizeOf(2f), 1e-6f)
-        assertEquals(1f, ClockAxes.sizeOf((ClockAxes.SIZE_STEPS - 1).toFloat()), 0f)
+        assertEquals(0f, ClockAxes.sizeOf(0f, 6), 0f)
+        assertEquals(0.4f, ClockAxes.sizeOf(2f, 6), 1e-6f)
+        assertEquals(1f, ClockAxes.sizeOf(5f, 6), 0f)
+        assertEquals(1f, ClockAxes.sizeOf(3f, 4), 0f)
     }
 
     @Test
     fun missingOrOutOfRangeSizesAreClamped() {
-        assertEquals(0f, ClockAxes.sizeOf(null), 0f)
-        assertEquals(0f, ClockAxes.sizeOf(-4f), 0f)
-        assertEquals(1f, ClockAxes.sizeOf(99f), 0f)
+        assertEquals(0f, ClockAxes.sizeOf(null, 6), 0f)
+        assertEquals(0f, ClockAxes.sizeOf(-4f, 6), 0f)
+        assertEquals(1f, ClockAxes.sizeOf(99f, 6), 0f)
+        // A step stored for a longer slider is the largest of a shorter one.
+        assertEquals(1f, ClockAxes.sizeOf(5f, 4), 0f)
     }
 
     /** The slider's first stop is the widest and lightest cut and its last the narrowest, as Google's is. */
@@ -51,9 +54,10 @@ class ClockAxesTest {
     }
 
     @Test
-    fun sizedWidthPresetsKeepTheWidthAndAddTheSize() {
-        val preset = ClockAxes.sizedWidthPreset(1, 3f)
-        assertEquals(ClockAxes.widthPreset(1), preset - ClockAxes.SIZE_KEY)
+    fun widthPresetsKeepTheWidthAndAddWhatElseWasChosen() {
+        val preset = ClockAxes.widthPresetWith(1, mapOf(ClockAxes.SIZE_KEY to 3f, ClockAxes.POSITION_KEY to 2f))
+        assertEquals(ClockAxes.widthPreset(1), preset - ClockAxes.SIZE_KEY - ClockAxes.POSITION_KEY)
         assertEquals(3f, preset.getValue(ClockAxes.SIZE_KEY), 0f)
+        assertEquals(2f, preset.getValue(ClockAxes.POSITION_KEY), 0f)
     }
 }

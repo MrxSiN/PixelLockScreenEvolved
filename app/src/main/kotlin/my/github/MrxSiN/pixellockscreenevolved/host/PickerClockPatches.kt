@@ -49,6 +49,10 @@ internal class PickerClockPatches(
         val clockHooks = hooksFor(Feature.PICKER_CLOCKS)
         val sizeHooks = hooksFor(Feature.PICKER_CLOCK_SIZE)
         val lockScreenOptions = PickerLockScreenOptions(optionHooks, PickerDiagnosticsDialog(moduleInfo), logger)
+        val position = gate.allows(Feature.PICKER_CLOCK_POSITION)
+        val positionTab = if (!position) null else runCatching { PickerPositionTab(classLoader, state, logger) }
+            .onFailure { logger.warn("Clock sheet tabs not found; the clock cannot be positioned", it) }
+            .getOrNull()
         val clocksDrawn = { context: Context ->
             FeatureAvailability.current(SnapshotStore(context.contentResolver), HostStartupReport.bootedAt())
                 .isAvailable(Feature.CLOCK_STYLES)
@@ -63,15 +67,22 @@ internal class PickerClockPatches(
                         state.registry = it
                         onRegistry(it)
                     },
-                    onClockCreated = state::track,
+                    onClockCreated = { clock ->
+                        state.track(clock)
+                        if (positionTab != null) {
+                            val face = clock.largeFace
+                            face.clockLayout.enabled = true
+                            face.view.post { PickerClockDrag(face, state).install() }
+                        }
+                    },
                     isOffered = clocksDrawn,
                     reloadedRegistry = reloadedRegistry,
                 ),
             ),
             gate.gate(Feature.PICKER_CLOCKS, PickerClockSection(clockHooks, styles, logger)),
-            gate.gate(Feature.PICKER_CLOCK_SIZE, PickerClockSliders(sizeHooks, styles, state, logger)),
+            gate.gate(Feature.PICKER_CLOCK_SIZE, PickerClockSliders(sizeHooks, styles, state, positionTab, logger)),
             gate.gate(Feature.PICKER_CLOCK_SIZE, PickerClockSettings(sizeHooks, styles, state, logger)),
-            gate.gate(Feature.PICKER_CLOCK_SIZE, PickerSizeEdit(sizeHooks, state, logger)),
+            gate.gate(Feature.PICKER_CLOCK_SIZE, PickerSizeEdit(sizeHooks, styles, state, logger)),
             gate.gate(Feature.PICKER_LOCK_SCREEN_OPTIONS, lockScreenOptions),
             gate.gate(Feature.PICKER_LOCK_SCREEN_OPTIONS, PickerPreviewCollapse(optionHooks, logger, addedHeight = lockScreenOptions::addedHeight)),
             PickerSafeModePrompt(hooks, logger),

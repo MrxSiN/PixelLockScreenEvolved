@@ -2,7 +2,7 @@ plugins {
     alias(libs.plugins.agp.app)
 }
 
-val appVersion = "0.0.5"
+val appVersion = "0.0.6"
 val appVersionCode = providers.gradleProperty("moduleVersionCode").getOrElse("7").toInt()
 
 val envKeystorePath = System.getenv("ANDROID_KEYSTORE_PATH")

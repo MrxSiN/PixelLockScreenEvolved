@@ -21,11 +21,14 @@ enum class Host(val title: String, val packageName: String) {
 enum class Feature(val title: String, val host: Host, val hostManagedWhenAbsent: Boolean = false) {
     CLOCK_STYLES("Clock styles", Host.SYSTEMUI),
     CLOCK_SIZE_MOTION("Clock size motion", Host.SYSTEMUI, hostManagedWhenAbsent = true),
+    CLOCK_POSITION("Clock position", Host.SYSTEMUI),
     SMARTSPACE_PLACEMENT("Date and smartspace placement", Host.SYSTEMUI),
     DEPTH_EFFECT("Depth effect", Host.SYSTEMUI),
     AOD_WALLPAPER("Wallpaper on always-on display", Host.SYSTEMUI),
+    DOUBLE_TAP_TO_SLEEP("Double tap to turn off screen", Host.SYSTEMUI),
     PICKER_CLOCKS("Clock styles in Wallpaper & style", Host.PICKER),
     PICKER_CLOCK_SIZE("Clock size slider", Host.PICKER),
+    PICKER_CLOCK_POSITION("Clock position controls", Host.PICKER),
     PICKER_LOCK_SCREEN_OPTIONS("Lock screen options", Host.PICKER),
     ;
 

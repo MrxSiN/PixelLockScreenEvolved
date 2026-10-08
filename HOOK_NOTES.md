@@ -381,6 +381,54 @@ feature of that host off on the next start. An answer is written to
 `KEEP_DISABLED:<time>`; the host observes it, carries it out and clears it, and
 restoring kills the process so it starts again with the features installed.
 
+## Double tap to turn off screen
+
+Read off `CP3A.261005.005`; design and test record in
+[docs/double-tap-to-sleep.md](docs/double-tap-to-sleep.md).
+
+- `keyguard.ui.composable.LockscreenTouchHandlingKt.LockscreenTouchHandling`:
+  a `Box` around the lock screen's elements whose `pointerInput` runs
+  `detectTapGestures`; its `onDoubleTap` asks `FalsingManager.isFalseDoubleTap()`
+  and calls `KeyguardTouchHandlingInteractor.onDoubleClick()`.
+  `ConnectedDisplayConstraintLayoutKeyguardPresentation` calls it too.
+- `KeyguardTouchHandlingInteractor.onDoubleClick()` reads field
+  `isDoubleTapHandlingEnabled` (`ReadonlyStateFlow`; `$$delegate_0` is a
+  `StateFlowImpl`, which keeps `setValue(Object)`): true logs "going to sleep
+  due to double tap" and calls `PowerManager.goToSleep(uptimeMillis)`; false
+  calls `PulsingGestureListener.onDoubleTapEvent()`. The constructor builds the
+  flow as `flowOf(false).stateIn(...)`. `KeyguardTouchHandlingViewModel`
+  hydrates it into `isDoubleTapHandlingEnabled$delegate`, whose getter nothing
+  calls. The interactor keeps its `context` field.
+- The tap callbacks are
+  `LockscreenTouchHandlingKt$LockscreenTouchHandling$3$1$$ExternalSyntheticLambda0`
+  (`invoke(Object)`, field `$r8$classId`, read off the packed-switch: 0 double
+  tap, which ignores its `Offset` and calls `onDoubleClick`; 1 long press; the
+  default (2) tap, which calls `onClick(x, y)`). `Offset.packedValue`
+  packs x in the high 32 bits and y in the low 32, as float bits.
+- Screen-off reveal: `LightRevealScrimRepository` picks the effect from the
+  last wake: `PowerButtonReveal` after a power button wake (a circle from the
+  button), `CircleReveal` after an AOD tap (around that old point), else
+  `LiftReveal`. Each has `setRevealAmountOnScrim(float, LightRevealScrim)`;
+  `LightRevealScrim.setRevealGradientBounds(4 floats)` and
+  `setRevealGradientEndColorAlpha(float)`. `statusbar.CircleReveal` keeps its
+  fields and `setRevealAmountOnScrim`, but has no constructor.
+- AOD tap to wake: `shade.PulsingGestureListener.onSingleTapUp(float, float)`
+  needs `isDozing`, `singleTapEnabled`, not docked, `!isProximityNear()` and
+  `!isFalseTap(int)`, then sets `_lastDozeTapToWakePosition` and calls
+  `wakeUpIfDozing(..., "PULSING_SINGLE_TAP")`. It logs each condition to the
+  `ShadeLog` buffer (`dumpsys activity service
+  com.android.systemui/.SystemUIService logbuffer ShadeLog`).
+  `classifier.BrightLineFalsingManager.isFalseTap(int)` is behind
+  `FalsingManagerProxy`.
+- Settings: `com.google.android.settings.gestures
+  .DoubleTapScreenToSleepPreferenceController` (key
+  `gesture_double_tap_screen_to_sleep`) over secure `double_tap_to_sleep`
+  (`pkg:android default:1`); `getAvailabilityStatus` returns 3
+  (`UNSUPPORTED_ON_DEVICE`). `config_supportDoubleTapSleep` is false in
+  `framework-res.apk` but true at run time (a Pixel overlay), so it says nothing
+  about the flag. Nothing in SystemUI, Pixel Launcher, `services.jar` or
+  `framework.jar` reads the setting.
+
 ## Lock screen spacing
 
 With the large clock the rows are 40dp apart from ink to ink. Measured on a
@@ -597,7 +645,26 @@ the outer half of the stroke.
 
 ## Font
 
-Roboto Flex (`/system/fonts/RobotoFlex-Regular.ttf`, family `roboto-flex`) has
+The iOS clock is set in the font of SystemUI's default clock, the first in the
+picker's list: `DefaultClockProvider` loads it as
+`Typeface.create("google-sans-flex-clock", NORMAL)`, a `new-named-family` in
+`/product/etc/fonts_customization.xml` (`GoogleSansFlexClock-Regular.ttf`, then
+`GoogleSansClock-Regular.ttf`). `GSFAxes` declares `wght` 1-1000 (400),
+`wdth` 25-151 (100), `slnt` -10-0, `ROND` 0-100, `GRAD` 0-100, `opsz` 6-144
+and `ITAL`. `FlexClockController.BASE_PRESETS` are the seven width stops (with
+`ROND` 0 and `slnt` 0), and `FontTextStyleImpl` sets the feature settings
+`pnum`: without it the font draws its tabular figures, a different design (the
+6 and 9 lose their curl). The iOS time is never stretched: a size is a text
+size: the smallest draws numerals as tall as the stock large clock (393 px
+drawn on the Pixel 8 Pro; the lock screen scene draws both clocks at about 0.88
+of their laid-out size), and none draws the widest time of the chosen stop and
+hour format past 96% of the screen's width. Measured drawn heights against
+the stock 393 px: narrowest stop 99% to 113%, `wdth` 55 99% to 110%, `wdth`
+80 (capped) 82% to 97%. With proportional figures the
+widest 12-hour time fits at the stock height only from `wght` 600 / `wdth` 80
+narrower; wider stops cap below it.
+
+The other module clocks use Roboto Flex (`/system/fonts/RobotoFlex-Regular.ttf`, family `roboto-flex`), which has
 the registered axes `wght` 100-1000 and `wdth` 25-151 and the parametric axes
 `XTRA` 323-603 (counter width), `XOPQ` 27-175 (vertical stroke), `YOPQ` 25-135
 (horizontal stroke) and `YTFI` 560-788 (figure height). Larger sizes move from
@@ -618,3 +685,115 @@ instance.
 
 R8 rewrites string literals naming `kotlin.*` classes in the release build, so
 methods taking a `Continuation` are found by name and parameter count instead.
+
+## Clock position (`CP3A.261005.005`)
+
+No new hooks in SystemUI. The large face's existing pin
+(`ClockFacePlacement.pinComposedTop`) takes its awake top from
+`ClockLayout`; `docs/clock-position.md` describes the model.
+
+- The fingerprint sensor is read from the framework, not SystemUI:
+  `FingerprintManager.getSensorPropertiesInternal()` (hidden, readable by
+  SystemUI) → `FingerprintSensorPropertiesInternal.isAnyUdfpsType()` /
+  `getLocation()` → `SensorLocationInternal.sensorLocationY` /
+  `sensorRadius`, in natural pixels at the largest display mode. The SDK 37
+  stubs no longer carry `FingerprintManager`, so it is fetched by the service
+  name `"fingerprint"`. On the Pixel 8 Pro `AuthController` dumps
+  `udfpsBounds=Rect(557, 2146 - 787, 2376)` at 1344×2992, matching
+  `y − radius`.
+- In Wallpaper & style, `ClockFloatingSheetBinder$bind$13$1` also captures
+  `$viewModel` (the `ClockPickerViewModel`), `$colorUpdateViewModel` and
+  `$lifecycleOwner`; the last two colour the position switch through
+  `SwitchColorBinder.bind`. Which clock the sheet previews is
+  `ClockPickerViewModel.overridingClock` (a `StateFlowImpl` of
+  `ClockMetadataModel`, null until a clock is tapped) → `clockId`.
+- `ClockPickerViewModel$isClockAxisStyleEdited$1` compares the chosen
+  `IndexedStyle`'s style with the stored one, null-safe; for a clock without
+  `AxisPresetConfig`, the stored side is null, so choosing any preset there
+  enables Apply, and the picker carries its axes to the preview
+  (`onFontAxesChanged`) and to `applySettings`.
+- The width preset slider's rebinding (`ClockFloatingSheetBinder$bind$13$1$12$1.emit`)
+  is no longer hooked: it only fires for clocks with width presets.
+- The Size tab's switch row (`layout/floating_sheet_clock_size_content`:
+  `clock_style_clock_size_title`, `_description`, `_switch`, constrained to
+  each other) is inflated again for the position switch, with new ids and its
+  constraint fields re-pointed.
+- Position tab: `ClockFloatingSheetBinder$bind$13$1` captures `$tabAdapter`
+  (`FloatingToolbarTabAdapter`, `submitList(List)`) and `$viewModel`.
+  `FloatingToolbarTabViewModel(Icon, String text, boolean isSelected,
+  Function0 onClick)`; `Icon$Loaded(Drawable, Text$Loaded)`. The selected tab
+  is `ClockPickerViewModel._selectedTab`; `ClockFloatingSheetBinder$bind$13$1$2$4`
+  shows `$clockStyleContent`, `$clockColorContent` or `$clockSizeContent` by it
+  and animates the sheet to the matching recorded height. Tab clicks are
+  `ClockPickerViewModel$tabs$1$1.invoke`, an R8-merged lambda keyed by
+  `$r8$classId` (2 Size, 3 Color, 4 Style here; 0 and 1 are unrelated). A
+  drawable in the module's own resources cannot be loaded in the picker
+  (package visibility: `Icon.loadDrawable` answers null), so the tab icon is
+  drawn in code.
+- The adapter's diff (`AsyncListDiffer$1$1`) matches tabs by `text` and
+  compares `text`, `isSelected` and `icon.equals`, never `onClick`; a tab view
+  keeps the click of the list that last bound it. The Size tab's view therefore
+  still holds the picker's own click while Position is open, from whichever
+  earlier list bound it; it selects Size, which is selected already, so
+  nothing is emitted. The module remembers every click the picker's lists
+  carried and closes Position when one runs with Size still selected. (Before,
+  only the newest list's clicks counted: a tap on Size from Position did
+  nothing.)
+- The tab list's animator (`TabItemAnimator`, a `DefaultItemAnimator`) only
+  animates a selection (payloads 3024/1114 from `getChangePayload`). Adding or
+  removing the Position tab through it left the removed tab's view in the
+  `RecyclerView`, drawn over its neighbours and taking their taps. R8 inlined
+  `RecyclerView.getAdapter/getItemAnimator/setItemAnimator`; the fields
+  `mAdapter` and `mItemAnimator` and `hasPendingAdapterUpdates()` remain, and
+  `DefaultItemAnimator.endAnimations()`. Once a list with another count is laid
+  out (`getItemCount` matches, no pending updates), `endAnimations` is called
+  before its first draw, which drops the removed view at once.
+- The drag hint is a plain `TextView` added to `android:id/content`, placed
+  from `lock_preview_card`'s drawn bounds before each draw. The sheet is bound
+  before it joins the window (`rootView` is then the sheet itself), so both it
+  and the tab list are looked up once the sheet is attached.
+- The Size slot's height (`ClockFloatingSheetHeightsViewModel.clockSizeContentHeight`)
+  is read when the picker animates the sheet to the slot. Recorded at the next
+  layout after the Position rows replaced the size rows, the sheet first grew
+  to the old height and then snapped; it is recorded as the rows change.
+- A Size tab view can keep the module's Size click after Position closes (the
+  diff ignores clicks); that click selects Size itself then.
+
+## Clock width on the composed lock screen (`CP3A.261005.005`)
+
+The large clock element measures the face with `AT_MOST 1248` on a 1344 px
+screen (48 px each side), inside `FrameLayout` → `ViewFactoryHolder` →
+`AndroidViewsHandler` (none clip), and the scene draws it at about 0.88 of its
+laid-out size at rest, so a face that only fills its box ends about 123 px from
+each edge. The iOS face measures its column unbounded, in width and height (`IosClockFace.WideFace`)
+and centres it back over the holder, which puts it at its start; it cannot rely
+on overflowing its own bounds, because the depth effect draws the face as one
+hardware layer, which ends there. The scale is the face's drawn height over its
+laid-out height ([ClockFacePlacement]), divided by the window root's own drawn
+scale (the picker's preview draws the whole lock screen scaled down), handed to
+the face only once two frames in a row agree, so a wake's zoom never resizes the
+time. The small face gets the scale too (it is never pinned). The scene
+caps the small clock at `small_clock_height`:
+`ClockRegionElementProvider$SmallClockRegionElement` gives the clock element
+`heightIn(min = ClockEventController.smallClockBounds.height, max =
+dimensionResource(R.dimen.small_clock_height))` inside a column with the
+date/weather row and the cards, so a taller face overflowed upward. The
+`dimensionResource(int, Composer, int)` read of that one id
+(`com.android.systemui.customization.clocks.R$dimen.small_clock_height`)
+answers the module small face's measured height instead (`KeyguardSmallClockBand`);
+it runs during composition only. The scene then lowers the whole band by
+what it grows, so room added under the small face is lifted back by the same
+translation. AOD: the released pin can leave a tall face reaching the
+sensor; it is lifted to `LockScreenFloor` while dozing, and scaled about its
+top to the screen's text margins (the scene's always-on scale is larger than
+its awake one). Clock size on the composed scene: the old
+`ClockSizeTransition` hook is gone, so `KeyguardClockSizeMotion` is gated off.
+The scene fades the outgoing clock element out (about 6 frames blank for
+Google's clock, 9 for this module's) and only then the incoming one in; it
+composes the incoming element while its view is detached. Running
+`ClockSizeMorph` from there was tried: the carried time only slid into place
+after the fade, which read worse than the scene's plain crossfade, so it was
+dropped. The small band's height is read from the small face on screen
+(`isInNotificationShade`), or measured unbounded while it is still detached,
+so the room is right on the first frame.
+

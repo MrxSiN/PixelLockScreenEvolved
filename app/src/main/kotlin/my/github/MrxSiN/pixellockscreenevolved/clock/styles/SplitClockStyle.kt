@@ -37,6 +37,9 @@ class SplitClockStyle : ClockStyle {
     override val description: String = "The time drawn down the screen and split by the photo's subject"
     override val isResizable: Boolean = true
 
+    /** The line runs down from under the status bar to the subject; it has nowhere else to stand. */
+    override val isMovable: Boolean = false
+
     override fun createFace(context: Context, size: FaceSize): ClockFace = when (size) {
         FaceSize.LARGE -> Face(context)
         // Beside notifications the line cannot run down the screen, so it keeps its weight in height instead.

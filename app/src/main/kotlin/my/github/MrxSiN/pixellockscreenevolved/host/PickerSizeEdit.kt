@@ -2,27 +2,35 @@ package my.github.MrxSiN.pixellockscreenevolved.host
 
 import java.lang.ref.WeakReference
 
+import my.github.MrxSiN.pixellockscreenevolved.clock.ClockStyle
 import my.github.MrxSiN.pixellockscreenevolved.core.Logger
 import my.github.MrxSiN.pixellockscreenevolved.hook.Hooks
 import my.github.MrxSiN.pixellockscreenevolved.hook.HostPatch
 
 /**
- * Lets the size slider enable Wallpaper & style's Apply button.
+ * Lets the size slider and the position controls enable Wallpaper & style's
+ * Apply button.
  *
- * Moving the size slider alone left Apply greyed out, because the picker
- * enables Apply only for changes it knows of and the slider is this module's.
- * The size is made part of the picker's own edit instead: moving the slider
- * chooses the axis preset already on show again, with the size added to its
- * axes, which makes the picker compare its edits once more. For this module's
- * clocks that comparison is then made by width and size, so Apply is enabled
- * exactly while either differs from the stored setting, and greys out again
- * when both are moved back.
+ * Moving either alone left Apply greyed out, because the picker enables Apply
+ * only for changes it knows of and these controls are this module's. They are
+ * made part of the picker's own edit instead: choosing a size or a position
+ * chooses an axis preset carrying it, which makes the picker compare its edits
+ * once more, show the preset on its preview clock, and write the preset's axes
+ * on Apply. For a clock with width presets that is the width preset already on
+ * show, with the choices added to its axes, and the comparison is then made by
+ * width, size and position, so Apply is enabled exactly while any differs from
+ * the stored setting. A clock with no width presets is given one holding the
+ * choices alone while they differ from the stored setting, and none once they
+ * are moved back.
  */
 internal class PickerSizeEdit(
     private val hooks: Hooks,
+    styles: List<ClockStyle>,
     private val state: PickerClockState,
     private val logger: Logger,
 ) : HostPatch {
+
+    private val styles = styles.associateBy { it.id }
 
     private var clockPickerViewModel = WeakReference<Any>(null)
 
@@ -33,7 +41,7 @@ internal class PickerSizeEdit(
     override fun install(classLoader: ClassLoader) {
         val (clocks, sheet, edits) = try {
             val clocks = ClockPluginApi(classLoader)
-            Triple(clocks, PickerSliderApi(classLoader, clocks), PickerClockEditApi(classLoader))
+            Triple(clocks, PickerSliderApi(classLoader), PickerClockEditApi(classLoader))
         } catch (error: ReflectiveOperationException) {
             logger.warn("Picker edit state not found; moving the clock size alone does not enable Apply", error)
             return
@@ -50,14 +58,21 @@ internal class PickerSizeEdit(
             storedPreset = stored
             val chosen = edits.comparedChosenPreset(edited)
             val widthEdited = chosen != null && clocks.presetIndex(chosen) != clocks.presetIndex(stored)
-            widthEdited || state.isSizeStepEdited()
+            widthEdited || state.isAxisEdited()
         }
 
-        state.onSizeStepChosen { step ->
-            val viewModel = clockPickerViewModel.get() ?: return@onSizeStepChosen
-            val shown = edits.chosenPreset(viewModel) ?: storedPreset ?: return@onSizeStepChosen
-            runCatching { edits.choosePreset(viewModel, clocks.withSizeStep(shown, step)) }
-                .onFailure { logger.warn("Clock size could not be marked as an edit", it) }
+        state.onAxesChosen {
+            val viewModel = clockPickerViewModel.get() ?: return@onAxesChosen
+            val style = styles[edits.chosenClockId(viewModel) ?: state.storedClockId()] ?: return@onAxesChosen
+            val chosen = state.chosenAxes()
+            val preset = if (style.isWidthAdjustable) {
+                val shown = edits.chosenPreset(viewModel)?.takeIf(clocks::isWidthPreset) ?: storedPreset ?: return@onAxesChosen
+                clocks.withAxes(shown, chosen)
+            } else {
+                clocks.axesOnlyPreset(chosen).takeIf { state.isAxisEdited() }
+            }
+            runCatching { edits.choosePreset(viewModel, preset) }
+                .onFailure { logger.warn("Clock size or position could not be marked as an edit", it) }
         }
     }
 }

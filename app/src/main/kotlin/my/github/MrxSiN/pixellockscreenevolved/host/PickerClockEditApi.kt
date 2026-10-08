@@ -1,6 +1,5 @@
 package my.github.MrxSiN.pixellockscreenevolved.host
 
-import java.lang.reflect.Field
 import java.lang.reflect.Method
 
 /**
@@ -27,6 +26,11 @@ internal class PickerClockEditApi(classLoader: ClassLoader) {
         load("com.android.wallpaper.customization.ui.viewmodel.ThemePickerCustomizationOptionsViewModel", classLoader)
             .field("clockPickerViewModel")
     private val chosenPresetFlow = load(VIEW_MODEL, classLoader).field("overridingClockPresetIndexedStyle")
+    private val chosenClockFlow = runCatching { load(VIEW_MODEL, classLoader).field("overridingClock") }.getOrNull()
+    private val clockModelId = runCatching {
+        load("com.android.customization.picker.clock.shared.model.ClockMetadataModel", classLoader).field("clockId")
+    }.getOrNull()
+    private var flowValue: Method? = null
 
     /** The preset chosen in the picker, or null, as [axisPresetEdited]'s receiver last compared it. */
     fun comparedChosenPreset(edited: Any): Any? = chosenPresetArgument.get(edited)
@@ -43,8 +47,19 @@ internal class PickerClockEditApi(classLoader: ClassLoader) {
         return flow.javaClass.getMethod("getValue").invoke(flow)
     }
 
-    /** Chooses [preset] in [clockPickerViewModel], as its preset slider does. */
-    fun choosePreset(clockPickerViewModel: Any, preset: Any) {
+    /**
+     * The id of the clock tapped in [clockPickerViewModel]'s list since it
+     * opened, or null while none is and the stored clock is previewed; null
+     * too where the picker no longer holds it.
+     */
+    fun chosenClockId(clockPickerViewModel: Any): String? {
+        val flow = chosenClockFlow?.get(clockPickerViewModel) ?: return null
+        val getValue = flowValue ?: flow.javaClass.getMethod("getValue").also { flowValue = it }
+        return getValue.invoke(flow)?.let { clockModelId?.get(it) as String? }
+    }
+
+    /** Chooses [preset], or none, in [clockPickerViewModel], as its preset slider does. */
+    fun choosePreset(clockPickerViewModel: Any, preset: Any?) {
         val flow = chosenPresetFlow.get(clockPickerViewModel) ?: return
         flow.javaClass.getMethod("setValue", Any::class.java).invoke(flow, preset)
     }
@@ -53,7 +68,5 @@ internal class PickerClockEditApi(classLoader: ClassLoader) {
         const val VIEW_MODEL = "com.android.customization.picker.clock.ui.viewmodel.ClockPickerViewModel"
 
         fun load(name: String, classLoader: ClassLoader): Class<*> = Class.forName(name, false, classLoader)
-
-        fun Class<*>.field(name: String): Field = getDeclaredField(name).apply { isAccessible = true }
     }
 }

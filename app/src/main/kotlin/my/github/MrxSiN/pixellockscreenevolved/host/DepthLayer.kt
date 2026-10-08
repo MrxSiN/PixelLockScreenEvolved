@@ -12,7 +12,6 @@ import android.graphics.RectF
 import android.graphics.drawable.Drawable
 import android.os.SystemClock
 import android.view.View
-import android.view.WindowManager
 
 import kotlin.math.abs
 
@@ -151,7 +150,7 @@ internal class DepthLayer(
 
     private fun place() {
         val picture = cutout
-        if (picture == null || !enabled || !isNotificationShade() || overOtherWallpaper()) {
+        if (picture == null || !enabled || !faceView.isInNotificationShade() || overOtherWallpaper()) {
             detach()
             return
         }
@@ -280,14 +279,8 @@ internal class DepthLayer(
         override fun getOpacity(): Int = PixelFormat.TRANSLUCENT
     }
 
-    /** Excludes picker previews while accepting Compose's clock-sized holder. */
-    private fun isNotificationShade(): Boolean =
-        (faceView.rootView.layoutParams as? WindowManager.LayoutParams)?.type == TYPE_NOTIFICATION_SHADE
-
     private companion object {
         const val OPAQUE = 255
-        /** `WindowManager.LayoutParams.TYPE_NOTIFICATION_SHADE`, hidden from the public SDK. */
-        const val TYPE_NOTIFICATION_SHADE = 2040
 
         /** How firmly the subject eases in front of the time or out from it: settled in about a third of a second. */
         const val IN_FRONT_STIFFNESS = 256f

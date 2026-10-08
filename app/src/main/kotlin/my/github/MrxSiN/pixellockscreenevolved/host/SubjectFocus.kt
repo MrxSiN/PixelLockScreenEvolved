@@ -12,7 +12,7 @@ import my.github.MrxSiN.pixellockscreenevolved.clock.SubjectFrame
  * subject stands ([SubjectAwareClockFace]).
  *
  * The subject's box is read from the cut-out the depth effect made
- * ([SubjectBounds]) and put on screen exactly as the window manager puts the
+ * ([SubjectInk]) and put on screen exactly as the window manager puts the
  * wallpaper ([LockWallpaperFeed]), then measured from the top of the large
  * clock as the lock screen pins it ([LockScreenInsets.largeClockTop]). The
  * face's own measured size is never part of that sum: it changes because of
@@ -44,7 +44,7 @@ internal class SubjectFocus(
     fun show(cutout: Bitmap?) {
         if (this.cutout === cutout) return
         this.cutout = cutout
-        bounds = cutout?.let(SubjectBounds::of)
+        bounds = cutout?.let(SubjectInk::of)?.let { ink -> RectF().takeIf(ink::bounds) }
         tell()
     }
 

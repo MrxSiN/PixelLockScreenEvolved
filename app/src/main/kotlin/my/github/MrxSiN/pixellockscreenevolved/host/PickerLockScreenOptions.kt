@@ -23,6 +23,8 @@ import my.github.MrxSiN.pixellockscreenevolved.hook.HostPatch
  *   ([PickerDepthEffectPage]) for how it stands and to find the subject again;
  * - Always-on display, saying what it shows, opening its page
  *   ([PickerAlwaysOnDisplayPage]) for the wallpaper and its appearance;
+ * - Double tap to turn off screen, a switch over the stock setting
+ *   ([DoubleTapToSleep]);
  * - Compatibility & diagnostics ([PickerDiagnosticsDialog]).
  *
  * An entry SystemUI cannot take now, its internals changed or its feature
@@ -43,7 +45,7 @@ internal class PickerLockScreenOptions(
 ) : HostPatch {
 
     private val followedLists = Collections.newSetFromMap(WeakHashMap<View, Boolean>())
-    private val tags = listOf(DEPTH_TAG, AOD_TAG, DIAGNOSTICS_TAG)
+    private val tags = listOf(DEPTH_TAG, AOD_TAG, DOUBLE_TAP_TAG, DIAGNOSTICS_TAG)
 
     override fun install(classLoader: ClassLoader) {
         val fillList = try {
@@ -84,6 +86,8 @@ internal class PickerLockScreenOptions(
         private lateinit var depth: PickerRows.Row
         private lateinit var depthSwitch: android.widget.CompoundButton
         private lateinit var aod: PickerRows.Row
+        private lateinit var doubleTap: PickerRows.Row
+        private lateinit var doubleTapSwitch: android.widget.CompoundButton
 
         fun add() {
             depth = append(DEPTH_TAG, PickerDepthEffectPage.TITLE, PickerDepthEffectPage.DESCRIPTION) ?: return
@@ -96,6 +100,10 @@ internal class PickerLockScreenOptions(
             aod.view.setOnClickListener {
                 open { PickerAlwaysOnDisplayPage(rows).show(context, availability().unavailableReason(Feature.AOD_WALLPAPER), ::refresh) }
             }
+
+            // ponytail: shown even where Google's Settings switch exists; both write the same setting.
+            doubleTap = append(DOUBLE_TAP_TAG, DoubleTapToSleep.TITLE, DoubleTapToSleep.DESCRIPTION) ?: return
+            doubleTapSwitch = rows.switchAtEnd(doubleTap, DoubleTapToSleep.isOn(resolver)) { DoubleTapToSleep.set(resolver, it) }
 
             val diagnosticsRow = append(DIAGNOSTICS_TAG, DIAGNOSTICS_TITLE, DIAGNOSTICS_DESCRIPTION) ?: return
             diagnosticsRow.view.setOnClickListener { open { diagnostics.show(context) } }
@@ -114,6 +122,11 @@ internal class PickerLockScreenOptions(
                 rows.describe(aod, reason ?: PickerAlwaysOnDisplayPage.summary(resolver))
                 rows.setEnabled(aod, reason == null)
             }
+            features.unavailableReason(Feature.DOUBLE_TAP_TO_SLEEP).let { reason ->
+                rows.describe(doubleTap, reason ?: DoubleTapToSleep.DESCRIPTION)
+                rows.setEnabled(doubleTap, reason == null)
+            }
+            doubleTapSwitch.isChecked = DoubleTapToSleep.isOn(resolver)
         }
 
         private fun availability() = FeatureAvailability.current(SnapshotStore(resolver), HostStartupReport.bootedAt())
@@ -172,6 +185,7 @@ internal class PickerLockScreenOptions(
         const val LIST = "lock_customization_option_container"
         const val DEPTH_TAG = "pixel_lock_screen_evolved_depth_effect"
         const val AOD_TAG = "pixel_lock_screen_evolved_always_on_display"
+        const val DOUBLE_TAP_TAG = "pixel_lock_screen_evolved_double_tap_to_sleep"
         const val DIAGNOSTICS_TAG = "pixel_lock_screen_evolved_diagnostics"
         const val DIAGNOSTICS_TITLE = "Compatibility & diagnostics"
         const val DIAGNOSTICS_DESCRIPTION = "Feature compatibility, hooks and Safe Mode"

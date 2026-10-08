@@ -1,13 +1,13 @@
 package my.github.MrxSiN.pixellockscreenevolved.host
 
-import my.github.MrxSiN.pixellockscreenevolved.clock.ios.RobotoFlexNumerals
+import my.github.MrxSiN.pixellockscreenevolved.clock.ios.FlexClockNumerals
 
 /**
  * The axes this module stores in the clock setting, and what they mean.
  *
  * The picker keeps a clock's choices as axis values in the setting it writes
- * and hands them back to the clock unchanged, so a width and a size ride along
- * as two axes. Kept free of Android so the mapping can be unit tested.
+ * and hands them back to the clock unchanged, so a width, a size and a
+ * position ride along as axes. Kept free of Android so the mapping can be unit tested.
  */
 internal object ClockAxes {
 
@@ -15,18 +15,23 @@ internal object ClockAxes {
     const val WIDTH_KEY = "PIXEL_LOCK_SCREEN_EVOLVED_WIDTH"
     const val SIZE_KEY = "PIXEL_LOCK_SCREEN_EVOLVED_SIZE"
 
-    /** Stops on the size slider, the smallest size first. */
-    const val SIZE_STEPS = 6
+    /**
+     * Where the large clock stands awake ([ClockPosition]): whether it is
+     * adaptive (1) or placed (0), and how far down the band it is placed, from
+     * 0 to 1. A setting without them stands at the top.
+     */
+    const val POSITION_KEY = "PIXEL_LOCK_SCREEN_EVOLVED_POSITION"
+    const val POSITION_SHARE_KEY = "PIXEL_LOCK_SCREEN_EVOLVED_POSITION_Y"
 
     /**
      * Stops on the picker's "Clock face width" slider, the widest and lightest
      * first, as Google's flex clock orders its own seven
-     * ([my.github.MrxSiN.pixellockscreenevolved.clock.ios.RobotoFlexNumerals]).
+     * ([my.github.MrxSiN.pixellockscreenevolved.clock.ios.FlexClockNumerals]).
      */
-    const val WIDTH_STEPS = RobotoFlexNumerals.WIDTH_STOPS
+    const val WIDTH_STEPS = FlexClockNumerals.WIDTH_STOPS
 
     /** The width a clock that never stored one is drawn at. */
-    const val DEFAULT_WIDTH_STEP = RobotoFlexNumerals.DEFAULT_WIDTH_STOP
+    const val DEFAULT_WIDTH_STEP = FlexClockNumerals.DEFAULT_WIDTH_STOP
 
     /**
      * The size the small clock is always shown at, the smallest. It shares the
@@ -45,9 +50,9 @@ internal object ClockAxes {
     const val WIDTH_AXIS_KEY = "wdth"
     const val WIDE_CLOCK_WIDTH = 120f
 
-    /** The 0 to 1 size for a stored size step; a clock that never stored one is smallest. */
-    fun sizeOf(step: Float?): Float =
-        (step ?: 0f).coerceIn(0f, (SIZE_STEPS - 1).toFloat()) / (SIZE_STEPS - 1)
+    /** The 0 to 1 size for a stored size step on a slider of [steps] stops; a clock that never stored one is smallest. */
+    fun sizeOf(step: Float?, steps: Int): Float =
+        if (steps < 2) 0f else (step ?: 0f).coerceIn(0f, (steps - 1).toFloat()) / (steps - 1)
 
     /** The width step a stored width value chooses; a clock that never stored one is at [DEFAULT_WIDTH_STEP]. */
     fun widthStepOf(value: Float?): Int =
@@ -64,7 +69,6 @@ internal object ClockAxes {
     fun widthPreset(step: Int): Map<String, Float> =
         linkedMapOf(WIDTH_KEY to step.toFloat(), WIDTH_AXIS_KEY to WIDE_CLOCK_WIDTH)
 
-    /** The axes of the width preset at [step] with the size step [sizeStep] chosen as well. */
-    fun sizedWidthPreset(step: Int, sizeStep: Float): Map<String, Float> =
-        widthPreset(step) + (SIZE_KEY to sizeStep)
+    /** The axes of the width preset at [step] with [chosen] axes, such as a size and a position, as well. */
+    fun widthPresetWith(step: Int, chosen: Map<String, Float>): Map<String, Float> = widthPreset(step) + chosen
 }

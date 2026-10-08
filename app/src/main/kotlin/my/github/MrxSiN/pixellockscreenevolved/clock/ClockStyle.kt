@@ -10,7 +10,7 @@ import android.view.View
  * A style knows how to draw itself and nothing about SystemUI: the host
  * adapters in [my.github.MrxSiN.pixellockscreenevolved.host] turn it into the
  * plugin objects SystemUI and Wallpaper & style expect. Adding a design means
- * adding one of these and listing it in [ClockStyles].
+ * adding one of these and listing it in [clockStyles].
  */
 interface ClockStyle {
 
@@ -32,16 +32,32 @@ interface ClockStyle {
      */
     val isResizable: Boolean get() = false
 
+    /** How many stops the size slider has for this style, the smallest first. */
+    val sizeSteps: Int get() = DEFAULT_SIZE_STEPS
+
     /**
      * Whether the width can be chosen in Wallpaper & style. The faces of such a
      * style implement [AdjustableWidthClockFace].
      */
     val isWidthAdjustable: Boolean get() = false
 
+    /**
+     * Whether the large face can be placed lower down the lock screen, as
+     * Wallpaper & style's position controls choose. A face laid out around the
+     * photo's subject is not ([SubjectAwareClockFace]): moving it would move
+     * what it lays itself out against.
+     */
+    val isMovable: Boolean get() = true
+
     fun createFace(context: Context, size: FaceSize): ClockFace
 
     /** The small picture Wallpaper & style shows for this style in its list. */
     fun createThumbnail(context: Context): Drawable
+
+    companion object {
+        /** The size slider's stops for a style that does not choose its own. */
+        const val DEFAULT_SIZE_STEPS: Int = 6
+    }
 }
 
 /**

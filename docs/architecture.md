@@ -3,7 +3,7 @@
 How Pixel Lock Screen Evolved reaches into SystemUI and Wallpaper & style, how
 it keeps working when Google moves things, and where each part lives. The
 Android 17 QPR1 lock screen has [a page of its own](android-17-qpr1.md), as
-does [the depth effect](depth-effect.md). `HOOK_NOTES.md` records every host
+do [the depth effect](depth-effect.md) and [clock position](clock-position.md). `HOOK_NOTES.md` records every host
 signature the module relies on and how it was verified on a device.
 
 ## Clocks from the host's own registry
@@ -99,10 +99,10 @@ moves something is absorbed in one file.
 ### Adding a clock style
 
 Implement `clock.ClockStyle` and a `ClockFace` in `clock/styles/` and list the
-style in `clock.ClockStyles.all`. For a size slider, set `isResizable` and make
+style in `clock.clockStyles()`. For a size slider, set `isResizable` and make
 its faces `ResizableClockFace`; for the width slider, set `isWidthAdjustable`
 and make its faces `AdjustableWidthClockFace`; to lay a face out around the
-photo's subject, make it `SubjectAwareClockFace`. Nothing in `host/` changes.
+photo's subject, make it `SubjectAwareClockFace` and set `isMovable` false. Nothing in `host/` changes.
 
 ## Building
 

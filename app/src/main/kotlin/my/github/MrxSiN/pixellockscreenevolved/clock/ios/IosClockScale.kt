@@ -1,71 +1,46 @@
 package my.github.MrxSiN.pixellockscreenevolved.clock.ios
 
-import kotlin.math.min
-
 import my.github.MrxSiN.pixellockscreenevolved.clock.parts.StretchFit
 
 /**
- * How tall the iOS time is at each size, and how large it is set to leave the
- * width its own work.
+ * How large the iOS time is set, and how much it is stretched.
  *
- * A larger size is a taller clock. The heights are spread between the smallest
- * and the tallest the time can reach at the font's widest width, so every step
- * is taller than the last and a size is the same height at every width. The
- * text size is the one the widest width would need, so the same size fits the
- * screen however wide the time is set, and a narrower width draws a narrower
- * time rather than the same block in a different cut: Wallpaper & style's
- * "Clock face width" slider then moves this clock as it moves Google's. What
- * height the width cap does not allow comes from stretching the numerals
- * vertically ([StretchFit]). Kept free of Android so the arithmetic can be unit
- * tested.
+ * The time always spans the lock screen's text column, so its
+ * width sets the text size; the size chosen sets only its height, from
+ * numerals as tall as the Pixel's own large clock to [LARGEST_TO_STOCK] times
+ * that, reached by stretching the numerals vertically. Kept free of Android so the arithmetic can be
+ * unit tested.
  */
 internal object IosClockScale {
 
-    /** Numeral height of the smallest clock, against the screen's short side. */
-    private const val SMALLEST_NUMERAL_TO_SHORT_SIDE = 0.30f
+    /**
+     * Numeral height of the large face's smallest size, against the screen's
+     * short side, as drawn: the Pixel's large clock, measured on a Pixel 8 Pro
+     * (`CP3A.261005.005`: 393 px drawn on a 1344 px wide screen, matched by measuring this face there).
+     */
+    const val STOCK_NUMERAL_TO_SHORT_SIDE = 0.304f
 
-    /** Numeral height of the largest clock, against the screen's short side. */
-    private const val LARGEST_NUMERAL_TO_SHORT_SIDE = 0.88f
+    /** The largest size's numeral height, against the stock clock's. */
+    const val LARGEST_TO_STOCK = 2.2f
 
     /**
-     * The smallest clock is never more than this share of the tallest. A time so
-     * wide that the screen caps it below the usual smallest height would
-     * otherwise be the same height at every size.
+     * The text size at which a time [inkWidthPerTextSize] wide per pixel of
+     * text size spans [columnWidth], and the vertical stretch that draws its
+     * numerals ([numeralPerTextSize] tall per pixel of text size) as tall as
+     * [size] asks, from 0 for the stock height to 1 for [LARGEST_TO_STOCK]
+     * times it.
      */
-    private const val SMALLEST_TO_TALLEST = 0.6f
+    fun spanning(size: Float, shortSide: Float, numeralPerTextSize: Float, inkWidthPerTextSize: Float, columnWidth: Float): StretchFit.Fit {
+        if (numeralPerTextSize <= 0f || inkWidthPerTextSize <= 0f) return StretchFit.Fit(textSize = 0f, stretch = 1f)
+        val textSize = columnWidth / inkWidthPerTextSize
+        val stock = shortSide * STOCK_NUMERAL_TO_SHORT_SIDE
+        val height = stock + stock * (LARGEST_TO_STOCK - 1f) * size.coerceIn(0f, 1f)
+        return StretchFit.Fit(textSize = textSize, stretch = height / (numeralPerTextSize * textSize))
+    }
 
-    /** Widest the time may be, against the screen's short side, at its widest width. */
-    private const val MAX_WIDTH_TO_SHORT_SIDE = 0.92f
-
-    /**
-     * Text size and vertical stretch for the time at [size], from 0 for the
-     * smallest to 1 for the largest.
-     *
-     * [numeralPerTextSize] is the numeral height per pixel of text size and
-     * [widestWidthPerTextSize] the width of this particular time per pixel of
-     * text size at the font's widest width, both measured unstretched;
-     * [maxStretch] is how much taller than designed the numerals may be drawn.
-     */
-    fun fit(
-        size: Float,
-        shortSide: Float,
-        numeralPerTextSize: Float,
-        widestWidthPerTextSize: Float,
-        maxStretch: Float,
-    ): StretchFit.Fit {
-        val maxWidth = shortSide * MAX_WIDTH_TO_SHORT_SIDE
-        val widestByWidth = if (widestWidthPerTextSize > 0f) maxWidth / widestWidthPerTextSize else Float.MAX_VALUE
-        val tallest = min(shortSide * LARGEST_NUMERAL_TO_SHORT_SIDE, widestByWidth * numeralPerTextSize * maxStretch)
-        val smallest = min(shortSide * SMALLEST_NUMERAL_TO_SHORT_SIDE, tallest * SMALLEST_TO_TALLEST)
-        val numeral = smallest + (tallest - smallest) * size.coerceIn(0f, 1f)
-
-        return StretchFit.of(
-            numeralHeight = numeral,
-            maxWidth = maxWidth,
-            numeralPerTextSize = numeralPerTextSize,
-            // Sized for the widest width, so every width of this size shares one text size.
-            widthPerTextSize = widestWidthPerTextSize,
-            maxStretch = maxStretch,
-        )
+    /** The text size that draws numerals [numeralToShortSide] of the screen's short side tall, unstretched. */
+    fun unstretched(numeralToShortSide: Float, shortSide: Float, numeralPerTextSize: Float): StretchFit.Fit {
+        if (numeralPerTextSize <= 0f) return StretchFit.Fit(textSize = 0f, stretch = 1f)
+        return StretchFit.Fit(textSize = shortSide * numeralToShortSide / numeralPerTextSize, stretch = 1f)
     }
 }

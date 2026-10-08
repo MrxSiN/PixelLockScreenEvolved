@@ -10,13 +10,15 @@ package my.github.MrxSiN.pixellockscreenevolved.diagnostics
  * HOOK_NOTES.md records what was read off each, and `HostCompatibilityTest`
  * checks every contract against the builds recorded under
  * `src/test/resources/hosts/` (all of them, except `CP2A.260805.005`, which
- * was verified before descriptions were recorded).
+ * was verified before descriptions were recorded, and `CP3A.260905.009`, whose
+ * description predates the double tap contracts and cannot be captured again).
  */
 object VerifiedBuilds {
 
     private val builds = setOf(
         "CP2A.260805.005",
         "CP3A.260905.009",
+        "CP3A.261005.005",
     )
 
     fun isVerified(build: String): Boolean = build in builds

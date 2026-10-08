@@ -59,6 +59,27 @@ Not measured: jank and frame misses (the keyguard is dismissed too quickly by th
 stable `gfxinfo` window), GC counts, SystemUI start and hook installation time (no change was made to
 them).
 
+### Double tap to turn off screen
+
+No module code runs on ordinary touches or frames. The only hook is
+`KeyguardTouchHandlingInteractor.onDoubleClick`, which SystemUI calls once per
+recognised double tap; what it does per call is listed in
+[docs/double-tap-to-sleep.md](docs/double-tap-to-sleep.md#cost). Touch-dispatch
+CPU with the feature on was not measured: there is no module code on that path
+to measure.
+
+### Clock position
+
+Per pin (every pre-draw the large face is shown), with positions on and nothing
+changed: a few float compares, `LockScreenFloor.of` (two `TypedValue` dimension
+conversions, the card's laid-out height) and an int compare for the floor
+report; no allocation (DEX audit, `FRAME_PATH_AUDIT.md`). The adaptive score
+runs only when an input changes: four summed-area reads per anchor over a grid
+of at most 128×128, built once per cut-out from the depth effect's own mask.
+Wall-clock CPU per callback and jank with positions on were not measured; the
+probe builds (`scripts/build-probes.sh`) can measure them, and should be run
+before a release that ships this.
+
 ## Segmentation
 
 See `SEGMENTATION_BENCHMARK.md` for the stage breakdown, every variant tried and the raw data. Summary:

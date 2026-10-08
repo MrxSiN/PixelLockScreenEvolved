@@ -85,7 +85,8 @@ class KeyguardSmartspacePlacement(
                 val editor = ConstraintSetEditor(set)
 
                 if (smartspace.isLargeClockVisible(owner)) {
-                    val card = SmartspaceCard.id(row)
+                    // SystemUI's smartspace card (forecasts, events): always in the keyguard, GONE while empty.
+                    val card = row.resources.getIdentifier("bc_smartspace_view", "id", row.context.packageName)
                     if (card == 0) return@after
                     editor.clear(card, TOP)
                     editor.clear(card, BOTTOM)

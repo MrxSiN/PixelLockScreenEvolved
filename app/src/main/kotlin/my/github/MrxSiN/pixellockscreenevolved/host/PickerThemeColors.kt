@@ -21,12 +21,11 @@ internal class PickerThemeColors(classLoader: ClassLoader) {
         .firstOrNull { it.name == "bind" && it.parameterCount == 5 }
         ?: throw NoSuchMethodException("$SWITCH_BINDER.bind")
 
-    /** The picker's colours in one fragment, for views shown in it. */
-    inner class InFragment(fragment: Any) {
-
-        private val viewModel = field(fragment, "colorUpdateViewModel")
-        private val lifecycleOwner =
-            runCatching { fragment.javaClass.getMethod("getViewLifecycleOwner").invoke(fragment) }.getOrNull() ?: fragment
+    /**
+     * The picker's colours from one `ColorUpdateViewModel`, for views shown
+     * while [lifecycleOwner] lives: a fragment's own, or the clock sheet's.
+     */
+    inner class InFragment(private val viewModel: Any, private val lifecycleOwner: Any) {
 
         /** Calls [setColor] with the theme colour the view model names [name], now and as it changes. */
         fun follow(name: String, setColor: (Int) -> Unit) {
@@ -47,6 +46,12 @@ internal class PickerThemeColors(classLoader: ClassLoader) {
         }
     }
 
+    /** The colours of [fragment], for views shown in it. */
+    fun inFragment(fragment: Any): InFragment = InFragment(
+        field(fragment, "colorUpdateViewModel"),
+        runCatching { fragment.javaClass.getMethod("getViewLifecycleOwner").invoke(fragment) }.getOrNull() ?: fragment,
+    )
+
     /** A Kotlin function of [type] that runs [body]. */
     private fun function(type: Class<*>, body: (Array<Any?>) -> Unit): Any =
         Proxy.newProxyInstance(type.classLoader, arrayOf(type)) { _, method, args ->
@@ -59,14 +64,15 @@ internal class PickerThemeColors(classLoader: ClassLoader) {
     private fun animate(type: Class<*>): Any =
         Proxy.newProxyInstance(type.classLoader, arrayOf(type)) { _, method, _ -> if (method.name == "invoke") true else null }
 
-    private fun field(owner: Any, name: String): Any =
-        generateSequence(owner.javaClass as Class<*>?) { it.superclass }
-            .firstNotNullOfOrNull { type -> runCatching { type.getDeclaredField(name) }.getOrNull() }
-            ?.apply { isAccessible = true }
-            ?.get(owner)
-            ?: throw NoSuchFieldException(name)
-
     private companion object {
+        fun field(owner: Any, name: String): Any =
+            generateSequence(owner.javaClass as Class<*>?) { it.superclass }
+                .firstNotNullOfOrNull { type -> runCatching { type.getDeclaredField(name) }.getOrNull() }
+                ?.apply { isAccessible = true }
+                ?.get(owner)
+                ?: throw NoSuchFieldException(name)
+
+
         const val COLOR_BINDER = "com.android.wallpaper.picker.customization.ui.binder.ColorUpdateBinder"
         const val SWITCH_BINDER = "com.android.wallpaper.customization.ui.binder.SwitchColorBinder"
     }

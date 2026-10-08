@@ -35,6 +35,7 @@ internal class ClockControllerAdapter(
             it.setWidth(width)
             it.setSizeStep(sizeStep)
         }
+        large.setPosition(api.axis(settings, ClockAxes.POSITION_KEY), api.axis(settings, ClockAxes.POSITION_SHARE_KEY))
     }
 
     /** The large face, the one the depth effect draws in front of. */
@@ -46,6 +47,11 @@ internal class ClockControllerAdapter(
     /** Shows [step] on the large face at once, as the picker's size slider moves. */
     fun previewSizeStep(step: Float) {
         large.setSizeStep(step)
+    }
+
+    /** Shows [position] on the large face at once, as the picker's position controls change. */
+    fun previewPosition(position: ClockPosition) {
+        large.clockLayout.position = position
     }
 
     /** Anything that changes how the time is written redraws both faces. */
@@ -98,6 +104,8 @@ internal class ClockControllerAdapter(
         proxies = proxies,
         face = style.createFace(context, size),
         size = size,
+        sizeSteps = style.sizeSteps,
+        movable = style.isMovable,
         context = context,
         initialTheme = initialTheme,
     )
