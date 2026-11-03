@@ -7,6 +7,7 @@ import java.io.File
 import io.github.libxposed.api.XposedModule
 import io.github.libxposed.api.XposedModuleInterface.HotReloadedParam
 import io.github.libxposed.api.XposedModuleInterface.HotReloadingParam
+import io.github.libxposed.api.XposedModuleInterface.ModuleLoadedParam
 import io.github.libxposed.api.XposedModuleInterface.PackageReadyParam
 
 import my.github.MrxSiN.pixellockscreenevolved.clock.clockStyles
@@ -85,8 +86,17 @@ class PixelLockScreenEvolvedModule : XposedModule() {
     private val loadedHosts = mutableMapOf<Host, LoadedHost>()
     private val hookIds = mutableSetOf<String>()
 
+    @Volatile private var processName = ""
+
+    override fun onModuleLoaded(param: ModuleLoadedParam) {
+        processName = param.processName
+    }
+
     override fun onPackageReady(param: PackageReadyParam) {
         if (!param.isFirstPackage) return
+        // Helper processes such as SystemUI's :screenshot share the package but
+        // not the lock screen; the freezer kills them over registered callbacks.
+        if (processName.isNotEmpty() && processName != param.packageName) return
         val host = Host.of(param.packageName) ?: return
         if (host in loadedHosts) return
 
