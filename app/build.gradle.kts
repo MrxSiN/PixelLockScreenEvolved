@@ -2,8 +2,8 @@ plugins {
     alias(libs.plugins.agp.app)
 }
 
-val appVersion = "0.0.6"
-val appVersionCode = providers.gradleProperty("moduleVersionCode").getOrElse("7").toInt()
+val appVersion = "0.0.8"
+val appVersionCode = providers.gradleProperty("moduleVersionCode").getOrElse("14").toInt()
 
 val envKeystorePath = System.getenv("ANDROID_KEYSTORE_PATH")
 val envKeystoreAlias = System.getenv("ANDROID_KEYSTORE_ALIAS")
@@ -120,6 +120,9 @@ dependencies {
 
     // App side: finds the subject of a photo wallpaper for the depth effect.
     implementation(libs.onnxruntime.android)
+
+    // Hook side: locates host symbols a build renamed (HostSymbols), once per host build.
+    implementation(libs.dexkit)
 
     testImplementation(libs.junit)
 }

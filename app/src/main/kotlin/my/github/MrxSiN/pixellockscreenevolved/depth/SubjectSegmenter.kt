@@ -80,7 +80,7 @@ internal class SubjectSegmenter(assets: AssetManager) : AutoCloseable {
          * Without memory pattern planning: with it, the second run of a session
          * (the mirror image of a careful look, or a retry) allocated its planned
          * block on top of the arena the first run had grown, and peaked at
-         * 4.4 GB instead of 2.3 GB, no faster (SEGMENTATION_BENCHMARK.md).
+         * 4.4 GB instead of 2.3 GB, no faster (measured with scripts/bench-segmentation-ab.sh).
          */
         fun sessionOptions() = OrtSession.SessionOptions().apply { setMemoryPatternOptimization(false) }
 

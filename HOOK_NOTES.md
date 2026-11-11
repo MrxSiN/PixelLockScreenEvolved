@@ -797,3 +797,32 @@ dropped. The small band's height is read from the small face on screen
 (`isInNotificationShade`), or measured unbounded while it is still detached,
 so the room is right on the first frame.
 
+
+## Renamed host symbols, located with DexKit (`CP4A.261105.040.A1`)
+
+The November build broke three contracts that were literal names:
+
+- Wallpaper & style renumbered the clock sheet's binding coroutine from
+  `ClockFloatingSheetBinder$bind$13$1` to `$bind$16$1` (three lambdas were
+  added earlier in the file). Same captured fields.
+- SystemUI renamed `KeyguardTouchHandlingInteractor.onDoubleClick()` to
+  `onDoubleTap(Float, Float)`; it now receives the tap point itself, and still
+  calls `PowerManager.goToSleep` while `isDoubleTapHandlingEnabled` holds.
+- `SmartspaceSection` lost all its fields on the composed lock screen. Its
+  `keyguardClockViewModel` was only read by the legacy `applyConstraints`
+  path, so it is now classed with that path's members and not checked on a
+  composed build. Before, its absence turned off the whole smartspace feature.
+
+`HostContracts.locators` gives each fragile name a structural fingerprint
+(`Locator`): the nested class holding given fields and methods, or the method
+calling a given framework method. When the name misses, `DexLocator` searches
+the host APK with DexKit (about 100-200 ms), caches the answer against the
+host APK and system build, and `HostSymbols` hands it to the contract check
+(reported as a fallback) and to every lookup (`hostClass`, `hostMethod`). A
+fingerprint matching nothing or more than one class is left unanswered, so the
+feature stays off rather than hooking a guess. Host descriptions record what
+was found as `relocated` lines, and `HostCompatibilityTest` applies them.
+
+The module packs native libraries compressed, so Vector's class loader (which
+reads `base.apk!/lib`) cannot find `libdexkit.so`; it is loaded by path from
+the module's `nativeLibraryDir`.

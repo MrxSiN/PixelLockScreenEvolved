@@ -36,6 +36,23 @@ data class Signature(
     }
 }
 
+/**
+ * How to find a class or method by what it is, on a build that renamed it:
+ * Kotlin numbers its lambdas by position, so a new lambda earlier in a file
+ * renames every one after it, and Google renames methods it rewrites.
+ *
+ * Searched in the host's dex (DexKit) only when the name misses, once per host
+ * build ([HostSymbols]).
+ */
+sealed interface Locator {
+
+    /** The one class nested in [outer] that declares every one of [fields] and [methods]. */
+    data class NestedClass(val outer: String, val fields: Set<String>, val methods: Set<String> = emptySet()) : Locator
+
+    /** The method of the signature's class that calls [method] of [owner]. */
+    data class MethodCalling(val owner: String, val method: String) : Locator
+}
+
 sealed interface Member {
 
     val name: String

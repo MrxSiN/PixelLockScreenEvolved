@@ -19,6 +19,7 @@ object VerifiedBuilds {
         "CP2A.260805.005",
         "CP3A.260905.009",
         "CP3A.261005.005",
+        "CP4A.261105.040.A1",
     )
 
     fun isVerified(build: String): Boolean = build in builds

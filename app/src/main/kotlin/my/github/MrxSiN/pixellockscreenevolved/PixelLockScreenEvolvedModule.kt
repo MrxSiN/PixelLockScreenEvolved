@@ -12,6 +12,7 @@ import io.github.libxposed.api.XposedModuleInterface.PackageReadyParam
 
 import my.github.MrxSiN.pixellockscreenevolved.clock.clockStyles
 import my.github.MrxSiN.pixellockscreenevolved.core.AndroidLogger
+import my.github.MrxSiN.pixellockscreenevolved.core.DexLocator
 import my.github.MrxSiN.pixellockscreenevolved.core.Logger
 import my.github.MrxSiN.pixellockscreenevolved.diagnostics.ContractAnalyzer
 import my.github.MrxSiN.pixellockscreenevolved.diagnostics.Feature
@@ -21,6 +22,7 @@ import my.github.MrxSiN.pixellockscreenevolved.diagnostics.Host
 import my.github.MrxSiN.pixellockscreenevolved.diagnostics.HostContracts
 import my.github.MrxSiN.pixellockscreenevolved.diagnostics.HostDescriptorCapture
 import my.github.MrxSiN.pixellockscreenevolved.diagnostics.HostStartupReport
+import my.github.MrxSiN.pixellockscreenevolved.diagnostics.HostSymbols
 import my.github.MrxSiN.pixellockscreenevolved.diagnostics.ReflectedHostTypes
 import my.github.MrxSiN.pixellockscreenevolved.hook.Hooks
 import my.github.MrxSiN.pixellockscreenevolved.hook.HostPatch
@@ -78,7 +80,7 @@ class PixelLockScreenEvolvedModule : XposedModule() {
      * for its own APK, and that second class loader holds none of the clock
      * classes, so each host is loaded once.
      */
-    private class LoadedHost(val host: Host, val classLoader: ClassLoader, val dataDir: String) {
+    private class LoadedHost(val host: Host, val classLoader: ClassLoader, val dataDir: String, val apk: String) {
         @Volatile var application: Context? = null
         @Volatile var registry: Any? = null
     }
@@ -100,7 +102,7 @@ class PixelLockScreenEvolvedModule : XposedModule() {
         val host = Host.of(param.packageName) ?: return
         if (host in loadedHosts) return
 
-        val loaded = LoadedHost(host, param.classLoader, param.applicationInfo.deviceProtectedDataDir)
+        val loaded = LoadedHost(host, param.classLoader, param.applicationInfo.deviceProtectedDataDir, param.applicationInfo.sourceDir)
         loadedHosts[host] = loaded
         load(loaded, reloaded = false)
     }
@@ -113,6 +115,7 @@ class PixelLockScreenEvolvedModule : XposedModule() {
                 KEY_HOST to loaded.host.packageName,
                 KEY_CLASS_LOADER to loaded.classLoader,
                 KEY_DATA_DIR to loaded.dataDir,
+                KEY_APK to loaded.apk,
                 KEY_APPLICATION to loaded.application,
                 KEY_REGISTRY to loaded.registry,
             )
@@ -125,7 +128,7 @@ class PixelLockScreenEvolvedModule : XposedModule() {
     override fun onHotReloaded(param: HotReloadedParam) {
         (param.savedInstanceState as? List<*>).orEmpty().filterIsInstance<Map<*, *>>().forEach { saved ->
             val host = Host.of(saved[KEY_HOST] as? String ?: return@forEach) ?: return@forEach
-            val loaded = LoadedHost(host, saved[KEY_CLASS_LOADER] as? ClassLoader ?: return@forEach, saved[KEY_DATA_DIR] as String).apply {
+            val loaded = LoadedHost(host, saved[KEY_CLASS_LOADER] as? ClassLoader ?: return@forEach, saved[KEY_DATA_DIR] as String, (saved[KEY_APK] as? String).orEmpty().ifEmpty { (saved[KEY_APPLICATION] as? Context)?.applicationInfo?.sourceDir.orEmpty() }).apply {
                 application = saved[KEY_APPLICATION] as? Context
                 registry = saved[KEY_REGISTRY]
             }
@@ -151,7 +154,10 @@ class PixelLockScreenEvolvedModule : XposedModule() {
         }
         val loadClass = { name: String -> runCatching { Class.forName(name, false, loaded.classLoader) }.getOrNull() }
         val types = ReflectedHostTypes(loadClass)
-        val report = ContractAnalyzer(types).analyze(HostContracts.forRuntime(host, types))
+        // Names this build changed are searched for before any feature looks them up.
+        val missing = HostContracts.locators.filterKeys { !ContractAnalyzer(types).has(it) && it.owner in HostContracts.classesNamed(host) }
+        HostSymbols.current = DexLocator(loaded.apk, moduleApplicationInfo.nativeLibraryDir, File(loaded.dataDir, DexLocator.CACHE_FILE), logger).locate(missing)
+        val report = ContractAnalyzer(types, HostSymbols.current::relocate).analyze(HostContracts.forRuntime(host, types))
         val faults = FeatureFaults(logger)
         val gate = FeatureGate(report, safeMode.disabled(), logger, faults)
         val hooks = XposedHooks(this, logger, hookIds)
@@ -237,6 +243,7 @@ class PixelLockScreenEvolvedModule : XposedModule() {
         const val KEY_HOST = "host"
         const val KEY_CLASS_LOADER = "classLoader"
         const val KEY_DATA_DIR = "dataDir"
+        const val KEY_APK = "apk"
         const val KEY_APPLICATION = "application"
         const val KEY_REGISTRY = "registry"
     }

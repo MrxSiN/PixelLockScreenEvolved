@@ -20,8 +20,8 @@ internal object ViewBounds {
      * Writes [view]'s pixels in its window's into [out], including what a Compose
      * scene hosting it applies ([ComposedViewPlacement]), which its view matrices leave out.
      */
-    fun toWindow(view: View, out: Matrix): Matrix {
-        if (!ComposedViewPlacement.toWindow(view, out)) {
+    fun toWindow(view: View, out: Matrix, beforeDraw: Boolean = false): Matrix {
+        if (!ComposedViewPlacement.toWindow(view, out, beforeDraw)) {
             out.reset()
             view.transformMatrixToGlobal(out)
         }
@@ -36,18 +36,18 @@ internal object ViewBounds {
         return out
     }
 
-    /** Writes [view]'s bounds in its window into [out]. */
-    fun inWindow(view: View, out: RectF): RectF {
+    /** Writes [view]'s bounds in its window into [out]; [beforeDraw] as for [ComposedViewPlacement.toWindow]. */
+    fun inWindow(view: View, out: RectF, beforeDraw: Boolean = false): RectF {
         out.set(0f, 0f, view.width.toFloat(), view.height.toFloat())
-        toWindow(view, viewToWindow).mapRect(out)
+        toWindow(view, viewToWindow, beforeDraw).mapRect(out)
         return out
     }
 
     /** Writes [view]'s bounds in [ancestor]'s own pixels into [out], with every move and scale between them applied and none above. */
-    fun inAncestor(ancestor: View, view: View, out: RectF): RectF {
+    fun inAncestor(ancestor: View, view: View, out: RectF, beforeDraw: Boolean = false): RectF {
         windowToAncestor.reset()
-        toWindow(ancestor, ancestorToWindow).invert(windowToAncestor)
-        toWindow(view, viewToWindow).postConcat(windowToAncestor)
+        toWindow(ancestor, ancestorToWindow, beforeDraw).invert(windowToAncestor)
+        toWindow(view, viewToWindow, beforeDraw).postConcat(windowToAncestor)
         out.set(0f, 0f, view.width.toFloat(), view.height.toFloat())
         viewToWindow.mapRect(out)
         return out

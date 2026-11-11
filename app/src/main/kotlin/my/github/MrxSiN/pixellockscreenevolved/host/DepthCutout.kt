@@ -50,15 +50,23 @@ internal class DepthCutout(cacheDirectory: File) {
         val width = photo.width
         val height = photo.height
         val stretched = Bitmap.createScaledBitmap(mask, width, height, true)
-        val alpha = alphaBytes(stretched)
-        if (stretched !== mask) stretched.recycle()
-
-        val pixels = IntArray(width * height).also { photo.getPixels(it, 0, width, 0, 0, width, height) }
-        for (i in pixels.indices) {
-            val kept = ((alpha[i].toInt() and 0xff) - HAZE).coerceAtLeast(0) * OPAQUE / (OPAQUE - HAZE)
-            pixels[i] = (kept shl 24) or (pixels[i] and 0xffffff)
+        // Written a row at a time into the copy it is handed back as, so the photo is never held as a
+        // whole array of pixels besides: that, and its mask as bytes, were two more photo-sized buffers.
+        val cut = photo.copy(Bitmap.Config.ARGB_8888, true)
+        cut.setHasAlpha(true)
+        val pixels = IntArray(width)
+        val alpha = IntArray(width)
+        for (y in 0 until height) {
+            cut.getPixels(pixels, 0, width, 0, y, width, 1)
+            stretched.getPixels(alpha, 0, width, 0, y, width, 1)
+            for (x in 0 until width) {
+                val kept = ((alpha[x] ushr ALPHA_SHIFT) - HAZE).coerceAtLeast(0) * OPAQUE / (OPAQUE - HAZE)
+                pixels[x] = (kept shl ALPHA_SHIFT) or (pixels[x] and 0xffffff)
+            }
+            cut.setPixels(pixels, 0, width, 0, y, width, 1)
         }
-        return Bitmap.createBitmap(pixels, width, height, Bitmap.Config.ARGB_8888)
+        if (stretched !== mask) stretched.recycle()
+        return cut
     }
 
     /** The mask stored for the photo [key] names, or null. */
@@ -98,6 +106,7 @@ internal class DepthCutout(cacheDirectory: File) {
         private const val MASK_SUFFIX = ".mask"
         private const val KEY_SAMPLE = 32
         private const val OPAQUE = 255
+        private const val ALPHA_SHIFT = 24
 
         /** Mask alpha, out of 255, at and below which a pixel is taken to be the model's haze rather than the subject. */
         private const val HAZE = 26

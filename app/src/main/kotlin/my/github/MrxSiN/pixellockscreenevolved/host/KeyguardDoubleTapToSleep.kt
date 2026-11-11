@@ -51,7 +51,8 @@ internal class KeyguardDoubleTapToSleep(
 
     override fun install(classLoader: ClassLoader) {
         val interactor = Class.forName(INTERACTOR, false, classLoader)
-        val onDoubleClick = interactor.getDeclaredMethod("onDoubleClick")
+        // Named onDoubleTap(Float, Float) from CP4A; found by its goToSleep call ([HostSymbols]).
+        val onDoubleClick = interactor.hostMethod(INTERACTOR, "onDoubleClick")
         val enabled = interactor.field("isDoubleTapHandlingEnabled")
         val context = interactor.field("context")
         val state = Class.forName(READONLY_STATE_FLOW, false, classLoader).field("\$\$delegate_0")
@@ -72,10 +73,13 @@ internal class KeyguardDoubleTapToSleep(
             setValue.invoke(flag, DoubleTapToSleep.isWanted(context.get(target) as Context))
         }
         // After SystemUI's own check of the flag: only a double tap that turned the screen off is drawn around.
-        hooks.after(onDoubleClick) { target, _ ->
+        hooks.after(onDoubleClick) { target, args ->
             if (getValue.invoke(state.get(enabled.get(target))) != true) return@after
             wake.onSlept()
-            if (!tapX.isNaN()) reveal.remember(tapX, tapY)
+            // onDoubleTap(x, y) from CP4A hands the point over itself; before it, the detector callback did.
+            val x = args.getOrNull(0) as? Float ?: tapX
+            val y = args.getOrNull(1) as? Float ?: tapY
+            if (!x.isNaN()) reveal.remember(x, y)
         }
 
         runCatching {

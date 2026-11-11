@@ -51,7 +51,7 @@ class HostCompatibilityTest {
     @Test
     fun everyContractIsMetOnEveryRecordedBuild() {
         val unmet = recorded.flatMap { described ->
-            ContractAnalyzer(described).analyze(HostContracts.forRuntime(described.host, described)).results
+            ContractAnalyzer(described, described.relocations::relocate).analyze(HostContracts.forRuntime(described.host, described)).results
                 .filterNot(ContractResult::isMet)
                 .map { "${described.build} ${described.host.title}: ${it.contract.signature.describe()} ${it.outcome}" }
         }
@@ -62,7 +62,7 @@ class HostCompatibilityTest {
     @Test
     fun everyFeatureIsCompatibleOnEveryRecordedBuild() {
         for (described in recorded) {
-            val report = ContractAnalyzer(described).analyze(HostContracts.forRuntime(described.host, described))
+            val report = ContractAnalyzer(described, described.relocations::relocate).analyze(HostContracts.forRuntime(described.host, described))
             for (feature in Feature.of(described.host)) {
                 assertTrue(
                     "${feature.title} is not compatible with ${described.build}",
@@ -83,6 +83,6 @@ class HostCompatibilityTest {
         }
         val broken = contract.copy(signature = contract.signature.copy(member = renamed), alternatives = emptyList())
 
-        assertFalse(ContractAnalyzer(described).analyze(listOf(broken)).results.single().isMet)
+        assertFalse(ContractAnalyzer(described, described.relocations::relocate).analyze(listOf(broken)).results.single().isMet)
     }
 }

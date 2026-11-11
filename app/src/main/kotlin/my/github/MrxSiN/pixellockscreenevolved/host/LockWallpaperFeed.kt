@@ -9,6 +9,7 @@ import android.service.wallpaper.WallpaperService
 
 import java.lang.ref.WeakReference
 import java.util.concurrent.CopyOnWriteArrayList
+import java.util.concurrent.atomic.AtomicBoolean
 
 import my.github.MrxSiN.pixellockscreenevolved.core.Logger
 import my.github.MrxSiN.pixellockscreenevolved.hook.Hooks
@@ -71,15 +72,46 @@ internal class LockWallpaperFeed(
      * lock screen breathes the wallpaper with as it comes and goes, for
      * whatever should not follow that breath.
      */
-    fun place(screen: WallpaperPlacement.Size, surface: WallpaperPlacement.Size, zoomed: Boolean = true): WallpaperPlacement.Placed =
-        WallpaperPlacement.place(
+    fun place(screen: WallpaperPlacement.Size, surface: WallpaperPlacement.Size, zoomed: Boolean = true): WallpaperPlacement.Placed {
+        val atZoom = if (zoomed) zoom else RESTING_ZOOM
+        lastPlaced?.let { if (it.matches(screen, surface, crop, scroll, atZoom, zoomScales)) return it.placed }
+        val placed = WallpaperPlacement.place(
             screen = screen,
             surface = surface,
             crop = crop ?: WallpaperPlacement.Crop(0, 0, surface.width, surface.height),
             scroll = scroll,
-            zoom = if (zoomed) zoom else RESTING_ZOOM,
+            zoom = atZoom,
             zoomScales = zoomScales,
         )
+        lastPlaced = LastPlaced(screen, surface, crop, scroll, atZoom, zoomScales, placed)
+        return placed
+    }
+
+    /**
+     * The last placement worked out and what it was worked out from: the subject is placed before
+     * every frame it is drawn, and the placement changes only as the wallpaper scrolls or zooms.
+     */
+    private class LastPlaced(
+        val screen: WallpaperPlacement.Size,
+        val surface: WallpaperPlacement.Size,
+        val crop: WallpaperPlacement.Crop?,
+        val scroll: WallpaperPlacement.Scroll,
+        val zoom: Float,
+        val zoomScales: WallpaperPlacement.ZoomScales,
+        val placed: WallpaperPlacement.Placed,
+    ) {
+        fun matches(
+            screen: WallpaperPlacement.Size,
+            surface: WallpaperPlacement.Size,
+            crop: WallpaperPlacement.Crop?,
+            scroll: WallpaperPlacement.Scroll,
+            zoom: Float,
+            zoomScales: WallpaperPlacement.ZoomScales,
+        ): Boolean = screen == this.screen && surface == this.surface && crop === this.crop && scroll === this.scroll &&
+            zoom == this.zoom && zoomScales === this.zoomScales
+    }
+
+    private var lastPlaced: LastPlaced? = null
 
     /** How much the wallpaper dims its own photo, as by battery saver or dark theme, from 0 to 1. */
     fun dim(): Float = engine.get()?.let(dimOf) ?: 0f
@@ -103,11 +135,7 @@ internal class LockWallpaperFeed(
         hooks.after(api.zoomChanged) { engine, args ->
             val owner = engine ?: return@after
             if (!api.engineType.isInstance(owner) || !isLockScreen(api, owner)) return@after
-            val value = args[0] as Float
-            main.post {
-                zoom = value
-                placementChanged()
-            }
+            postZoom(args[0] as Float)
         }
 
         hooks.after(api.offsetsChanged) { engine, args ->
@@ -140,10 +168,29 @@ internal class LockWallpaperFeed(
             listeners.forEach { it.onPhoto(photo, surface, key, context) }
             main.post {
                 crop = newCrop
-                zoom = engineZoom
                 placementChanged()
             }
+            postZoom(engineZoom)
         }
+    }
+
+    /** The engine's latest zoom, waiting to be taken on the main thread ([applyZoom]). */
+    @Volatile private var pendingZoom = 1f
+    private val zoomPosted = AtomicBoolean(false)
+
+    /**
+     * The zoom changes on every frame the lock screen comes or goes, so it is handed to the main
+     * thread through one task, which takes the latest value, rather than a new task each frame.
+     */
+    private val applyZoom = Runnable {
+        zoomPosted.set(false)
+        zoom = pendingZoom
+        placementChanged()
+    }
+
+    private fun postZoom(value: Float) {
+        pendingZoom = value
+        if (zoomPosted.compareAndSet(false, true)) main.post(applyZoom)
     }
 
     private fun placementChanged() = listeners.forEach(Listener::onPlacementChanged)

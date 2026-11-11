@@ -17,7 +17,10 @@ internal class KeyguardSmartspaceApi(
     private val clocks: ClockPluginApi,
 ) {
 
-    private val sectionType = load("com.android.systemui.keyguard.ui.view.layout.sections.SmartspaceSection", classLoader)
+    /** The legacy constraint section; its members are gone from the composed lock screen, where nothing reads them. */
+    private val sectionType = runCatching {
+        load("com.android.systemui.keyguard.ui.view.layout.sections.SmartspaceSection", classLoader)
+    }.getOrNull()
 
     /**
      * Runs after the clock section in every keyguard layout pass, or null on a
@@ -27,13 +30,13 @@ internal class KeyguardSmartspaceApi(
      * still lays its rows out as before.
      */
     val applyConstraints: Method? = runCatching {
-        sectionType.getDeclaredMethod(
+        sectionType!!.getDeclaredMethod(
             "applyConstraints",
             load("androidx.constraintlayout.widget.ConstraintSet", classLoader),
         )
     }.getOrNull()
 
-    private val previewBinderType = load(PREVIEW_BINDER, classLoader)
+    private val previewBinderType = classLoader.hostClass(PREVIEW_BINDER)
 
     private val composedRowType = runCatching {
         load("$SMARTSPACE_ELEMENTS\$DWARowElement", classLoader)
@@ -53,8 +56,8 @@ internal class KeyguardSmartspaceApi(
         .firstOrNull { it.name == "emit" && it.parameterCount == 2 }
         ?: throw NoSuchMethodException("$PREVIEW_BINDER.emit")
 
-    private val sectionDateView = runCatching { sectionType.field("dateView") }.getOrNull()
-    private val sectionClockViewModel = sectionType.field("keyguardClockViewModel")
+    private val sectionDateView = runCatching { sectionType!!.field("dateView") }.getOrNull()
+    private val sectionClockViewModel = runCatching { sectionType!!.field("keyguardClockViewModel") }.getOrNull()
 
     private val previewLargeDateView = previewBinderType.field("\$largeDateView")
     private val previewSmallDateView = previewBinderType.field("\$smallDateView")
@@ -83,10 +86,10 @@ internal class KeyguardSmartspaceApi(
     }
 
     /** Id of the clock the live section shows now, or null while none is. */
-    fun sectionClockId(section: Any): String? = clockId(sectionClockViewModel.get(section))
+    fun sectionClockId(section: Any): String? = clockId(sectionClockViewModel?.get(section))
 
     fun isLargeClockVisible(section: Any): Boolean =
-        sectionClockViewModel.get(section)?.let(clockViewModels::isLargeClockVisible) ?: true
+        sectionClockViewModel?.get(section)?.let(clockViewModels::isLargeClockVisible) ?: true
 
     /** Id of the clock the preview shows, or null while none is. */
     fun previewClockId(binder: Any): String? {

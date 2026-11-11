@@ -13,7 +13,7 @@ the flag on and owns nothing else. Signatures are in
 | Touch observation, double-tap timing and slop | SystemUI: `LockscreenTouchHandling`, Compose `detectTapGestures` (platform `ViewConfiguration` values) |
 | Empty-space test | SystemUI: Compose hit testing. The detector sits on a `Box` around the lock screen's elements, so a child that consumes a tap (notification, media, smartspace, shortcut, UDFPS, indication) keeps it |
 | Accidental-touch rejection | SystemUI: `FalsingManager.isFalseDoubleTap()` before `onDoubleClick` |
-| Sleep | SystemUI: `KeyguardTouchHandlingInteractor.onDoubleClick()`, then `PowerManager.goToSleep(uptimeMillis)`; system policy runs the normal screen-off and AOD transitions |
+| Sleep | SystemUI: `KeyguardTouchHandlingInteractor.onDoubleClick()` (`onDoubleTap(Float, Float)` from `CP4A.261105.040.A1`, found by its `goToSleep` call), then `PowerManager.goToSleep(uptimeMillis)`; system policy runs the normal screen-off and AOD transitions |
 | On/off | Stock secure `double_tap_to_sleep` (system default 1). Google's Settings switch exists but is marked unsupported; the module's row in Wallpaper & style → Lock screen writes the same key |
 | Flag | Module: `host/KeyguardDoubleTapToSleep.kt` sets `isDoubleTapHandlingEnabled` just before each `onDoubleClick` |
 | Screen-off shape | Module: `host/SleepReveal.kt` answers each step of `LiftReveal`, `PowerButtonReveal` and `CircleReveal` (whichever SystemUI picked from how the screen last woke) on SystemUI's `LightRevealScrim` with a circle closing on the tap, as `CircleReveal` (whose constructor R8 removed) draws the AOD tap wake. Ported from Pixel Launcher Evolved's `SleepRevealScrim` |

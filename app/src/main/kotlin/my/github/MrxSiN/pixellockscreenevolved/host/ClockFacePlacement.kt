@@ -131,9 +131,9 @@ internal class ClockFacePlacement(
             if (onDrawnScale != null) BeforeEachDraw.follow(view) { reportDrawnScale(view, dozeFraction.now()) }
             return
         }
-        val pin = { pinComposedTop(view, dozeFraction.now()) }
-        BeforeEachDraw.follow(view, pin)
-        val holderMoved = View.OnLayoutChangeListener { _, _, _, _, _, _, _, _, _ -> pin() }
+        BeforeEachDraw.follow(view) { pinComposedTop(view, dozeFraction.now(), beforeDraw = true) }
+        // Compose lays its holders out while drawing, so a pin made here reads where they are afresh.
+        val holderMoved = View.OnLayoutChangeListener { _, _, _, _, _, _, _, _, _ -> pinComposedTop(view, dozeFraction.now(), beforeDraw = false) }
         view.addOnAttachStateChangeListener(object : View.OnAttachStateChangeListener {
             private var holders = emptyList<View>()
 
@@ -153,11 +153,11 @@ internal class ClockFacePlacement(
      * Moves [view] so its top, as drawn with the scene's scale of the clock
      * ([ViewBounds]), lands on the large clock's awake top. As [doze] advances,
      * removes that correction so the scene's movable element alone owns the
-     * always-on position.
+     * always-on position. [beforeDraw] as for [ViewBounds.inWindow].
      */
-    private fun pinComposedTop(view: View, doze: Float) {
+    private fun pinComposedTop(view: View, doze: Float, beforeDraw: Boolean) {
         if (view.height == 0) return
-        ViewBounds.inWindow(view, drawn)
+        ViewBounds.inWindow(view, drawn, beforeDraw)
         val scale = drawn.height() / view.height
         if (scale <= 0f) return
         if (doze == 0f) reportRestingScale(view, scale)

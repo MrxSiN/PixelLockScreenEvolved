@@ -4,7 +4,7 @@ import android.animation.ArgbEvaluator
 import android.content.Context
 import android.view.View
 
-import java.util.WeakHashMap
+import java.lang.ref.WeakReference
 
 import my.github.MrxSiN.pixellockscreenevolved.clock.AdjustableWidthClockFace
 import my.github.MrxSiN.pixellockscreenevolved.clock.ClockFace
@@ -236,9 +236,20 @@ internal object ModuleClockFaceTag
  */
 internal object ModuleClockFaces {
 
-    private val faces = WeakHashMap<View, FaceSize>()
+    /** A face tracked without keeping it alive. */
+    private class Tracked(view: View, var size: FaceSize) {
+        val view = WeakReference(view)
+    }
 
-    fun track(view: View, size: FaceSize) = synchronized(faces) { faces[view] = size }
+    // A list walked by index: [largeIn] runs before every frame the lock screen draws, and a map's walk
+    // allocates an iterator each time.
+    private val faces = ArrayList<Tracked>()
+
+    fun track(view: View, size: FaceSize) = synchronized(faces) {
+        faces.removeAll { it.view.get() == null }
+        val tracked = faces.firstOrNull { it.view.get() === view }
+        if (tracked != null) tracked.size = size else faces += Tracked(view, size)
+    }
 
     /** Scratch for [largeIn], under the lock. */
     private val location = IntArray(2)
@@ -247,10 +258,11 @@ internal object ModuleClockFaces {
     fun largeIn(root: View): View? = synchronized(faces) {
         var highest: View? = null
         var highestTop = 0
-        // Walked without a list or a lambda: it runs every frame the lock screen draws.
-        for (entry in faces.entries) {
-            val view = entry.key ?: continue
-            if (entry.value != FaceSize.LARGE || !view.isAttachedToWindow || !view.isShown || view.rootView !== root) continue
+        for (i in faces.indices) {
+            val tracked = faces[i]
+            if (tracked.size != FaceSize.LARGE) continue
+            val view = tracked.view.get() ?: continue
+            if (!view.isAttachedToWindow || !view.isShown || view.rootView !== root) continue
             view.getLocationOnScreen(location)
             if (highest == null || location[1] < highestTop) {
                 highest = view
@@ -271,9 +283,10 @@ internal object ModuleClockFaces {
     fun smallFaceHeightDp(): Float = synchronized(faces) {
         var shown = 0f
         var waiting = 0f
-        for (entry in faces.entries) {
-            val view = entry.key ?: continue
-            if (entry.value != FaceSize.SMALL) continue
+        for (i in faces.indices) {
+            val tracked = faces[i]
+            if (tracked.size != FaceSize.SMALL) continue
+            val view = tracked.view.get() ?: continue
             val density = view.resources.displayMetrics.density
             if (view.isAttachedToWindow) {
                 if (!view.isInNotificationShade()) continue

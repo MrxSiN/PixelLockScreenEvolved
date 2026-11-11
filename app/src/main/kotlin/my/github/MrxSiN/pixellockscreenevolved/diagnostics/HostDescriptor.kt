@@ -16,7 +16,11 @@ package my.github.MrxSiN.pixellockscreenevolved.diagnostics
  *   field availableClocks
  *   method registerListeners()
  * absent com.android.systemui.keyguard.ui.view.layout.sections.transitions.ClockSizeTransition
+ * relocated <owner>#onDoubleClick()<TAB><owner>#onDoubleTap(java.lang.Float,java.lang.Float)
  * ```
+ *
+ * `relocated` lines are what DexKit found renamed on that build
+ * ([Relocations]); the classes they point at are described too.
  */
 object HostDescriptor {
 
@@ -24,10 +28,10 @@ object HostDescriptor {
      * Describes [classes] as [types] sees them, with every class above each,
      * sorted so that two captures of one build are the same text.
      */
-    fun write(build: String, host: Host, types: HostTypes, classes: Collection<String>): String {
+    fun write(build: String, host: Host, types: HostTypes, classes: Collection<String>, relocations: Relocations = Relocations()): String {
         val described = sortedMapOf<String, HostType>()
         val absent = sortedSetOf<String>()
-        for (name in classes) {
+        for (name in classes + relocations.found.values.map(Signature::owner)) {
             val type = types.find(name)
             if (type == null) absent += name else type.hierarchy().forEach { described.putIfAbsent(it.name, it) }
         }
@@ -42,6 +46,7 @@ object HostDescriptor {
                 runCatching { type.methods.map(::describe).sorted() }.getOrDefault(emptyList()).forEach { appendLine("  $METHOD $it") }
             }
             absent.forEach { appendLine("$ABSENT $it") }
+            relocations.format().forEach { appendLine("$RELOCATED $it") }
         }
     }
 
@@ -51,6 +56,7 @@ object HostDescriptor {
         var host: Host? = null
         val classes = mutableListOf<ClassRecord>()
         val absent = mutableSetOf<String>()
+        val relocated = mutableListOf<String>()
 
         for (line in text.lineSequence().map(String::trim).filter { it.isNotEmpty() && !it.startsWith("#") }) {
             val keyword = line.substringBefore(' ')
@@ -62,10 +68,11 @@ object HostDescriptor {
                 FIELD -> requireNotNull(classes.lastOrNull()) { "A field outside a class: $line" }.fields += rest
                 METHOD -> requireNotNull(classes.lastOrNull()) { "A method outside a class: $line" }.methods += method(rest)
                 ABSENT -> absent += rest
+                RELOCATED -> relocated += rest
                 else -> error("Unknown line in a host description: $line")
             }
         }
-        return DescribedHost(build, requireNotNull(host) { "A host description names no host" }, classes, absent)
+        return DescribedHost(build, requireNotNull(host) { "A host description names no host" }, classes, absent, Relocations.parse(relocated))
     }
 
     private fun describe(method: MethodShape): String = method.parameters.joinToString(",", "${method.name}(", ")")
@@ -91,6 +98,8 @@ object HostDescriptor {
         val host: Host,
         records: List<ClassRecord>,
         private val absent: Set<String>,
+        /** What DexKit found renamed on this build, as the host found it. */
+        val relocations: Relocations,
     ) : HostTypes {
 
         private val classes: Map<String, HostType> = records.associate { it.name to Described(it) }
@@ -117,4 +126,5 @@ object HostDescriptor {
     private const val FIELD = "field"
     private const val METHOD = "method"
     private const val ABSENT = "absent"
+    private const val RELOCATED = "relocated"
 }

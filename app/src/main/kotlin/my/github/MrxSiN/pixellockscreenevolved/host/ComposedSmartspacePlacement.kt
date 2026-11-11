@@ -53,20 +53,21 @@ internal class ComposedSmartspacePlacement {
     /** Starts keeping [card] under the large clock, once per card, and room for it there ([LockScreenFloor]). */
     fun followCard(card: View) {
         LockScreenFloor.followCard(card)
-        follow(card) { placeCard(card) }
+        follow(card) { beforeDraw -> placeCard(card, beforeDraw) }
     }
 
     /** Starts hiding the date and weather [row] beside a large clock that writes its own date, once per row. */
     fun followRow(row: View) = follow(row) { placeRow(row) }
 
-    private fun follow(view: View, place: () -> Unit) {
+    /** Places [view] before each draw, on the frame after, and once now; [place] is told whether it runs before a draw. */
+    private fun follow(view: View, place: (beforeDraw: Boolean) -> Unit) {
         if (!followed.add(view)) return
-        val frames = SceneFrames(view, place)
+        val frames = SceneFrames(view) { place(false) }
         BeforeEachDraw.follow(view) {
-            place()
+            place(true)
             frames.start()
         }
-        view.post(place)
+        view.post { place(false) }
     }
 
     private fun placeRow(row: View) {
@@ -84,8 +85,8 @@ internal class ComposedSmartspacePlacement {
         }
     }
 
-    private fun placeCard(card: View) {
-        moveUnder(card, ModuleClockFaces.largeIn(card.rootView), LockScreenInsets.cardGap(card.context))
+    private fun placeCard(card: View, beforeDraw: Boolean) {
+        moveUnder(card, ModuleClockFaces.largeIn(card.rootView), LockScreenInsets.cardGap(card.context), beforeDraw)
     }
 
     /** Fades the date [row] out, then hides it, or shows it and fades it in, as the clock beside it changes size. */
@@ -103,9 +104,12 @@ internal class ComposedSmartspacePlacement {
         }
     }
 
-    /** Moves [view] so its top sits [gap] pixels under [clock]'s bottom, in window pixels, or back to its place where there is none. */
-    private fun moveUnder(view: View, clock: View?, gap: Int) {
-        val target = if (clock == null || view.height == 0) 0f else offset(view, ViewBounds.inWindow(clock, clockBounds).bottom + gap)
+    /**
+     * Moves [view] so its top sits [gap] pixels under [clock]'s bottom, in window pixels, or back to its place where
+     * there is none; [beforeDraw] as for [ViewBounds.inWindow].
+     */
+    private fun moveUnder(view: View, clock: View?, gap: Int, beforeDraw: Boolean) {
+        val target = if (clock == null || view.height == 0) 0f else offset(view, ViewBounds.inWindow(clock, clockBounds, beforeDraw).bottom + gap)
         val moved = glide(view, target)
         if (view.translationY != moved) view.translationY = moved
         (view.parent as? ViewGroup)?.takeIf { it.clipChildren }?.clipChildren = false

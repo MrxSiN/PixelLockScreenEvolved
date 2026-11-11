@@ -2,7 +2,9 @@ package my.github.MrxSiN.pixellockscreenevolved.host
 
 import android.graphics.Matrix
 import android.view.View
+import android.view.animation.AnimationUtils
 
+import java.lang.ref.WeakReference
 import java.lang.reflect.Field
 import java.lang.reflect.Method
 
@@ -52,17 +54,36 @@ internal object ComposedViewPlacement {
     private val globalToHolder = Matrix()
 
     /**
+     * Holder transforms read before this frame's draw, for the next caller that asks before the
+     * same draw. The pre-draw listeners of one window run back to back, and nothing moves a holder
+     * between them, so the face's holder, asked for by its pin, its depth layer and the card under
+     * it, is read once a frame rather than once each. Anything asked at another time of the frame
+     * reads it afresh: the scene lays holders out after pre-draw, while drawing.
+     */
+    private val readBeforeDraw = Array(READ_BEFORE_DRAW_SLOTS) { ReadBeforeDraw() }
+
+    private class ReadBeforeDraw {
+        var holder = WeakReference<View>(null)
+        var frameMillis = -1L
+        val toWindow = Matrix()
+    }
+
+    private const val READ_BEFORE_DRAW_SLOTS = 4
+
+    /**
      * Writes [view]'s pixels in its window's into [out], with every graphics
      * layer of the Compose scene around it applied; false, leaving [out] as it
      * was, when [view] is not hosted by Compose, or its coordinates cannot be
-     * read, where its view matrices are the whole story. On the main thread.
+     * read, where its view matrices are the whole story. On the main thread;
+     * [beforeDraw] only from a pre-draw listener, which may then reuse what an
+     * earlier listener of the same frame read.
      */
-    fun toWindow(view: View, out: Matrix): Boolean {
+    fun toWindow(view: View, out: Matrix, beforeDraw: Boolean = false): Boolean {
         var holder: View? = view
         while (holder != null && !isHolder(holder.javaClass)) holder = holder.parent as? View
         if (holder == null) return false
         val placed = try {
-            holderToWindow(holder)
+            if (beforeDraw) holderToWindowBeforeDraw(holder) else holderToWindow(holder)
         } catch (_: Throwable) {
             false
         }
@@ -75,6 +96,28 @@ internal object ComposedViewPlacement {
         view.transformMatrixToGlobal(out)
         out.postConcat(globalToHolder)
         out.postConcat(holderToWindow)
+        return true
+    }
+
+    /** [holderToWindow], reused from a read made earlier before the same frame's draw. */
+    private fun holderToWindowBeforeDraw(holder: View): Boolean {
+        val frame = AnimationUtils.currentAnimationTimeMillis()
+        var slot = readBeforeDraw[0]
+        for (each in readBeforeDraw) {
+            if (each.holder.get() === holder) {
+                slot = each
+                break
+            }
+            if (each.frameMillis < slot.frameMillis) slot = each
+        }
+        if (slot.frameMillis == frame && slot.holder.get() === holder) {
+            holderToWindow.set(slot.toWindow)
+            return true
+        }
+        if (!holderToWindow(holder)) return false
+        if (slot.holder.get() !== holder) slot.holder = WeakReference(holder)
+        slot.frameMillis = frame
+        slot.toWindow.set(holderToWindow)
         return true
     }
 

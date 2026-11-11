@@ -31,6 +31,7 @@ monthly build. The module never assumes a member is there.
 | Part | Where | What it does |
 |---|---|---|
 | Contracts | `diagnostics/HostContracts.kt` | Every host class, method and field each feature looks up, per host, with the alternatives it falls back to and whether the feature can do without it. |
+| Renamed symbols | `diagnostics/HostContracts.kt` (`locators`), `core/DexLocator.kt`, `diagnostics/HostSymbols.kt` | Names a build tends to change (numbered Kotlin lambdas, methods Google rewrites) carry a fingerprint: the nested class holding given fields, or the method calling a given framework method. When the name misses, DexKit finds it in the host APK once per host build and caches it; the contract check counts it as a fallback and every lookup (`hostClass`, `hostMethod`) uses it. Zero or several matches leave the feature off. |
 | Contract check | `diagnostics/ContractAnalyzer.kt` | Looks each contract up before any patch installs, walking the class and its superclasses as the features do. It reads the host through `HostTypes`, so the same check runs on a phone and on a desk. |
 | Feature gate | `diagnostics/FeatureGate.kt` | A feature missing a required member never installs its hooks. |
 | Feature faults | `diagnostics/FeatureFaults.kt`, `hook/FeatureHooks.kt` | A feature whose hooks keep throwing is stopped alone; the rest carry on. |
@@ -89,7 +90,7 @@ diagnostics/                   host contracts, their check, per-feature gating a
 safemode/                      crash-loop detection and the Safe Mode switch
 depth/                         the app side of the depth effect: subject segmentation
 motion/                        springs and the system's own animation timing
-core/                          logging
+core/                          logging, DexKit lookups of renamed host symbols
 ```
 
 Every SystemUI clock plugin class is named in `host/ClockPluginApi.kt` alone,

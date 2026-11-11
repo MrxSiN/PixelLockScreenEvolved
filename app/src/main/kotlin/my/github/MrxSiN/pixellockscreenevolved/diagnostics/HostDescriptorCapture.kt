@@ -34,7 +34,7 @@ class HostDescriptorCapture(
             runCatching {
                 // Written aside and moved in whole, so a reader never sees half of it.
                 val written = File(file.path + ".tmp")
-                written.writeText(HostDescriptor.write(Build.ID, host, types, HostContracts.classesNamed(host)))
+                written.writeText(HostDescriptor.write(Build.ID, host, types, HostContracts.classesNamed(host), HostSymbols.current))
                 check(written.renameTo(file)) { "Could not move $written to $file" }
                 logger.info("Described ${host.packageName} on ${Build.ID} in $file")
             }.onFailure { logger.warn("Could not describe ${host.packageName}", it) }

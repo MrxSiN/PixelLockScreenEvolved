@@ -8,6 +8,13 @@ import java.lang.reflect.Method
 import java.lang.reflect.Proxy
 
 /**
+ * The clock sheet's binding coroutine, `ClockFloatingSheetBinder.bind`'s body.
+ * Kotlin numbers it by position, so a build that renumbered it is searched for
+ * by what it holds ([my.github.MrxSiN.pixellockscreenevolved.diagnostics.HostSymbols]).
+ */
+internal const val SHEET_BINDING = "com.android.customization.picker.clock.ui.binder.ClockFloatingSheetBinder\$bind\$13\$1"
+
+/**
  * Wallpaper & style's clock sheet and its Material slider, reached through the
  * picker's class loader.
  *
@@ -18,7 +25,7 @@ import java.lang.reflect.Proxy
  */
 internal class PickerSliderApi(classLoader: ClassLoader) {
 
-    private val sheetBinding = load(SHEET_BINDING, classLoader)
+    private val sheetBinding = classLoader.hostClass(SHEET_BINDING)
 
     /**
      * Binds the whole clock sheet: every tab's content, once per sheet.
@@ -151,7 +158,6 @@ internal class PickerSliderApi(classLoader: ClassLoader) {
 
     private companion object {
         const val SHEET_BINDER = "com.android.customization.picker.clock.ui.binder.ClockFloatingSheetBinder"
-        const val SHEET_BINDING = "$SHEET_BINDER\$bind\$13\$1"
 
         const val SIZE_HEIGHT = 2
 

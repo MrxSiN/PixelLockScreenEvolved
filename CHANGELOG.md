@@ -1,5 +1,50 @@
 # Changelog
 
+## 0.0.8 — 2026-11-11
+
+### Fixed
+
+- Android 17 QPR1 November build (`CP4A.261105.040.A1`): three features had
+  switched themselves off. Wallpaper & style renumbered the clock sheet's
+  binding (`ClockFloatingSheetBinder$bind$13$1` is now `$bind$16$1`), which
+  took the clock size slider and the Position tab with it; SystemUI renamed
+  `onDoubleClick()` to `onDoubleTap(Float, Float)`, which took double tap to
+  turn off screen; and the composed lock screen's `SmartspaceSection` lost
+  its fields, which turned off the date row and smartspace placement although
+  only the older constraint layout read them.
+- Helper processes such as SystemUI's `:screenshot` no longer load the
+  module; the freezer kept killing them.
+
+### Added
+
+- Renamed host members are found again by what they are, with DexKit
+  (2.3.0): the nested class holding given fields, or the method calling a
+  given framework method. Searched only when a name misses, once per host
+  build (100–200 ms), and cached; a fingerprint matching zero or several
+  candidates leaves the feature off rather than guessing. The compatibility
+  page shows such a member as found by fallback.
+- `CP4A.261105.040.A1` recorded and verified; host descriptions now record
+  what was found renamed, and the CI compatibility check applies it.
+
+### Changed
+
+- Double tap to turn off screen takes the tap point from `onDoubleTap` where
+  SystemUI passes it, so the closing circle no longer depends on a numbered
+  Compose lambda there.
+- Lighter on SystemUI: the lock screen photo the depth effect keeps for a
+  re-run is held packed rather than as a screen-sized bitmap, the cut-out is
+  written a row at a time, the wallpaper placement is reused while nothing
+  moves, the zoom reaches the main thread through one task instead of one per
+  frame, holder transforms are read once per frame, and an unchanged
+  compatibility snapshot is not written again.
+
+### Removed
+
+- One-off reports of the 0.0.6 performance pass (`BEHAVIOR_PARITY.md`,
+  `FRAME_PATH_AUDIT.md`, `MIGRATION.md`, `PERFORMANCE.md`,
+  `SEGMENTATION_BENCHMARK.md`, `REWRITE_ARCHITECTURE.md`, `docs/perf/`);
+  they remain in the history at `8292fb8`.
+
 ## 0.0.6 — 2026-10-09
 
 ### Added
@@ -85,7 +130,7 @@
 - The lock screen's per-frame work (the depth effect's placement, the large
   clock's pin, the smartspace placement) allocates about 4 objects per
   callback instead of about 48, and the clock faces' digits draw without
-  allocating. Measurements are in `PERFORMANCE.md`.
+  allocating.
 
 ### Fixed
 

@@ -23,8 +23,11 @@ class SnapshotStore(private val resolver: ContentResolver) {
         Settings.Secure.getString(resolver, snapshotKey(host))
             ?.let { runCatching { decode(JSONObject(it)) }.getOrNull() }
 
+    /** Stores [snapshot], unless the same one is stored already, as after a restart on the same boot. */
     fun write(snapshot: HostSnapshot) {
-        Settings.Secure.putString(resolver, snapshotKey(snapshot.host), encode(snapshot).toString())
+        val key = snapshotKey(snapshot.host)
+        val json = encode(snapshot).toString()
+        if (Settings.Secure.getString(resolver, key) != json) Settings.Secure.putString(resolver, key, json)
     }
 
     /** Asks [host] to carry out [answer] for what its Safe Mode holds off. */

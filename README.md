@@ -20,8 +20,8 @@ Wallpaper & style → **Clock** → iOS, Stacked, Numerals, Analog or Split, bes
 ---
 
 > [!NOTE]
-> **v0.0.6 is fully compatible with the latest Android release: Android 17 QPR1
-> (October 2026, `CP3A.261005.005`), tested on a Pixel 8 Pro.** QPR1 moved the
+> **v0.0.8 is fully compatible with the latest Android release: Android 17 QPR1
+> (November 2026, `CP4A.261105.040.A1`), tested on a Pixel 8 Pro.** QPR1 moved the
 > lock screen into a Compose scene and dropped a number of older clock APIs;
 > every feature in this module runs on that scene, and the compatibility report
 > in Wallpaper & style shows each hook it depends on resolving on your own build.
@@ -272,12 +272,15 @@ contract moved when it is not.
 
 | Build | Android | Device | Status |
 |---|---|---|---|
+| `CP4A.261105.040.A1` | 17 QPR1 (November 2026) | Pixel 8 Pro | Verified; every contract checked in CI, three renamed members located with DexKit |
 | `CP3A.261005.005` | 17 QPR1 (October 2026) | Pixel 8 Pro | Verified; every contract checked in CI |
 | `CP3A.260905.009` | 17 QPR1 (September 2026) | Pixel 8 Pro | Verified; recorded before the double tap contracts |
 | `CP2A.260805.005` | 17 (August 2026) | Pixel 8 Pro | Verified before build descriptions were recorded |
 
-Any other build still runs: each feature is checked against the host on start,
-and one whose host API moved switches itself off and says so in
+Any other build still runs: each feature is checked against the host on start.
+A host member that monthly builds tend to rename (a numbered Kotlin lambda, a
+rewritten method) is found again by what it is, with DexKit, once per build.
+A feature whose host API moved beyond that switches itself off and says so in
 **Compatibility & diagnostics** while the rest keep working.
 
 Known limits:

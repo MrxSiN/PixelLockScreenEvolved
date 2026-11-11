@@ -24,6 +24,17 @@ that most are stored in half precision. The MIT License is in
 `app/src/main/assets/models/BiRefNet-LICENSE.txt` and ships inside the APK next
 to the model.
 
+## DexKit
+
+Host classes and methods a build renamed are found with DexKit
+(`org.luckypray:dexkit`), Copyright (c) LuckyPray, from
+https://github.com/LuckyPray/DexKit, licensed under the GNU Lesser General
+Public License v3.0. It is linked unmodified, as a separate library.
+
+DexKit passes its queries with FlatBuffers for Java
+(`com.google.flatbuffers:flatbuffers-java`), Copyright Google Inc., licensed
+under the Apache License 2.0.
+
 ## ONNX Runtime
 
 The depth effect runs the model with ONNX Runtime

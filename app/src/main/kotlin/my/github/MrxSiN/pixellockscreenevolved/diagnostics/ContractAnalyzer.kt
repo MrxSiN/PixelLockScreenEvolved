@@ -8,15 +8,22 @@ package my.github.MrxSiN.pixellockscreenevolved.diagnostics
  * because that is how the features themselves look members up: a member the
  * host declares privately on a base class is one a feature can reach.
  */
-class ContractAnalyzer(private val types: HostTypes) {
+class ContractAnalyzer(
+    private val types: HostTypes,
+    /** A signature as this build renamed it ([HostSymbols]); found that way, a contract is met by fallback. */
+    private val relocate: (Signature) -> Signature = { it },
+) {
 
     fun analyze(contracts: List<HostContract>): ContractReport =
         ContractReport(contracts.map(::check))
 
+    /** Whether the host has [signature] under the name the sources use. */
+    fun has(signature: Signature): Boolean = find(signature)
+
     private fun check(contract: HostContract): ContractResult {
         if (find(contract.signature)) return ContractResult(contract, ContractOutcome.RESOLVED)
 
-        contract.alternatives.firstOrNull(::find)?.let { alternative ->
+        (listOf(relocate(contract.signature)) + contract.alternatives).firstOrNull { it != contract.signature && find(it) }?.let { alternative ->
             return ContractResult(contract, ContractOutcome.FALLBACK, alternative)
         }
 

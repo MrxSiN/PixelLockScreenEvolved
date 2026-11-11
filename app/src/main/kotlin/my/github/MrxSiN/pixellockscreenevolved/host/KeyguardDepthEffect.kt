@@ -2,9 +2,11 @@ package my.github.MrxSiN.pixellockscreenevolved.host
 
 import android.content.Context
 import android.graphics.Bitmap
+import android.graphics.BitmapFactory
 import android.os.Handler
 import android.os.Looper
 
+import java.io.ByteArrayOutputStream
 import java.util.Collections
 import java.util.WeakHashMap
 import java.util.concurrent.CopyOnWriteArrayList
@@ -55,7 +57,7 @@ internal class KeyguardDepthEffect(
     private var waiting: Waiting? = null
 
     /** The photo last looked at, kept so it can be looked at again when asked. */
-    @Volatile private var latest: Waiting? = null
+    @Volatile private var latest: Kept? = null
     private var photoKey: String? = null
     private var cutout: Bitmap? = null
     private var client: SubjectMaskClient? = null
@@ -147,6 +149,26 @@ internal class KeyguardDepthEffect(
     private class Waiting(val context: Context, val photo: Bitmap, val key: String)
 
     /**
+     * The photo last looked at, for looking at it again ([reprocess]). Once its subject is shown or
+     * given up, it is kept packed losslessly ([pack]) rather than as a screen-sized bitmap, which
+     * SystemUI held besides the cut-out for as long as the photo stayed. On the worker.
+     */
+    private class Kept(val context: Context, val key: String, var photo: Bitmap?) {
+        var packed: ByteArray? = null
+
+        /** The photo, as it was handed over: the bitmap while it is held, unpacked otherwise. */
+        fun photo(): Bitmap? = photo ?: packed?.let { BitmapFactory.decodeByteArray(it, 0, it.size) }
+
+        /** Packs the photo and lets the bitmap go, unless packing fails, when the bitmap stays. */
+        fun pack() {
+            val held = photo ?: return
+            val bytes = ByteArrayOutputStream().also { held.compress(Bitmap.CompressFormat.PNG, LOSSLESS, it) }
+            packed = bytes.toByteArray()
+            photo = null
+        }
+    }
+
+    /**
      * Follows [DepthEffectSetting] and [DepthReprocessRequest], once; turning the effect on finds the cut-out
      * for the photo that waited.
      */
@@ -178,10 +200,13 @@ internal class KeyguardDepthEffect(
         val last = latest ?: return feed.forgetPhoto()
         logger.info("Depth effect asked to find the subject again")
         worker.execute {
-            cutouts(context).forgetMask(last.key)
-            photoKey = null
+            runCatching {
+                cutouts(context).forgetMask(last.key)
+                photoKey = null
+                val photo = last.photo() ?: error("The kept photo could not be unpacked")
+                findCutout(last.context, photo, last.key, careful = true)
+            }.onFailure { logger.warn("Depth effect failed", it) }
         }
-        process(last.context, last.photo, last.key, careful = true)
     }
 
     private fun cutouts(context: Context): DepthCutout = store ?: DepthCutout(context.filesDir).also { store = it }
@@ -197,12 +222,14 @@ internal class KeyguardDepthEffect(
             return
         }
         photoKey = key
-        latest = Waiting(context, photo, key)
+        val kept = Kept(context, key, photo)
+        latest = kept
 
         val stored = cutouts.storedMask(key).takeUnless { careful }
         if (stored != null) {
             publish(key, cutouts.cutOut(photo, stored))
             report(context, DepthStatus.READY)
+            pack(kept)
             return
         }
 
@@ -223,6 +250,7 @@ internal class KeyguardDepthEffect(
                             publish(key, cutouts.cutOut(photo, mask))
                             progress.ready()
                             report(context, DepthStatus.READY)
+                            pack(kept)
                         }.onFailure {
                             logger.warn("Depth effect failed", it)
                             giveUp(key, progress, context)
@@ -244,8 +272,20 @@ internal class KeyguardDepthEffect(
             progress.failed()
             report(context, DepthStatus.NO_SUBJECT)
             feed.forgetPhoto()
-            worker.execute { if (photoKey == key) photoKey = null }
+            worker.execute {
+                if (photoKey == key) photoKey = null
+                latest?.takeIf { it.key == key }?.let(::pack)
+            }
         }
+    }
+
+    /**
+     * Packs [kept] once its photo is no longer needed as a bitmap; on the worker. The bitmap is let go
+     * rather than recycled: a look asked for again meanwhile may still be cutting the subject out of it.
+     */
+    private fun pack(kept: Kept) {
+        if (latest !== kept) return
+        runCatching(kept::pack).onFailure { logger.warn("Depth effect photo could not be packed", it) }
     }
 
     /** Writes where the effect stands for Wallpaper & style's Depth effect page. */
@@ -261,5 +301,10 @@ internal class KeyguardDepthEffect(
             tellSubject()
             logger.info("Depth effect ready for the lock screen photo")
         }
+    }
+
+    private companion object {
+        /** PNG ignores quality; named for what it means here. */
+        const val LOSSLESS = 100
     }
 }

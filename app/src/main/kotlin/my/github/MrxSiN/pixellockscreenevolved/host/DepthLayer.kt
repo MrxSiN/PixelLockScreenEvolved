@@ -67,6 +67,10 @@ internal class DepthLayer(
     private val subjectToView = Matrix()
     private val windowToView = Matrix()
 
+    // The sizes the subject is placed with, kept while they hold, so a draw allocates none ([LockWallpaperFeed.place]).
+    private var screenSize = WallpaperPlacement.Size(0, 0)
+    private var subjectSize = WallpaperPlacement.Size(0, 0)
+
     /** What the share of the time the subject hides depends on, as last taken; kept in place, since it is compared before each frame. */
     private class Measured {
         private var taken = false
@@ -137,10 +141,13 @@ internal class DepthLayer(
     private fun drawSubject(canvas: Canvas, view: View, paint: Paint) {
         val subject = cutout ?: return
         val screen = faceView.resources.displayMetrics
-        val placed = feed.place(
-            WallpaperPlacement.Size(screen.widthPixels, screen.heightPixels),
-            WallpaperPlacement.Size(subject.width, subject.height),
-        )
+        if (screenSize.width != screen.widthPixels || screenSize.height != screen.heightPixels) {
+            screenSize = WallpaperPlacement.Size(screen.widthPixels, screen.heightPixels)
+        }
+        if (subjectSize.width != subject.width || subjectSize.height != subject.height) {
+            subjectSize = WallpaperPlacement.Size(subject.width, subject.height)
+        }
+        val placed = feed.place(screenSize, subjectSize)
         subjectToView.setScale(placed.width / subject.width, placed.height / subject.height)
         subjectToView.postTranslate(placed.left, placed.top)
         subjectToView.postScale(placed.scale, placed.scale, placed.pivotX, placed.pivotY)
@@ -155,7 +162,7 @@ internal class DepthLayer(
             return
         }
 
-        val time = ViewBounds.inAncestor(faceView, face.timeView, timeInFace)
+        val time = ViewBounds.inAncestor(faceView, face.timeView, timeInFace, beforeDraw = true)
         // None on the always-on display, where the time is drawn in outline and nothing goes over it. The
         // time comes out in front of the subject before SystemUI moves it to its AOD region, and goes
         // back behind it only once it has moved back ([AodClockMotion]).

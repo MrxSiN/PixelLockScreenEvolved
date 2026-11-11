@@ -223,7 +223,7 @@ internal class PickerPositionTab(
     private class Api(classLoader: ClassLoader) {
         private fun load(name: String, classLoader: ClassLoader): Class<*> = Class.forName(name, false, classLoader)
 
-        private val binding = load(SHEET_BINDING, classLoader)
+        private val binding = classLoader.hostClass(SHEET_BINDING)
         val tabAdapter: Field = binding.field("\$tabAdapter")
         val clockViewModel: Field = binding.field("\$viewModel")
 
@@ -284,7 +284,6 @@ internal class PickerPositionTab(
         const val TAB_LIST = "tab_list"
         const val RECYCLER_VIEW = "androidx.recyclerview.widget.RecyclerView"
         const val ITEM_ANIMATOR = "androidx.recyclerview.widget.DefaultItemAnimator"
-        const val SHEET_BINDING = "com.android.customization.picker.clock.ui.binder.ClockFloatingSheetBinder\$bind\$13\$1"
         const val TAB_ADAPTER = "com.android.wallpaper.picker.customization.ui.view.adapter.FloatingToolbarTabAdapter"
         const val TAB_VIEW_MODEL = "com.android.wallpaper.picker.customization.ui.viewmodel.FloatingToolbarTabViewModel"
         const val PICKER_COMMON = "com.android.wallpaper.picker.common"

@@ -41,7 +41,8 @@ object HostContracts {
     private const val SMARTSPACE_BINDER = "$KEYGUARD.ui.binder.KeyguardSmartspaceViewBinder"
     private const val SMARTSPACE_SECTION = "$KEYGUARD.ui.view.layout.sections.SmartspaceSection"
     private const val SMARTSPACE_ELEMENTS = "$KEYGUARD.ui.composable.elements.SmartspaceElementProvider"
-    private const val PREVIEW_SMARTSPACE_BINDER = "$KEYGUARD.ui.binder.KeyguardPreviewSmartspaceViewBinder\$bind\$1\$1\$1\$4"
+    private const val PREVIEW_SMARTSPACE = "$KEYGUARD.ui.binder.KeyguardPreviewSmartspaceViewBinder"
+    private const val PREVIEW_SMARTSPACE_BINDER = "$PREVIEW_SMARTSPACE\$bind\$1\$1\$1\$4"
     private const val PREVIEW_RENDERER = "$KEYGUARD.ui.preview.KeyguardPreviewRenderer"
     private const val TOUCH_HANDLING = "$KEYGUARD.domain.interactor.KeyguardTouchHandlingInteractor"
     private const val TAP_CALLBACKS = "$KEYGUARD.ui.composable.LockscreenTouchHandlingKt\$LockscreenTouchHandling\$3\$1\$\$ExternalSyntheticLambda0"
@@ -266,6 +267,18 @@ object HostContracts {
         optional("com.android.wallpaper.customization.ui.binder.SwitchColorBinder", Member.Method("bind"), PICKER_LOCK_SCREEN_OPTIONS),
     )
 
+    /**
+     * What each fragile name is, for a build that renamed it: lambdas Kotlin
+     * numbers by position, and methods Google rewrites. Every contract on a
+     * located class, or on the located method, follows what is found.
+     */
+    val locators: Map<Signature, Locator> = mapOf(
+        Signature(SHEET_BINDING) to Locator.NestedClass(SHEET_BINDER, setOf("\$view", "\$tabAdapter", "\$currentTab")),
+        Signature(PREVIEW_SMARTSPACE_BINDER) to
+            Locator.NestedClass(PREVIEW_SMARTSPACE, setOf("\$largeDateView", "\$smallDateView", "\$viewModel"), setOf("emit")),
+        Signature(TOUCH_HANDLING, method("onDoubleClick")) to Locator.MethodCalling("android.os.PowerManager", "goToSleep"),
+    )
+
     fun of(host: Host): List<HostContract> = when (host) {
         Host.SYSTEMUI -> systemUi
         Host.PICKER -> picker
@@ -334,5 +347,5 @@ object HostContracts {
     private fun optional(owner: String, member: Member?, vararg features: Feature) =
         HostContract(Signature(owner, member), features.toSet(), isRequired = false)
 
-    private val LEGACY_SMARTSPACE_MEMBERS = setOf("applyConstraints", "dateView")
+    private val LEGACY_SMARTSPACE_MEMBERS = setOf("applyConstraints", "dateView", "keyguardClockViewModel")
 }
