@@ -1,4 +1,4 @@
-# Pixel Lock Screen Evolved v0.0.8
+# Pixel Lock Screen Evolved v0.0.7
 
 **Fully compatible with Android 17 QPR1 (November 2026, `CP4A.261105.040.A1`),
 tested on a Pixel 8 Pro.**

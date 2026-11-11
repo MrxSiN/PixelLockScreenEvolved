@@ -20,7 +20,7 @@ Wallpaper & style → **Clock** → iOS, Stacked, Numerals, Analog or Split, bes
 ---
 
 > [!NOTE]
-> **v0.0.8 is fully compatible with the latest Android release: Android 17 QPR1
+> **v0.0.7 is fully compatible with the latest Android release: Android 17 QPR1
 > (November 2026, `CP4A.261105.040.A1`), tested on a Pixel 8 Pro.** QPR1 moved the
 > lock screen into a Compose scene and dropped a number of older clock APIs;
 > every feature in this module runs on that scene, and the compatibility report
