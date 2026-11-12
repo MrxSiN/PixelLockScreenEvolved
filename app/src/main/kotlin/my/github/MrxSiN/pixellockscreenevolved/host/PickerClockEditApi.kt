@@ -67,6 +67,6 @@ internal class PickerClockEditApi(classLoader: ClassLoader) {
     private companion object {
         const val VIEW_MODEL = "com.android.customization.picker.clock.ui.viewmodel.ClockPickerViewModel"
 
-        fun load(name: String, classLoader: ClassLoader): Class<*> = Class.forName(name, false, classLoader)
+        fun load(name: String, classLoader: ClassLoader): Class<*> = classLoader.hostClass(name)
     }
 }

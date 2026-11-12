@@ -3,6 +3,7 @@ package my.github.MrxSiN.pixellockscreenevolved.host
 import android.os.SystemClock
 import android.view.View
 
+import java.lang.reflect.Field
 import java.lang.reflect.Method
 
 import kotlin.math.max
@@ -48,11 +49,13 @@ internal class SleepReveal(private val hooks: Hooks, private val logger: Logger)
         val float = Float::class.javaPrimitiveType!!
         val bounds = scrim.getDeclaredMethod("setRevealGradientBounds", float, float, float, float)
         val alpha = scrim.getDeclaredMethod("setRevealGradientEndColorAlpha", float)
+        val centre = runCatching { scrim.field("startColorAlpha") }.getOrNull()
 
         // After the effect has set its step: the last values written are the ones drawn.
         for (effect in EFFECTS) {
             val step = Class.forName(effect, false, classLoader).getDeclaredMethod("setRevealAmountOnScrim", float, scrim)
             hooks.after(step) { _, args ->
+                centre?.let { clearCentre(args[1] as View, it) }
                 if (takenAt == NONE) return@after
                 runCatching { draw(args[0] as Float, args[1] as View, bounds, alpha) }
                     .onFailure {
@@ -62,6 +65,21 @@ internal class SleepReveal(private val hooks: Hooks, private val logger: Logger)
                     }
             }
         }
+    }
+
+    /**
+     * SystemUI's own double-tap screen off (`DoubleTapReveal`, from CP4A) darkens the
+     * circle's centre too (`startColorAlpha`), up to opaque once the screen is dark,
+     * and none of these effects ever sets it back: a wake by the power button, a lift
+     * or a tap then left the scrim black behind the whole lock screen and every
+     * notification. Google ships that gesture off; this module turns it on, so it
+     * clears what the gesture leaves. `DoubleTapReveal` writes the centre after its
+     * circle's step, so its own screen off is untouched.
+     */
+    private fun clearCentre(scrim: View, centre: Field) {
+        if (centre.getFloat(scrim) == 0f) return
+        centre.setFloat(scrim, 0f)
+        scrim.invalidate()
     }
 
     private fun draw(amount: Float, scrim: View, bounds: Method, alpha: Method) {

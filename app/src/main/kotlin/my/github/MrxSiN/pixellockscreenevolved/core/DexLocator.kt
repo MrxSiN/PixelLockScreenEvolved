@@ -67,7 +67,12 @@ internal class DexLocator(
         is Locator.NestedClass -> {
             val matcher = ClassMatcher().className("${locator.outer}$", StringMatchType.StartsWith)
             locator.fields.forEach { matcher.addFieldForName(it) }
-            locator.methods.forEach { name -> matcher.addMethod(MethodMatcher().name(name)) }
+            if (locator.onlyFields) matcher.fieldCount(locator.fields.size)
+            locator.methods.forEach { name ->
+                val method = MethodMatcher().name(name)
+                locator.calling?.let { method.addInvoke(MethodMatcher().declaredClass(it.owner).name(it.method)) }
+                matcher.addMethod(method)
+            }
             bridge.findClass(FindClass.create().searchPackages(locator.outer.substringBeforeLast('.')).matcher(matcher))
                 .singleOrNull()?.let { Signature(it.name, signature.member) }
         }

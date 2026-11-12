@@ -45,6 +45,6 @@ internal class KeyguardPreviewApi(classLoader: ClassLoader) {
         const val KEYGUARD = "com.android.systemui.keyguard"
         const val UPDATE_CLOCK_APPEARANCE = "updateClockAppearance"
 
-        fun load(name: String, classLoader: ClassLoader): Class<*> = Class.forName(name, false, classLoader)
+        fun load(name: String, classLoader: ClassLoader): Class<*> = classLoader.hostClass(name)
     }
 }

@@ -1,5 +1,34 @@
 # Changelog
 
+## 0.0.8 — 2026-11-12
+
+### Fixed
+
+- Black lock screen wallpaper, and a black backdrop behind notifications,
+  after a double tap to turn off screen on `CP4A.261105.040.A1`. That build
+  draws the double tap's screen off with its own `DoubleTapReveal`, which
+  leaves `LightRevealScrim.startColorAlpha` (the reveal circle's centre)
+  opaque; the lift, power button and AOD tap reveals never set it back, so the
+  next ordinary wake kept the scrim black behind every lock screen element.
+  Google ships the gesture off, so stock never shows it. The module now clears
+  it after each of those reveals' steps.
+
+### Added
+
+- DexKit locators for the remaining numbered host names: the lock screen tap
+  callbacks (`LockscreenTouchHandling$3$1$$ExternalSyntheticLambda0`) and
+  Wallpaper & style's `ClockPickerViewModel$clockStyleOptions$1`,
+  `$isClockAxisStyleEdited$1` and `$tabs$1$1`. A nested-class fingerprint can
+  now also require a method calling a given method, or exactly the given
+  fields, which tells apart lambdas R8 merged into one shape. Each was checked
+  on the device with the name deliberately misspelled.
+
+### Changed
+
+- Every host class lookup goes through `hostClass`, so a relocated name
+  reaches each feature, not only the ones that asked for it.
+- Release builds default to versionCode 20.
+
 ## 0.0.7 — 2026-11-11
 
 ### Fixed

@@ -1,23 +1,18 @@
-# Pixel Lock Screen Evolved v0.0.7
+# Pixel Lock Screen Evolved v0.0.8
 
 **Fully compatible with Android 17 QPR1 (November 2026, `CP4A.261105.040.A1`),
 tested on a Pixel 8 Pro.**
 
 ## Fixes
 
-- The November build had switched off the clock size slider, the Position
-  tab, double tap to turn off screen, and the date row and smartspace
-  placement. All four work again.
-- SystemUI's helper processes (such as screenshots) no longer load the module.
+- After a double tap to turn off the screen, the lock screen wallpaper and the
+  backdrop behind notifications stayed black on the next wake. They no longer do.
 
 ## Survives renames
 
-- When a monthly build renames something the module relies on, the module now
-  finds it again by what it is, once per build (DexKit), instead of switching
-  the feature off. Compatibility & diagnostics shows it as found by fallback.
+- Every numbered host name the module relies on (Kotlin and R8 lambdas in
+  SystemUI and Wallpaper & style) can now be found again by what it is, with
+  DexKit, when a monthly build renumbers it. Compatibility & diagnostics shows
+  such a member as found by fallback.
 
-## Lighter
-
-- Less memory held by the depth effect, and less work per lock screen frame.
-
-See `CHANGELOG.md` for the full list.
+See `CHANGELOG.md` for the full list, including v0.0.7.

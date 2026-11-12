@@ -57,6 +57,8 @@ object HostContracts {
     private const val SHEET_BINDING = "$SHEET_BINDER\$bind\$13\$1"
     private const val PICKER_VIEW_MODEL = "com.android.customization.picker.clock.ui.viewmodel.ClockPickerViewModel"
     private const val CLOCK_OPTION_BUILDER = "$PICKER_VIEW_MODEL\$clockStyleOptions\$1"
+    private const val AXIS_STYLE_EDITED = "$PICKER_VIEW_MODEL\$isClockAxisStyleEdited\$1"
+    private const val TAB_CLICKED = "$PICKER_VIEW_MODEL\$tabs\$1\$1"
     private const val SLIDER = "com.google.android.material.slider.BaseSlider"
     private const val SHAPE_DRAWABLE = "com.google.android.material.shape.MaterialShapeDrawable"
     private const val TAB_ADAPTER = "com.android.wallpaper.picker.customization.ui.view.adapter.FloatingToolbarTabAdapter"
@@ -187,6 +189,8 @@ object HostContracts {
         optional("com.android.systemui.statusbar.CircleReveal", method("setRevealAmountOnScrim", FLOAT, LIGHT_REVEAL_SCRIM), DOUBLE_TAP_TO_SLEEP),
         optional(LIGHT_REVEAL_SCRIM, method("setRevealGradientBounds", FLOAT, FLOAT, FLOAT, FLOAT), DOUBLE_TAP_TO_SLEEP),
         optional(LIGHT_REVEAL_SCRIM, method("setRevealGradientEndColorAlpha", FLOAT), DOUBLE_TAP_TO_SLEEP),
+        // SystemUI's own double-tap screen off (CP4A) leaves the circle's centre dark; the next reveal clears it.
+        optional(LIGHT_REVEAL_SCRIM, Member.Field("startColorAlpha"), DOUBLE_TAP_TO_SLEEP),
         // The first tap after it wakes again; without these that tap keeps SystemUI's falsing check.
         optional("com.android.systemui.shade.PulsingGestureListener", method("onSingleTapUp", FLOAT, FLOAT), DOUBLE_TAP_TO_SLEEP),
         optional("com.android.systemui.classifier.BrightLineFalsingManager", method("isFalseTap", INT), DOUBLE_TAP_TO_SLEEP),
@@ -221,9 +225,9 @@ object HostContracts {
         contract(SHAPE_DRAWABLE, Member.Field("drawableState"), PICKER_CLOCK_SIZE, PICKER_CLOCK_POSITION),
         contract(SHAPE_DRAWABLE, method("setFillColor", "android.content.res.ColorStateList"), PICKER_CLOCK_SIZE, PICKER_CLOCK_POSITION),
         contract("$SHAPE_DRAWABLE\$MaterialShapeDrawableState", Member.Field("fillColor"), PICKER_CLOCK_SIZE, PICKER_CLOCK_POSITION),
-        contract("$PICKER_VIEW_MODEL\$isClockAxisStyleEdited\$1", method("invokeSuspend", OBJECT), PICKER_CLOCK_SIZE, PICKER_CLOCK_POSITION),
-        contract("$PICKER_VIEW_MODEL\$isClockAxisStyleEdited\$1", Member.Field("L\$0"), PICKER_CLOCK_SIZE, PICKER_CLOCK_POSITION),
-        contract("$PICKER_VIEW_MODEL\$isClockAxisStyleEdited\$1", Member.Field("L\$1"), PICKER_CLOCK_SIZE, PICKER_CLOCK_POSITION),
+        contract(AXIS_STYLE_EDITED, method("invokeSuspend", OBJECT), PICKER_CLOCK_SIZE, PICKER_CLOCK_POSITION),
+        contract(AXIS_STYLE_EDITED, Member.Field("L\$0"), PICKER_CLOCK_SIZE, PICKER_CLOCK_POSITION),
+        contract(AXIS_STYLE_EDITED, Member.Field("L\$1"), PICKER_CLOCK_SIZE, PICKER_CLOCK_POSITION),
         contract(PICKER_VIEW_MODEL, Member.Field("overridingClockPresetIndexedStyle"), PICKER_CLOCK_SIZE, PICKER_CLOCK_POSITION),
         contract(
             "com.android.wallpaper.customization.ui.viewmodel.ThemePickerCustomizationOptionsViewModel",
@@ -250,7 +254,7 @@ object HostContracts {
         contract("com.android.wallpaper.picker.common.text.ui.viewmodel.Text\$Loaded", null, PICKER_CLOCK_POSITION),
         contract(PICKER_VIEW_MODEL, Member.Field("_selectedTab"), PICKER_CLOCK_POSITION),
         contract("$PICKER_VIEW_MODEL\$Tab", Member.Field("SIZE"), PICKER_CLOCK_POSITION),
-        optional("$PICKER_VIEW_MODEL\$tabs\$1\$1", method("invoke"), PICKER_CLOCK_POSITION),
+        optional(TAB_CLICKED, method("invoke"), PICKER_CLOCK_POSITION),
         optional(RECYCLER_VIEW, Member.Field("mAdapter"), PICKER_CLOCK_POSITION),
         optional(RECYCLER_VIEW, Member.Field("mItemAnimator"), PICKER_CLOCK_POSITION),
         optional(RECYCLER_VIEW, method("hasPendingAdapterUpdates"), PICKER_CLOCK_POSITION),
@@ -277,6 +281,23 @@ object HostContracts {
         Signature(PREVIEW_SMARTSPACE_BINDER) to
             Locator.NestedClass(PREVIEW_SMARTSPACE, setOf("\$largeDateView", "\$smallDateView", "\$viewModel"), setOf("emit")),
         Signature(TOUCH_HANDLING, method("onDoubleClick")) to Locator.MethodCalling("android.os.PowerManager", "goToSleep"),
+        // The tap callback unpacks the tapped Offset into two floats.
+        Signature(TAP_CALLBACKS) to Locator.NestedClass(
+            "$KEYGUARD.ui.composable.LockscreenTouchHandlingKt", setOf("f\$0"), setOf("invoke"),
+            calling = Locator.MethodCalling("java.lang.Float", "intBitsToFloat"),
+        ),
+        Signature(CLOCK_OPTION_BUILDER) to Locator.NestedClass(PICKER_VIEW_MODEL, setOf("\$context", "\$resources"), setOf("invokeSuspend")),
+        Signature(AXIS_STYLE_EDITED) to Locator.NestedClass(
+            PICKER_VIEW_MODEL, setOf("L\$0", "L\$1", "label"), setOf("invokeSuspend"),
+            calling = Locator.MethodCalling("com.android.systemui.plugins.keyguard.ui.clocks.AxisPresetConfig\$IndexedStyle", "getStyle"),
+            onlyFields = true,
+        ),
+        // The tab click handler, R8-merged with the clock option clicks: it alone holds nothing but its view model.
+        Signature(TAB_CLICKED) to Locator.NestedClass(
+            PICKER_VIEW_MODEL, setOf("\$r8\$classId", "this\$0"), setOf("invoke"),
+            calling = Locator.MethodCalling("kotlinx.coroutines.flow.StateFlowImpl", "updateState"),
+            onlyFields = true,
+        ),
     )
 
     fun of(host: Host): List<HostContract> = when (host) {

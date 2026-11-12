@@ -72,7 +72,7 @@ internal class PickerClockSection(
         private val optionType = Class.forName(OPTION, false, classLoader)
 
         val buildOptions: Method? = runCatching {
-            Class.forName(OPTION_BUILDER, false, classLoader)
+            classLoader.hostClass(OPTION_BUILDER)
                 .getDeclaredMethod("invokeSuspend", Object::class.java)
                 .apply { isAccessible = true }
         }.getOrNull()

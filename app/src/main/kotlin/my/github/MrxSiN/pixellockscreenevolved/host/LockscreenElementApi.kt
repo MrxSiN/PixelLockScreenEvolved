@@ -136,7 +136,7 @@ internal class LockscreenElementApi(private val classLoader: ClassLoader) {
         return view.measuredHeight / view.resources.displayMetrics.density
     }
 
-    private fun load(name: String): Class<*> = Class.forName(name, false, classLoader)
+    private fun load(name: String): Class<*> = classLoader.hostClass(name)
 
     private companion object {
         const val ELEMENTS = "com.android.systemui.plugins.keyguard.ui.composable.elements"

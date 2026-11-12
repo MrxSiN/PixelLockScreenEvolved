@@ -164,6 +164,6 @@ internal class PickerSliderApi(classLoader: ClassLoader) {
         val COLOUR_FIELDS = listOf("trackColorActive", "trackColorInactive", "tickColorActive", "tickColorInactive")
         val PAINT_FIELDS = listOf("activeTrackPaint", "inactiveTrackPaint", "activeTicksPaint", "inactiveTicksPaint")
 
-        fun load(name: String, classLoader: ClassLoader): Class<*> = Class.forName(name, false, classLoader)
+        fun load(name: String, classLoader: ClassLoader): Class<*> = classLoader.hostClass(name)
     }
 }

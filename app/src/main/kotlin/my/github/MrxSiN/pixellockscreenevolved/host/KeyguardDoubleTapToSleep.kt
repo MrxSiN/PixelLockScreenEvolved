@@ -98,7 +98,7 @@ internal class KeyguardDoubleTapToSleep(
      * double tap's, whichever number R8 gave each case.
      */
     private fun followTaps(classLoader: ClassLoader) {
-        val invoke = Class.forName(TAP_CALLBACKS, false, classLoader).getDeclaredMethod("invoke", Any::class.java)
+        val invoke = classLoader.hostClass(TAP_CALLBACKS).getDeclaredMethod("invoke", Any::class.java)
         val packed = Class.forName(OFFSET, false, classLoader).field("packedValue")
 
         hooks.before(invoke) { _, args ->

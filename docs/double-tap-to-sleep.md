@@ -53,6 +53,17 @@ only one detector, and it reads the same key.
   or for up to 2 s, then forgets it, so power-button and timeout screen-offs
   keep their own effect. These contracts are optional: without them, or if a draw
   fails, the screen-off is SystemUI's lift and the gesture still works.
+- **SystemUI's own double-tap reveal:** from `CP4A.261105.040.A1` the double
+  tap's screen off is SystemUI's `DoubleTapReveal`, a `CircleReveal` around
+  the tap that also darkens the circle's centre (`LightRevealScrim.startColorAlpha`),
+  opaque once the screen is dark. The lift, power button and AOD tap reveals
+  never reset it, so the next ordinary wake left the scrim black behind the
+  whole lock screen. After each of those three effects' steps, `SleepReveal`
+  sets it back to 0; `DoubleTapReveal` writes it after its circle's step, so
+  its own screen off is untouched.
+- **Renamed tap callbacks:** the lambda's name is numbered by R8, so it has a
+  DexKit locator: the class under `LockscreenTouchHandlingKt` with field `f$0`
+  whose `invoke` calls `Float.intBitsToFloat` (it unpacks the tapped `Offset`).
 - **Tap again to wake:** right after a double-tap sleep, the AOD tap handler
   (`PulsingGestureListener.onSingleTapUp`) is told by
   `BrightLineFalsingManager.isFalseTap` that the first tap is accidental.

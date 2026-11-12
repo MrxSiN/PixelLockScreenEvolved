@@ -50,6 +50,6 @@ internal class KeyguardClockSizeApi(classLoader: ClassLoader) {
         const val DATE_BINDER = "com.android.systemui.keyguard.ui.binder.KeyguardSmartspaceViewBinder\$bind\$1\$1\$2\$1"
         const val DATE_BURN_IN_BINDER = "com.android.systemui.keyguard.ui.binder.KeyguardSmartspaceViewBinder\$bind\$1\$1\$4\$4"
 
-        fun load(name: String, classLoader: ClassLoader): Class<*> = Class.forName(name, false, classLoader)
+        fun load(name: String, classLoader: ClassLoader): Class<*> = classLoader.hostClass(name)
     }
 }

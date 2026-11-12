@@ -46,8 +46,19 @@ data class Signature(
  */
 sealed interface Locator {
 
-    /** The one class nested in [outer] that declares every one of [fields] and [methods]. */
-    data class NestedClass(val outer: String, val fields: Set<String>, val methods: Set<String> = emptySet()) : Locator
+    /**
+     * The one class nested in [outer] that declares every one of [fields] (or, [onlyFields], those
+     * fields and no others) and [methods], each of which calls [calling] when it is given. R8 merges
+     * lambdas of one shape into a class switching on `$r8$classId`, so field names alone can match
+     * several; what a method calls, or the exact fields, tells them apart.
+     */
+    data class NestedClass(
+        val outer: String,
+        val fields: Set<String>,
+        val methods: Set<String> = emptySet(),
+        val calling: MethodCalling? = null,
+        val onlyFields: Boolean = false,
+    ) : Locator
 
     /** The method of the signature's class that calls [method] of [owner]. */
     data class MethodCalling(val owner: String, val method: String) : Locator

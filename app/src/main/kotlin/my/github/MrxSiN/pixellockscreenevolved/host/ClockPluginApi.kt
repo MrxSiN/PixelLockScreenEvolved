@@ -260,7 +260,7 @@ internal class ClockPluginApi(private val classLoader: ClassLoader) {
         FaceSize.SMALL -> smallViewId
     }.invoke(viewIdsInstance) as Int
 
-    private fun load(name: String): Class<*> = Class.forName(name, false, classLoader)
+    private fun load(name: String): Class<*> = classLoader.hostClass(name)
 
     private fun <T : AccessibleObject> T.accessible(): T = apply { isAccessible = true }
 

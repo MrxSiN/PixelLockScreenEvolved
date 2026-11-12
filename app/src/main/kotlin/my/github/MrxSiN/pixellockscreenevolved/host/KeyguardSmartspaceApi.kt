@@ -129,6 +129,6 @@ internal class KeyguardSmartspaceApi(
         const val SMALL_CLOCK_SIZE = "SMALL"
         const val SMARTSPACE_ELEMENTS = "com.android.systemui.keyguard.ui.composable.elements.SmartspaceElementProvider"
 
-        fun load(name: String, classLoader: ClassLoader): Class<*> = Class.forName(name, false, classLoader)
+        fun load(name: String, classLoader: ClassLoader): Class<*> = classLoader.hostClass(name)
     }
 }

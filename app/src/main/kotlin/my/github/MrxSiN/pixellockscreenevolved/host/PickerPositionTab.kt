@@ -221,7 +221,7 @@ internal class PickerPositionTab(
 
     /** The picker's tab, icon and clock sheet members, reached through its class loader. HOOK_NOTES.md records them. */
     private class Api(classLoader: ClassLoader) {
-        private fun load(name: String, classLoader: ClassLoader): Class<*> = Class.forName(name, false, classLoader)
+        private fun load(name: String, classLoader: ClassLoader): Class<*> = classLoader.hostClass(name)
 
         private val binding = classLoader.hostClass(SHEET_BINDING)
         val tabAdapter: Field = binding.field("\$tabAdapter")

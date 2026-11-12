@@ -412,6 +412,21 @@ Read off `CP3A.261005.005`; design and test record in
   `LightRevealScrim.setRevealGradientBounds(4 floats)` and
   `setRevealGradientEndColorAlpha(float)`. `statusbar.CircleReveal` keeps its
   fields and `setRevealAmountOnScrim`, but has no constructor.
+- CP4A.261105.040.A1 adds `statusbar.DoubleTapReveal` (field `delegate`, a
+  `CircleReveal` around the tap) for the double tap's screen off. Its
+  `setRevealAmountOnScrim` calls the delegate's, then sets
+  `LightRevealScrim.startColorAlpha` (the circle's centre) to
+  `clamp((0.5 - amount) / 0.4, 0, 1)`: opaque once the screen is dark. Only it
+  and the fold effects (`LinearLightRevealEffect`,
+  `LinearSideLightRevealEffect`) write that field. `LiftReveal`,
+  `PowerButtonReveal` and `CircleReveal` never do, so the next wake by the
+  power button, a lift or an AOD tap left the scrim black behind the whole lock
+  screen and its notifications. `SleepReveal` sets it back to 0 after each of
+  those three effects' steps. Found by a dexdump of SystemUIGoogle.apk;
+  verified on device by a double tap to sleep, then a wake.
+- Located by DexKit when the name misses (`HostContracts.locators`, checked
+  on device with deliberately misspelled names on CP4A.261105.040.A1): the tap
+  callbacks by field `f$0` and an `invoke` calling `Float.intBitsToFloat`.
 - AOD tap to wake: `shade.PulsingGestureListener.onSingleTapUp(float, float)`
   needs `isDozing`, `singleTapEnabled`, not docked, `!isProximityNear()` and
   `!isFalseTap(int)`, then sets `_lastDozeTapToWakePosition` and calls
@@ -726,7 +741,14 @@ No new hooks in SystemUI. The large face's existing pin
   shows `$clockStyleContent`, `$clockColorContent` or `$clockSizeContent` by it
   and animates the sheet to the matching recorded height. Tab clicks are
   `ClockPickerViewModel$tabs$1$1.invoke`, an R8-merged lambda keyed by
-  `$r8$classId` (2 Size, 3 Color, 4 Style here; 0 and 1 are unrelated). A
+  `$r8$classId` (2 Size, 3 Color, 4 Style here; 0 and 1 are unrelated).
+  Located by DexKit when the name misses, all checked on device on
+  CP4A.261105.040.A1 with deliberately misspelled names: this one by exactly the
+  fields `$r8$classId` and `this$0` and an `invoke` calling
+  `StateFlowImpl.updateState` (`$toOption$2$1` has the same shape plus more
+  fields); `$isClockAxisStyleEdited$1` by exactly `L$0`, `L$1`, `label` and an
+  `invokeSuspend` calling `AxisPresetConfig$IndexedStyle.getStyle`;
+  `$clockStyleOptions$1` by its `$context` and `$resources`. A
   drawable in the module's own resources cannot be loaded in the picker
   (package visibility: `Icon.loadDrawable` answers null), so the tab icon is
   drawn in code.
