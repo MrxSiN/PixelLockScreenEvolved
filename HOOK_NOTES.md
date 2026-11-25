@@ -848,3 +848,64 @@ was found as `relocated` lines, and `HostCompatibilityTest` applies them.
 The module packs native libraries compressed, so Vector's class loader (which
 reads `base.apk!/lib`) cannot find `libdexkit.so`; it is loaded by path from
 the module's `nativeLibraryDir`.
+
+## Depth effect on Google's clocks, and in previews of a photo not yet set (`CP4A.261105.040.A1`)
+
+```
+com.android.systemui.shared.clocks.ClockRegistry
+  ClockController createCurrentClock(Context)
+com.android.systemui.plugins.keyguard.ui.clocks.ClockController
+  ClockFaceController getLargeClock()
+com.android.systemui.plugins.keyguard.ui.clocks.ClockFaceController
+  View getView()
+```
+
+`createCurrentClock` builds whichever clock is chosen, this module's or one of
+Google's. `host/KeyguardStockClockDepth.kt` reads its result (a result hook,
+handed back unchanged) and, for a clock whose `ClockConfig.getId` is not one
+of this module's, hands its large face's view to the depth effect as a
+`StockClockTarget`: the whole view is the time, its text changes each minute,
+and the display's interactive state stands in for the doze fraction. Verified
+on the device with `{"clockId":"DEFAULT"}`: the photo's subject is erased from
+Google's large clock.
+
+Wallpaper & style (`com.google.android.apps.wallpaper`):
+
+```
+com.davemorrissey.labs.subscaleview.SubsamplingScaleImageView
+  void setImage(ImageSource)
+com.android.wallpaper.picker.preview.ui.WallpaperPreviewActivity
+```
+
+Every preview binder (`StaticWallpaperPreviewBinder.setFullResImage`,
+`common...StaticPreviewBinder.setFullResImage` and `StaticWallpaperPreviewBinder2`)
+hands its photo to `SubsamplingScaleImageView.setImage`, so that one call is
+hooked. The view lives in a `SurfaceControlViewHost` whose context holds no
+activity, so `host/PickerDepthPreview.kt` asks the picker's own task
+(`ActivityManager.getAppTasks`) whether `WallpaperPreviewActivity`, the screen
+that previews a photo before it is set, is on top; elsewhere the picker shows
+the wallpaper already set. The view is drawn into a 1024 px bitmap once it has
+loaded (it draws one flat colour until then) and handed to SystemUI.
+
+The picker cannot bind the module's service: package visibility hides the
+module's app from it (`bindService` answers false), and its manifest cannot
+be changed. So it sends an explicit broadcast to `com.android.systemui`
+(`DepthPreviewBroadcast`) carrying the photo as JPEG, with
+`BroadcastOptions.setShareIdentityEnabled(true)`. SystemUI registers the
+receiver with `SET_WALLPAPER_COMPONENT` as the sender's required permission
+(signature or privileged; the picker holds it) and drops any broadcast whose
+`getSentFromPackage()` is not the picker. SystemUI segments the photo with its
+own client and erases the subject from the preview's clock, spread over the
+whole preview.
+
+## Hot reload and views SystemUI keeps (`CP4A.261105.040.A1`)
+
+Views SystemUI keeps across a hot reload of this module, such as the
+smartspace card, kept the replaced code's pre-draw listeners, which placed
+them by that code's state: the card stood over the large clock until SystemUI
+restarted. `onHotReloading` now retires the replaced code
+(`BeforeEachDraw.retire`): its pre-draw listeners take themselves off, its
+`SceneFrames` stop, and its secure-setting observers unregister instead of
+acting (they had segmented the photo again beside the new code). The new code
+finds the card SystemUI already built by its id, `bc_smartspace_view`, when
+its large clock is first attached (`ComposedSmartspacePlacement.adoptCard`).

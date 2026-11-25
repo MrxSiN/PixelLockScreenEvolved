@@ -19,7 +19,7 @@ import my.github.MrxSiN.pixellockscreenevolved.hook.Hooks
 
 /**
  * A Position tab in Wallpaper & style's clock sheet, last, after Size, for
- * this module's clocks that can be moved ([ClockStyle.isMovable]).
+ * this module's clocks.
  *
  * The sheet's tabs are a fixed enum (Style, Color, Size), each owning one
  * content view and one recorded height. The Position tab rides on the Size

@@ -30,6 +30,7 @@ enum class Feature(val title: String, val host: Host, val hostManagedWhenAbsent:
     PICKER_CLOCK_SIZE("Clock size slider", Host.PICKER),
     PICKER_CLOCK_POSITION("Clock position controls", Host.PICKER),
     PICKER_LOCK_SCREEN_OPTIONS("Lock screen options", Host.PICKER),
+    PICKER_DEPTH_PREVIEW("Depth effect in wallpaper previews", Host.PICKER),
     ;
 
     companion object {

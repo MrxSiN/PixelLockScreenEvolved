@@ -26,7 +26,10 @@ internal open class SecureIntSetting(private val key: String, private val defaul
      */
     fun observe(resolver: ContentResolver, onChange: () -> Unit): AutoCloseable {
         val observer = object : ContentObserver(Handler(Looper.getMainLooper())) {
-            override fun onChange(selfChange: Boolean) = onChange()
+            override fun onChange(selfChange: Boolean) {
+                // Code a hot reload replaced would still act on what it hears, beside the code that replaced it.
+                if (BeforeEachDraw.retired) resolver.unregisterContentObserver(this) else onChange()
+            }
         }
         resolver.registerContentObserver(Settings.Secure.getUriFor(key), false, observer)
         onChange()

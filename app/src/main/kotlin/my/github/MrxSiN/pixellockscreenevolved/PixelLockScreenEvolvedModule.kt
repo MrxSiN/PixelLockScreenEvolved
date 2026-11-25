@@ -28,9 +28,11 @@ import my.github.MrxSiN.pixellockscreenevolved.hook.Hooks
 import my.github.MrxSiN.pixellockscreenevolved.hook.HostPatch
 import my.github.MrxSiN.pixellockscreenevolved.hook.XposedHooks
 import my.github.MrxSiN.pixellockscreenevolved.hook.forFeature
+import my.github.MrxSiN.pixellockscreenevolved.host.BeforeEachDraw
 import my.github.MrxSiN.pixellockscreenevolved.host.ClockRegistryInjector
 import my.github.MrxSiN.pixellockscreenevolved.host.KeyguardAodWallpaper
 import my.github.MrxSiN.pixellockscreenevolved.host.KeyguardClockLayout
+import my.github.MrxSiN.pixellockscreenevolved.host.KeyguardStockClockDepth
 import my.github.MrxSiN.pixellockscreenevolved.host.KeyguardSmallClockBand
 import my.github.MrxSiN.pixellockscreenevolved.host.KeyguardClockSizeMotion
 import my.github.MrxSiN.pixellockscreenevolved.host.KeyguardDepthEffect
@@ -121,6 +123,7 @@ class PixelLockScreenEvolvedModule : XposedModule() {
             )
         })
         param.setSavedInstanceState(hosts)
+        BeforeEachDraw.retire()
         AndroidLogger.info("Hot reloading in ${hosts.map { it[KEY_HOST] }}")
         return true
     }
@@ -226,6 +229,7 @@ class PixelLockScreenEvolvedModule : XposedModule() {
                     gate.gate(Feature.SMARTSPACE_PLACEMENT, KeyguardSmallClockBand(hooksFor(Feature.SMARTSPACE_PLACEMENT), logger)),
                     gate.gate(Feature.CLOCK_SIZE_MOTION, sizeMotion),
                     previewWallpapers.takeIf { depth },
+                    KeyguardStockClockDepth(hooksFor(Feature.DEPTH_EFFECT), styles, depthEffect, logger).takeIf { depth },
                     wallpaperFeed.takeIf { depth || aod },
                     aodWallpaper.takeIf { aod }?.let { gate.gate(Feature.AOD_WALLPAPER, it) },
                     gate.gate(Feature.DOUBLE_TAP_TO_SLEEP, KeyguardDoubleTapToSleep(hooksFor(Feature.DOUBLE_TAP_TO_SLEEP), logger)),

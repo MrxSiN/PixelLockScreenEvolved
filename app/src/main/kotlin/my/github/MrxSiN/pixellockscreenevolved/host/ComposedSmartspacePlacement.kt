@@ -56,6 +56,17 @@ internal class ComposedSmartspacePlacement {
         follow(card) { beforeDraw -> placeCard(card, beforeDraw) }
     }
 
+    /**
+     * Starts keeping the card already in [root] under the large clock. SystemUI hands the module
+     * its card only as it builds it, and a hot reload of the module keeps the card SystemUI built
+     * before, so it is found by its id when the new code's clock is first shown.
+     */
+    fun adoptCard(root: View) {
+        val id = root.resources.getIdentifier(CARD_ID, "id", root.context.packageName)
+        if (id == 0) return
+        root.findViewById<View>(id)?.let(::followCard)
+    }
+
     /** Starts hiding the date and weather [row] beside a large clock that writes its own date, once per row. */
     fun followRow(row: View) = follow(row) { placeRow(row) }
 
@@ -145,19 +156,22 @@ internal class ComposedSmartspacePlacement {
         return (wanted - laidOutTop) / scale
     }
 
-    private companion object {
-        const val MATRIX_VALUES = 9
+    companion object {
+        /** SystemUI's smartspace card's view id, as its layouts name it. */
+        const val CARD_ID = "bc_smartspace_view"
+
+        private const val MATRIX_VALUES = 9
 
         /** The expressive scheme's default spatial stiffness ([ExpressiveSpring.DEFAULT_SPATIAL]). */
-        const val GLIDE_STIFFNESS = 380f
+        private const val GLIDE_STIFFNESS = 380f
 
         /** A move further than this in one frame is a leap, glided rather than jumped. */
-        const val LEAP_DP = 24f
-        const val SETTLED_PX = 0.5f
-        const val NANOS_PER_SECOND = 1_000_000_000f
-        const val LONGEST_FRAME_SECONDS = 0.05f
+        private const val LEAP_DP = 24f
+        private const val SETTLED_PX = 0.5f
+        private const val NANOS_PER_SECOND = 1_000_000_000f
+        private const val LONGEST_FRAME_SECONDS = 0.05f
 
         /** As the clock sheet fades its content, and SystemUI fades the row beside a Pixel clock. */
-        const val ROW_FADE_MS = 150L
+        private const val ROW_FADE_MS = 150L
     }
 }

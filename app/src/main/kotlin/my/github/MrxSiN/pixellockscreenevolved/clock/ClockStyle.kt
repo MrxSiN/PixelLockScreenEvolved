@@ -41,14 +41,6 @@ interface ClockStyle {
      */
     val isWidthAdjustable: Boolean get() = false
 
-    /**
-     * Whether the large face can be placed lower down the lock screen, as
-     * Wallpaper & style's position controls choose. A face laid out around the
-     * photo's subject is not ([SubjectAwareClockFace]): moving it would move
-     * what it lays itself out against.
-     */
-    val isMovable: Boolean get() = true
-
     fun createFace(context: Context, size: FaceSize): ClockFace
 
     /** The small picture Wallpaper & style shows for this style in its list. */
@@ -76,6 +68,12 @@ interface ClockFace {
      * status bar clock, so it should be the digits alone where the face has more.
      */
     val timeView: View get() = view
+
+    /**
+     * The part of [view] the photo's subject may stand in front of, and must leave readable: the
+     * time, unless the design gives that place to something else, such as a title.
+     */
+    val depthView: View get() = timeView
 
     /**
      * Whether the time is moving to new text, as digits roll to a new minute, so

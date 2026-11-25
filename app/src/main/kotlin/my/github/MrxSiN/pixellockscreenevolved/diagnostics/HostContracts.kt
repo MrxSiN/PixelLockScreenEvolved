@@ -9,6 +9,7 @@ import my.github.MrxSiN.pixellockscreenevolved.diagnostics.Feature.DOUBLE_TAP_TO
 import my.github.MrxSiN.pixellockscreenevolved.diagnostics.Feature.PICKER_CLOCKS
 import my.github.MrxSiN.pixellockscreenevolved.diagnostics.Feature.PICKER_CLOCK_POSITION
 import my.github.MrxSiN.pixellockscreenevolved.diagnostics.Feature.PICKER_CLOCK_SIZE
+import my.github.MrxSiN.pixellockscreenevolved.diagnostics.Feature.PICKER_DEPTH_PREVIEW
 import my.github.MrxSiN.pixellockscreenevolved.diagnostics.Feature.PICKER_LOCK_SCREEN_OPTIONS
 import my.github.MrxSiN.pixellockscreenevolved.diagnostics.Feature.SMARTSPACE_PLACEMENT
 
@@ -165,6 +166,10 @@ object HostContracts {
         contract("$KEYGUARD.ui.viewmodel.KeyguardPreviewClockViewModel", Member.Field("keyguardClockViewModel"), SMARTSPACE_PLACEMENT),
     ) + lockWallpaper + listOf(
         // Depth effect: kept off a preview of another wallpaper.
+        // Google's own clocks get the depth effect too: the registry builds them, and their large face is a view.
+        optional(REGISTRY, method("createCurrentClock", CONTEXT), DEPTH_EFFECT),
+        optional("$CLOCKS.ClockController", method("getLargeClock"), DEPTH_EFFECT),
+        optional("$CLOCKS.ClockFaceController", method("getView"), DEPTH_EFFECT),
         optional(PREVIEW_RENDERER, Member.Method("updateClockAppearance"), DEPTH_EFFECT),
         optional(PREVIEW_RENDERER, Member.Field("previewViewModel"), DEPTH_EFFECT),
         optional("$KEYGUARD.ui.viewmodel.KeyguardPreviewViewModel", Member.Field("interactor"), DEPTH_EFFECT),
@@ -267,6 +272,15 @@ object HostContracts {
             alternatives = listOf(Signature(PICKER_FRAGMENT, Member.Method("access\$initCustomizationOptionEntries"))),
         ),
         optional(PICKER_FRAGMENT, Member.Method("updateHeaderHeightConstraints"), PICKER_LOCK_SCREEN_OPTIONS),
+
+        // The depth effect in a preview of a photo not yet set: the view every preview binder hands its photo to,
+        // and the screen that previews a photo before it is set.
+        contract(
+            "com.davemorrissey.labs.subscaleview.SubsamplingScaleImageView",
+            method("setImage", "com.davemorrissey.labs.subscaleview.ImageSource"),
+            PICKER_DEPTH_PREVIEW,
+        ),
+        contract("com.android.wallpaper.picker.preview.ui.WallpaperPreviewActivity", null, PICKER_DEPTH_PREVIEW),
         optional("com.android.wallpaper.picker.customization.ui.binder.ColorUpdateBinder", Member.Method("bind"), PICKER_LOCK_SCREEN_OPTIONS),
         optional("com.android.wallpaper.customization.ui.binder.SwitchColorBinder", Member.Method("bind"), PICKER_LOCK_SCREEN_OPTIONS),
     )

@@ -1,10 +1,13 @@
 package my.github.MrxSiN.pixellockscreenevolved.clock
 
 import my.github.MrxSiN.pixellockscreenevolved.clock.ios.IosClockStyle
-import my.github.MrxSiN.pixellockscreenevolved.clock.styles.AnalogClockStyle
-import my.github.MrxSiN.pixellockscreenevolved.clock.styles.NumeralsClockStyle
-import my.github.MrxSiN.pixellockscreenevolved.clock.styles.SplitClockStyle
-import my.github.MrxSiN.pixellockscreenevolved.clock.styles.StackedClockStyle
+import my.github.MrxSiN.pixellockscreenevolved.clock.styles.CinemaClockStyle
+import my.github.MrxSiN.pixellockscreenevolved.clock.styles.DotClockStyle
+import my.github.MrxSiN.pixellockscreenevolved.clock.styles.HeadlineClockStyle
+import my.github.MrxSiN.pixellockscreenevolved.clock.styles.HorizonClockStyle
+import my.github.MrxSiN.pixellockscreenevolved.clock.styles.HyperClockStyle
+import my.github.MrxSiN.pixellockscreenevolved.clock.styles.OneClockStyle
+import my.github.MrxSiN.pixellockscreenevolved.clock.styles.PosterClockStyle
 
 /**
  * Every clock style this module offers.
@@ -14,8 +17,11 @@ import my.github.MrxSiN.pixellockscreenevolved.clock.styles.StackedClockStyle
  */
 fun clockStyles(): List<ClockStyle> = listOf(
     IosClockStyle(),
-    StackedClockStyle(),
-    NumeralsClockStyle(),
-    AnalogClockStyle(),
-    SplitClockStyle(),
+    HyperClockStyle(),
+    HeadlineClockStyle(),
+    PosterClockStyle(),
+    OneClockStyle(),
+    HorizonClockStyle(),
+    DotClockStyle(),
+    CinemaClockStyle(),
 )

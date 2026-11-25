@@ -104,6 +104,25 @@ class NumeralView(context: Context, private var cut: FlexCut) : View(context) {
         invalidate()
     }
 
+    /**
+     * Sets extra space between the figures, in ems. Roboto Flex's heaviest, narrowest figures are
+     * wider than the advance it gives them, so set tight they run into each other.
+     */
+    fun setTracking(em: Float) {
+        if (paint.letterSpacing == em) return
+        paint.letterSpacing = em
+        resize()
+    }
+
+    /** Inks the numerals awake with a fill and an outline as opaque as [fill] and [outline] say ([DozeInk.awakeFill]). */
+    fun setInk(fill: Float, outline: Float, outlineDp: Float = DozeInk.OUTLINE_DP) {
+        ink.awakeFill = fill
+        ink.awakeOutline = outline
+        ink.awakeOutlineDp = outlineDp
+        requestLayout()
+        invalidate()
+    }
+
     /** Thins the strokes toward the always-on display's light cut, from 0 awake to 1 dozing. */
     fun setDoze(fraction: Float) {
         val next = fraction.coerceIn(0f, 1f)

@@ -44,7 +44,6 @@ grep -q 'WIDTH_KEY = "PIXEL_LOCK_SCREEN_EVOLVED_WIDTH"' "$SRC/host/ClockAxes.kt"
 ! grep -qE '^import android' "$SRC/host/ClockAxes.kt"
 ! grep -qE '^import android' "$SRC/clock/ios/IosClockScale.kt"
 ! grep -qE '^import android' "$SRC/clock/parts/StretchFit.kt"
-! grep -qE '^import android' "$SRC/clock/styles/SplitClockScale.kt"
 
 # The clock uses the system's Roboto Flex; no font binary is bundled.
 [ ! -e "$ROOT/app/src/main/assets/fonts" ]
@@ -54,6 +53,9 @@ grep -q 'models/birefnet_lite.onnx' "$SRC/depth/SubjectSegmenter.kt"
 [ -f "$ROOT/app/src/main/assets/models/birefnet_lite.onnx" ]
 [ "$(wc -c < "$ROOT/app/src/main/assets/models/birefnet_lite.onnx")" -lt 100000000 ]
 [ -f "$ROOT/app/src/main/assets/models/BiRefNet-LICENSE.txt" ]
+grep -q 'models/depth_anything_v2_small.onnx' "$SRC/depth/DepthEstimator.kt"
+[ "$(wc -c < "$ROOT/app/src/main/assets/models/depth_anything_v2_small.onnx")" -lt 100000000 ]
+[ -f "$ROOT/app/src/main/assets/models/DepthAnythingV2-LICENSE.txt" ]
 
 # Host compatibility: each verified build the tests read is recorded for both hosts.
 for BUILD_DIR in "$ROOT"/app/src/test/resources/hosts/*/; do

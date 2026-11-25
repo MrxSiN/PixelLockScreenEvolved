@@ -51,7 +51,7 @@ class KeyguardSmartspacePlacement(
 
     override fun install(classLoader: ClassLoader) {
         val (smartspace, clocks) = try {
-            val clocks = ClockPluginApi(classLoader)
+            val clocks = ClockPluginApi.of(classLoader)
             KeyguardSmartspaceApi(classLoader, clocks) to clocks
         } catch (error: ReflectiveOperationException) {
             logger.warn("Keyguard smartspace not found; the date row keeps SystemUI's place", error)
@@ -71,6 +71,7 @@ class KeyguardSmartspacePlacement(
             hooks.after(composedCards) { element, _ ->
                 smartspace.composedView(requireNotNull(element))?.let(composed::followCard)
             }
+            ModuleClockFaces.onLargeAttached(composed::adoptCard)
         }
 
         val applyConstraints = smartspace.applyConstraints
@@ -86,7 +87,7 @@ class KeyguardSmartspacePlacement(
 
                 if (smartspace.isLargeClockVisible(owner)) {
                     // SystemUI's smartspace card (forecasts, events): always in the keyguard, GONE while empty.
-                    val card = row.resources.getIdentifier("bc_smartspace_view", "id", row.context.packageName)
+                    val card = row.resources.getIdentifier(ComposedSmartspacePlacement.CARD_ID, "id", row.context.packageName)
                     if (card == 0) return@after
                     editor.clear(card, TOP)
                     editor.clear(card, BOTTOM)

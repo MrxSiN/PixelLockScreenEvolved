@@ -26,7 +26,7 @@ import my.github.MrxSiN.pixellockscreenevolved.host.ConstraintParams.validate
  * the switch is left on (the large clock whenever notifications allow). Which
  * clock is previewed is asked whenever the sheet is laid out, which it is as
  * its tabs change, so the slot always matches the clock tapped last, and the
- * Position tab is offered only for one that can be moved ([ClockStyle.isMovable]).
+ * Position tab is offered for every one of this module's clocks.
  *
  * The height is recorded again whenever the rows shown change it, because the
  * picker animates its sheet to each tab's height, measured once, and holds the

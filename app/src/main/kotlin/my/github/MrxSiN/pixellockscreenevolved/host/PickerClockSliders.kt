@@ -86,7 +86,7 @@ internal class PickerClockSliders(
         }
         var steps = 0
         val onStyle = { style: ClockStyle? ->
-            positionTab?.isAvailable = style?.isMovable == true
+            positionTab?.isAvailable = style != null
             // Each style has its own number of sizes; the slider is given them as its clock is previewed.
             val count = style?.sizeSteps ?: ClockStyle.DEFAULT_SIZE_STEPS
             if (count != steps) {

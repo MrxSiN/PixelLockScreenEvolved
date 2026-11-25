@@ -105,7 +105,6 @@ internal class ClockControllerAdapter(
         face = style.createFace(context, size),
         size = size,
         sizeSteps = style.sizeSteps,
-        movable = style.isMovable,
         context = context,
         initialTheme = initialTheme,
     )

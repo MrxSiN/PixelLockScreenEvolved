@@ -40,7 +40,7 @@ internal class PickerSizeEdit(
 
     override fun install(classLoader: ClassLoader) {
         val (clocks, sheet, edits) = try {
-            val clocks = ClockPluginApi(classLoader)
+            val clocks = ClockPluginApi.of(classLoader)
             Triple(clocks, PickerSliderApi(classLoader), PickerClockEditApi(classLoader))
         } catch (error: ReflectiveOperationException) {
             logger.warn("Picker edit state not found; moving the clock size alone does not enable Apply", error)

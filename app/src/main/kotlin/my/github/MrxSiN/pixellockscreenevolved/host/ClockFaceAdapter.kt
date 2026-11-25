@@ -29,12 +29,10 @@ internal class ClockFaceAdapter(
     private val size: FaceSize,
     /** The stops of the style's size slider ([ClockStyle.sizeSteps]). */
     private val sizeSteps: Int,
-    /** Whether the large face may stand lower than the top ([ClockStyle.isMovable]). */
-    movable: Boolean,
     /** The host's own context, for whatever places the face against what SystemUI lays out around it. */
     val context: Context,
     initialTheme: Any,
-) {
+) : DepthTarget {
 
     private var theme: Any = initialTheme
 
@@ -42,21 +40,21 @@ internal class ClockFaceAdapter(
      * Counts the changes to how the time is written (its text, size and width), so
      * whatever measures the time can tell its measure is out of date.
      */
-    var timeChanges = 0
+    override var timeChanges = 0
         private set
 
     /**
      * How far the parts of the face around its time have come in, from 0 to 1,
      * as the clock changes size; the time itself is carried across instead.
      */
-    var arrival = 1f
+    override var arrival = 1f
 
     /** How far the face has gone into the always-on display, from 0 awake to 1 dozing. */
-    var dozeFraction = 0f
+    override var dozeFraction = 0f
         private set
 
     /** Where the large face stands awake. */
-    val clockLayout = ClockLayout(face.view, movable = movable && size == FaceSize.LARGE)
+    val clockLayout = ClockLayout(face.view, movable = size == FaceSize.LARGE)
 
     private val placement = ClockFacePlacement(api.viewId(size), size, LockScreenInsets.largeClockTop(context), clockLayout)
 
@@ -123,13 +121,21 @@ internal class ClockFaceAdapter(
     private val config = api.faceConfig(hasCustomWeatherDataDisplay = face.drawsDate)
 
     /** Whether the face's time is moving to new text ([ClockFace.isChanging]). */
-    val timeChanging: Boolean get() = face.isChanging
+    override val timeChanging: Boolean get() = face.isChanging
 
     /** The face's time, as [ClockFace.timeView] names it. */
     val timeView: View get() = face.timeView
 
+    /** What the subject may stand in front of, as [ClockFace.depthView] names it. */
+    override val depthView: View get() = face.depthView
+
+    override val inkColor: Int? get() = color
+
+    /** Only the large face moves with the phone's tilt; the small one sits among notifications. */
+    override val followsMotion: Boolean get() = size == FaceSize.LARGE
+
     /** The face's whole view, as SystemUI places it. */
-    val view: View get() = face.view
+    override val view: View get() = face.view
 
     /** The style face, exposed only for optional capabilities such as weather. */
     val viewFace: ClockFace get() = face
@@ -216,9 +222,14 @@ internal class ClockFaceAdapter(
         recolor()
     }
 
+    /** The colour the face was last drawn in. */
+    var color: Int = android.graphics.Color.WHITE
+        private set
+
     private fun recolor() {
         val colors = api.colors(theme, context)
-        face.setColor(COLOR_EVALUATOR.evaluate(dozeFraction, colors.normal, colors.doze) as Int)
+        color = COLOR_EVALUATOR.evaluate(dozeFraction, colors.normal, colors.doze) as Int
+        face.setColor(color)
     }
 
     private companion object {
@@ -245,10 +256,26 @@ internal object ModuleClockFaces {
     // allocates an iterator each time.
     private val faces = ArrayList<Tracked>()
 
-    fun track(view: View, size: FaceSize) = synchronized(faces) {
-        faces.removeAll { it.view.get() == null }
-        val tracked = faces.firstOrNull { it.view.get() === view }
-        if (tracked != null) tracked.size = size else faces += Tracked(view, size)
+    fun track(view: View, size: FaceSize) {
+        synchronized(faces) {
+            faces.removeAll { it.view.get() == null }
+            val tracked = faces.firstOrNull { it.view.get() === view }
+            if (tracked != null) tracked.size = size else faces += Tracked(view, size)
+        }
+        if (size == FaceSize.LARGE) view.addOnAttachStateChangeListener(object : View.OnAttachStateChangeListener {
+            override fun onViewAttachedToWindow(attached: View) {
+                attached.post { largeAttached.forEach { it(attached.rootView) } }
+            }
+
+            override fun onViewDetachedFromWindow(detached: View) = Unit
+        })
+    }
+
+    private val largeAttached = java.util.concurrent.CopyOnWriteArrayList<(View) -> Unit>()
+
+    /** Tells [listener] of the window's root each time a large module face is attached to one, on the main thread. */
+    fun onLargeAttached(listener: (root: View) -> Unit) {
+        largeAttached += listener
     }
 
     /** Scratch for [largeIn], under the lock. */

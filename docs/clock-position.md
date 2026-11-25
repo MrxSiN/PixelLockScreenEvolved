@@ -63,11 +63,6 @@ The band:
   693‰). Without an under-display sensor, or with the screen turned, the floor
   is 78% of the window (marked `ponytail:` in the source).
 
-Split is not movable (`ClockStyle.isMovable`): its time runs from under the
-status bar down to the subject, and is laid out around it
-(`SubjectAwareClockFace`); moving it would move what it measures against. The
-position rows are hidden for it.
-
 ## Adaptive
 
 `ClockLayout` scores the four anchors only when one of its inputs changes:
@@ -77,7 +72,10 @@ it out, so the wake breath never moves the clock). Each candidate is the
 face's laid-out box at that anchor, mapped onto the cut-out through the same
 `WallpaperPlacement` the depth effect uses (anchors 0, ¼, ½, ¾, 1), and scored by the share of it the
 subject covers (`SubjectInk`, a 128-px sampled grid with a summed-area table:
-four reads per candidate). Each step down costs 0.04; the anchor shown is kept
+four reads per half). The top half of the box weighs 0.65 and the bottom 0.35
+(`AdaptivePlacement.weigh`): a head rising into the foot of the digits is what
+the depth effect is for, the subject over their tops hides how they read. Up to
+0.08 covered costs nothing. Each step down costs 0.04; the anchor shown is kept
 unless another is better by 0.1 (`AdaptivePlacement`). With no subject, or one
 that fills the screen, that leaves the clock at the top, where the depth
 effect's readability rule then decides whether the time stands in front.
@@ -101,8 +99,7 @@ face laid-out size, position ─┘
 The face's *laid-out* size and the card's laid-out height are used, not their
 drawn ones, because the scene scales both while waking; the drawn values would
 change the inputs every frame of a wake. Nothing downstream of the pin feeds
-back: the depth layer and the card read the pin's result, and Split, which
-would close the loop, never moves.
+back: the depth layer and the card read the pin's result.
 
 ### Picker preview
 

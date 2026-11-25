@@ -26,7 +26,7 @@ internal class PickerClockSettings(
 
     override fun install(classLoader: ClassLoader) {
         val api = try {
-            ClockPluginApi(classLoader)
+            ClockPluginApi.of(classLoader)
         } catch (error: ReflectiveOperationException) {
             logger.warn("Clock plugin API not found; the size cannot be stored", error)
             return

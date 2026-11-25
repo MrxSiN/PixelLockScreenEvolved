@@ -1,5 +1,63 @@
 # Changelog
 
+## Unreleased
+
+### Changed
+
+- Clock styles: Stacked, Numerals, Analog and Split are replaced by **Hyper**
+  (after HyperOS's magazine lock screen: outlined figures down the whole screen
+  with a vertical date column), **Headline** and **Poster**
+  (after HyperOS's headline and poster layouts), **One** (after One UI), **Horizon** (after ColorOS and
+  OxygenOS), **Dot** (a dot matrix, after Nothing OS) and **Cinema** (towering
+  condensed figures for the depth effect). A device that chose a removed style
+  goes back to the default clock.
+- Depth effect: whether the time comes in front of the subject now weighs the
+  ink hidden, each digit, the hour and the minute, stroke weight, contrast
+  against the wallpaper and accessibility settings, with hysteresis, in place
+  of the 50% ink rule. **Clock and subject** on the Depth effect page chooses
+  Balanced, Readability first or Depth first.
+- Depth effect: subject edges are snapped to the photo with a guided filter.
+  Masks are found once more after updating.
+- Adaptive clock position weighs the subject over the top half of the clock
+  above its foot, and lets a little overlap through.
+- SystemUI keeps the subject as an alpha-only matte and the photo only at
+  segmentation size: about a quarter of the memory.
+- The guided filter needs 17 MB instead of 39 MB at 1024 px and runs in about
+  three fifths of the time; the depth model runs only while the depth map is
+  chosen; the patches of a host share one clock plugin lookup.
+
+### Added
+
+- **Subjects in front** on the Depth effect page: all subjects, or only the
+  main one.
+- **Depth map**: Depth Anything V2 Small (int8) runs beside BiRefNet, and the
+  clock can be set at a plane in the photo rather than behind one cut-out.
+- **Edit subject**: a brush over the photo, in a window SystemUI opens over
+  Wallpaper & style, to add to the subject or erase from it.
+- **Tilt motion**: the clock shifts with the phone's tilt.
+- The depth effect on Google's own clocks, and in Wallpaper & style's preview
+  of a photo before it is set.
+
+### Fixed
+
+- The segmentation service ran on the little cores alone whenever the phone
+  was not in use (`background` cpuset), so a new wallpaper's subject took 60 to
+  90 s; bound `BIND_IMPORTANT`, it takes 20 to 25 s.
+- Heavy, narrow figures (Hyper, Cinema, Headline) ran into each other; they
+  are now tracked apart.
+- After a hot reload, the replaced code's setting observers still acted, and
+  segmented the photo again beside the new code.
+- After a hot reload, the smartspace card (and Smartspacer's) stood over the
+  large clock instead of under it until SystemUI restarted: the replaced code's
+  per-frame listeners kept placing it by that code's state, and the new code
+  never picked up the card SystemUI had already built. Replaced code now stops
+  its listeners, and the card is found again once the new clock is shown.
+- The previous photo's subject was erased from the time over a new photo while
+  the new one's subject was being found.
+- The mask cache is written atomically with a checksum and size check, keeps
+  the most recently used masks rather than the most recently found, and keys
+  photos on a finer sample.
+
 ## 0.0.8 — 2026-11-12
 
 ### Fixed

@@ -106,9 +106,11 @@ class OneLineSmallFace(
     cut: FlexCut,
     /** Numeral height against the screen's short side; a style whose large face is bold may want more. */
     numeralToShortSide: Float = NUMERAL_TO_SHORT_SIDE,
+    /** Space between the figures, in ems ([NumeralView.setTracking]), for a heavy, narrow cut. */
+    tracking: Float = 0f,
 ) : NumeralClockFace(context, date = null) {
 
-    private val time = NumeralView(context, cut).apply { fit(shortSide * numeralToShortSide, maxWidth = shortSide * MAX_WIDTH) }
+    private val time = NumeralView(context, cut).apply { setTracking(tracking); fit(shortSide * numeralToShortSide, maxWidth = shortSide * MAX_WIDTH) }
 
     override val numerals: List<NumeralView> = listOf(time)
 

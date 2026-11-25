@@ -16,7 +16,7 @@ import my.github.MrxSiN.pixellockscreenevolved.core.Logger
 import my.github.MrxSiN.pixellockscreenevolved.depth.SubjectMaskContract
 
 /**
- * Asks the module's own app for the subject mask of a photo
+ * Asks the module's own app for the subject mask and depth map of a photo
  * ([SubjectMaskContract]), binding to it while a request is open.
  *
  * Only the latest photo matters, so a new request replaces one still waiting.
@@ -37,9 +37,10 @@ internal class SubjectMaskClient(
     private class Pending(
         val id: Int,
         val photo: Bitmap,
-        val onMask: (Bitmap) -> Unit,
+        val onMask: (mask: Bitmap, depth: Bitmap?) -> Unit,
         val onFailed: () -> Unit,
         val careful: Boolean,
+        val depth: Boolean,
         var attempts: Int = 0,
     )
 
@@ -62,18 +63,21 @@ internal class SubjectMaskClient(
 
     /**
      * Asks for [photo]'s subject mask, looked for twice over where [careful]
-     * ([SubjectMaskContract.KEY_CAREFUL]); [onMask] hears it, or [onFailed] that
-     * it was given up, on the main thread. Call on the main thread.
+     * ([SubjectMaskContract.KEY_CAREFUL]), and its depth map too where [depth]; [onMask] hears
+     * them, or [onFailed] that they were given up, on the main thread. Call on the main thread.
      */
-    fun request(photo: Bitmap, careful: Boolean, onMask: (Bitmap) -> Unit, onFailed: () -> Unit) {
-        pending = Pending(++requestId, photo, onMask, onFailed, careful)
+    fun request(photo: Bitmap, careful: Boolean, depth: Boolean, onMask: (mask: Bitmap, depth: Bitmap?) -> Unit, onFailed: () -> Unit) {
+        pending = Pending(++requestId, photo, onMask, onFailed, careful, depth)
         if (service != null) send(requireNotNull(pending)) else bind()
     }
 
     private fun bind() {
         if (bound) return
         val intent = Intent().setComponent(ComponentName(modulePackage, SubjectMaskContract.SERVICE_CLASS))
-        bound = runCatching { context.bindService(intent, connection, Context.BIND_AUTO_CREATE) }
+        // Important: SystemUI is a foreground process, and the service runs at its level while bound, on every
+        // core. Bound plainly, it ran in the background cpuset, on the little cores alone, and a subject took
+        // 60 to 90 s instead of 13 to 20 whenever the phone was not in use.
+        bound = runCatching { context.bindService(intent, connection, Context.BIND_AUTO_CREATE or Context.BIND_IMPORTANT) }
             .onFailure { logger.warn("Subject mask service could not be bound", it) }
             .getOrDefault(false)
         if (!bound) logger.warn("Subject mask service is unavailable; is the module app installed?")
@@ -84,6 +88,7 @@ internal class SubjectMaskClient(
             data = Bundle().apply {
                 putParcelable(SubjectMaskContract.KEY_PHOTO, request.photo)
                 putBoolean(SubjectMaskContract.KEY_CAREFUL, request.careful)
+                putBoolean(SubjectMaskContract.KEY_DEPTH, request.depth)
             }
             replyTo = replies
         }
@@ -97,9 +102,11 @@ internal class SubjectMaskClient(
                 @Suppress("DEPRECATION")
                 val mask = message.data.getParcelable<Bitmap>(SubjectMaskContract.KEY_MASK)
                     ?: return retry(request, "empty mask")
+                @Suppress("DEPRECATION")
+                val depth = message.data.getParcelable<Bitmap>(SubjectMaskContract.KEY_DEPTH)
                 pending = null
                 unbind()
-                request.onMask(mask)
+                request.onMask(mask, depth)
             }
             SubjectMaskContract.FAILED -> retry(request, message.data.getString(SubjectMaskContract.KEY_REASON) ?: "failed")
         }

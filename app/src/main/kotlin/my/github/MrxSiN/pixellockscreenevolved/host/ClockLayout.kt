@@ -29,8 +29,7 @@ import my.github.MrxSiN.pixellockscreenevolved.motion.SystemMotion
  * The dependency order is one way: the photo's subject and the band give the
  * anchor, the anchor gives the face's place, and the face's place feeds the
  * depth effect's erasing ([DepthLayer]) and the card under it, neither of which
- * this reads. A face laid out around the subject ([SubjectAwareClockFace])
- * would close that loop, so it is never moved ([movable]).
+ * this reads. Only a large face moves ([movable]).
  *
  * A move once a clock is placed glides on the system's spatial spring while
  * the lock screen is up, awake and animating; otherwise it is made at once.
@@ -189,12 +188,14 @@ internal class ClockLayout(private val view: View, private val movable: Boolean)
             )
             for (i in covered.indices) {
                 val anchorTop = ClockPosition.topAt(ClockPosition.ANCHORS[i], top, bottom, height)
-                covered[i] = subject.coverage(
+                val middle = anchorTop + height / 2
+                fun cover(from: Float, to: Float) = subject.coverage(
                     toPhotoX(placed, left, photo.width),
-                    toPhotoY(placed, anchorTop, photo.height),
+                    toPhotoY(placed, from, photo.height),
                     toPhotoX(placed, right, photo.width),
-                    toPhotoY(placed, anchorTop + height, photo.height),
+                    toPhotoY(placed, to, photo.height),
                 )
+                covered[i] = AdaptivePlacement.weigh(cover(anchorTop, middle), cover(middle, anchorTop + height))
             }
             AdaptivePlacement.choose(covered, adaptive)
         }

@@ -102,8 +102,7 @@ moves something is absorbed in one file.
 Implement `clock.ClockStyle` and a `ClockFace` in `clock/styles/` and list the
 style in `clock.clockStyles()`. For a size slider, set `isResizable` and make
 its faces `ResizableClockFace`; for the width slider, set `isWidthAdjustable`
-and make its faces `AdjustableWidthClockFace`; to lay a face out around the
-photo's subject, make it `SubjectAwareClockFace` and set `isMovable` false. Nothing in `host/` changes.
+and make its faces `AdjustableWidthClockFace`. Nothing in `host/` changes.
 
 ## Building
 

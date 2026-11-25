@@ -69,6 +69,8 @@ internal data class ClockPosition(val share: Float, val adaptive: Boolean = fals
  * of the photo's subject, given how much of the face's box the subject covers
  * at each anchor.
  *
+ * The subject over the top half of the face counts for more than over its
+ * bottom half ([weigh]), and a little of it costs nothing ([FREE_OVERLAP]).
  * Each step down from the top costs a little, so with no subject, or one that
  * fills the screen, the clock stays where these clocks always stood, and the
  * time stays readable (the depth effect brings it out in front of a subject
@@ -96,5 +98,20 @@ internal object AdaptivePlacement {
         return best
     }
 
-    private fun cost(covered: FloatArray, index: Int): Float = covered[index] + index * STEP_DOWN_COST
+    private fun cost(covered: FloatArray, index: Int): Float = (covered[index] - FREE_OVERLAP).coerceAtLeast(0f) + index * STEP_DOWN_COST
+
+    /**
+     * A little of the subject over the face is what the depth effect is for: a head rising into the
+     * foot of the digits. Up to this much of the face covered costs nothing.
+     */
+    const val FREE_OVERLAP = 0.08f
+
+    /** How much the top half of the face weighs against the bottom: the subject over the digits' tops hides more of how they read. */
+    private const val TOP_WEIGHT = 0.65f
+
+    /**
+     * The share of the face's box covered, weighing the subject over its [top] half
+     * more than over its [bottom] half; an even cover of both is that cover.
+     */
+    fun weigh(top: Float, bottom: Float): Float = TOP_WEIGHT * top + (1f - TOP_WEIGHT) * bottom
 }

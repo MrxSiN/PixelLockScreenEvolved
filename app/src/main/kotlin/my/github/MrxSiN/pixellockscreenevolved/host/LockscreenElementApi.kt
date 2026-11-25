@@ -123,7 +123,9 @@ internal class LockscreenElementApi(private val classLoader: ClassLoader) {
             FaceSize.SMALL -> fillMaxWidth.invoke(null, modifier, 0f, FILL_DEFAULTS, null)
                 .let { wide -> requiredHeight.invoke(null, wide, drawnHeightDp(view)) }
         }
-        var shape = wrapContentSize.invoke(null, room, topCenter, false, NOTHING_DEFAULTED, null)
+        // A large face may stand taller than the band the scene gives the large clock, down the whole
+        // screen (Hyper), so it is let overflow it, from the top, rather than be cut at the band's foot.
+        var shape = wrapContentSize.invoke(null, room, topCenter, size == FaceSize.LARGE, NOTHING_DEFAULTED, null)
         shape = burnInAware.invoke(scope, shape, true)
         shape = nonAuthUI.invoke(scope, shape)
         clockView.invoke(null, view, shape, composer)
