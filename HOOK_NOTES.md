@@ -1385,3 +1385,16 @@ always-on outline and the contour; those sections stay as history.
 - Device (v140): EXECUTED. Minute turned 10:09 to 10:10 centred; test
   notification leaving with the card in place; no crash in the crash buffer.
 
+## Bundled iOS clock font (2026-11-27)
+
+- The iOS clock now defaults to AXS66Clock in the APK. See
+  [iOS clock font loading](docs/architecture.md#ios-clock-font-loading) for
+  the lookup order and the host cache.
+- Pixel 8 Pro on `CP4A.261105.040.A1` (versionCode 143): **EXECUTED.** Moved
+  both override files aside and installed the signed APK. SystemUI logged
+  `iOS clock set in bundled AXS66Clock.otf (HGHT axis: true)` after hot reload.
+  Wallpaper & style logged the same on a fresh process and showed the iOS style
+  on the Clock screen.
+- **MEASURED.** The SHA-256 digest of the source font matched the APK entry,
+  both host cache files and both previous overrides.
+

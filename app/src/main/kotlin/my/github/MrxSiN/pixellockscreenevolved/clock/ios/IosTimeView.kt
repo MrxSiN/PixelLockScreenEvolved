@@ -31,12 +31,9 @@ import my.github.MrxSiN.pixellockscreenevolved.motion.SystemMotion
  * sits right above them. A new minute replaces the digits at once, as iOS
  * does; the always-on display keeps the time filled, as iOS does.
  *
- * Set in the owner's own font where there is one on the phone ([IosClockFont]):
- * iOS 26's clock font draws its figures tall through its own `HGHT` axis,
- * strokes and colon as iOS draws them, so none of what follows is needed.
- * Otherwise in Inter's Display cut, the free counterpart of the SF Pro Display
- * iOS uses, at the weight the width slider chooses; where Inter cannot be
- * loaded, in the Pixel's own numerals.
+ * AXS66Clock uses its `HGHT` axis to draw tall figures and position the colon.
+ * [IosClockFont] also supports custom fonts and falls back to Inter, then the
+ * Pixel's own numerals. Fonts without `HGHT` use the stretching below.
  * Stretching a figure tall thickens its horizontal strokes with it while its
  * vertical ones stay as they were, which drew bloated bars over hairline stems.
  * A figure stretched more than [EVEN_FROM] is therefore drawn from Inter's
@@ -46,7 +43,7 @@ import my.github.MrxSiN.pixellockscreenevolved.motion.SystemMotion
  */
 internal class IosTimeView(context: Context) : View(context) {
 
-    /** The owner's font or Inter, or null where neither loads and the Pixel's numerals stand in. */
+    /** The loaded font, or null when the Pixel's numerals stand in. */
     private val font = IosClockFont.font(context)
 
     /** Whether the font makes its own figures tall (`HGHT`), rather than this view stretching them. */

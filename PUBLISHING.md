@@ -59,6 +59,11 @@ Copy the complete text from `release.keystore.base64` into the `SIGNING_KEY` sec
 
 Before creating the release tag, install the debug build on an Android 17 Pixel with Vector, restart System UI and Wallpaper & style, and confirm `adb logcat -s PixelLockScreenEvolved` shows `Added clock styles` in both processes. Apply the iOS clock at the smallest and largest size and check the lock screen, the picker preview and always-on display.
 
+Move any existing custom iOS clock font overrides aside before this check.
+Verify that both processes log
+`iOS clock set in bundled AXS66Clock.otf (HGHT axis: true)` when displaying the
+iOS clock. The [README](README.md#ios-clock-font) lists the override paths.
+
 ## Local checks
 
 ```bash
