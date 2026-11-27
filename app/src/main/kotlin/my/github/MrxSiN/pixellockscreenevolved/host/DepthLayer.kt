@@ -75,6 +75,7 @@ internal class DepthLayer(
     private var timeReadable = true
     private val inFrontSpring = SpringFollower(IN_FRONT_STIFFNESS, initial = 1f)
     private var easedAt = 0L
+    private var tiltShift = 0f
 
     // Scratch for the work done before each frame, on the main thread.
     private val faceToWindow = Matrix()
@@ -239,12 +240,19 @@ internal class DepthLayer(
         if (faceLayerType != View.LAYER_TYPE_HARDWARE) faceView.setLayerType(View.LAYER_TYPE_HARDWARE, null)
     }
 
-    /** Lets the face draw as it did before. */
-    /** Shifts the clock [shift] pixels across, as the phone's tilt asks ([MotionParallax]); only a clock that follows it is moved. */
+    /**
+     * Shifts the clock [shift] pixels across, as the phone's tilt asks ([MotionParallax]); only a clock that
+     * follows it is moved. Added to the face's own translation rather than replacing it: a face may move
+     * itself as well (the iOS face centres a time wider than its room), and setting it outright undid that
+     * before every frame.
+     */
     private fun follow(shift: Float) {
-        if (face.followsMotion && faceView.translationX != shift) faceView.translationX = shift
+        if (!face.followsMotion || shift == tiltShift) return
+        faceView.translationX += shift - tiltShift
+        tiltShift = shift
     }
 
+    /** Lets the face draw as it did before. */
     private fun detach() {
         if (!attached) return
         attached = false

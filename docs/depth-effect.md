@@ -112,24 +112,52 @@ MEASURED on the Pixel 8 Pro, `CP4A.261105.040.A1`, 2026-11-25:
 
 **Edit subject** on the Depth effect page asks SystemUI (`DepthEditRequest`)
 to open `host/DepthMaskEditor`, a window of SystemUI's own over the picker,
-since the photo and its mask never leave SystemUI. It shows the photo with the
-subject tinted and the rest dimmed; a brush (three sizes) adds to the subject
-or takes from it. Edits are kept beside the mask (`.edit`, one mark per pixel:
-untouched, added or removed), laid over whatever the mask and depth map make,
-and forgotten with the mask when the subject is found again. It opens only
-while the phone is unlocked: an overlay opened over the keyguard waited
-hidden until the next unlock.
+since the photo and its mask never leave SystemUI. It opens only while the
+phone is unlocked: an overlay opened over the keyguard waited hidden until the
+next unlock.
+
+The photo opens fitted to the part of it the lock screen shows, outlined and
+with the rest darkened (computed from `LockWallpaperFeed.place` at rest). One
+finger paints with the chosen tool: **Add** to the subject, **Erase** from it,
+or **Restore** a part to what was found. Two fingers pinch to zoom (up to 16x
+the whole photo, settling back inside its range with a rubber band) and drag;
+a quick two-finger tap undoes; a stroke a second finger joins within 220 ms is
+taken back, so starting a pinch never paints. Strokes are dabbed along their
+path (`host/SubjectEdits`), so a fast finger leaves no gaps, and each stroke,
+and **Reset**, is one step of undo and redo (50 kept). The brush size is a
+slider measured on screen, shown as a ring; while painting, a loupe in a top
+corner shows what is under the finger at twice the zoom. Three looks show the
+subject: **Subject** (the rest greyed and darkened), **Overlay** (the subject
+tinted) and **Photo**. The backdrop is the photo blurred; colours are the
+system's own Material You palette and icons are drawn in code
+(`host/EditorIcon`), as SystemUI cannot load the module's resources. Closing
+with unsaved edits asks first.
+
+Edits are kept beside the mask (`.edit`, one mark per pixel: untouched, added
+or removed), laid over whatever the mask and depth map make, and forgotten
+with the mask when the subject is found again. Checked on the device
+(CP4A.261105.040.A1, 2026-11-27): pinch, pan, two-finger tap undo, loupe,
+fit-back, discard, and a saved band erasing the time with **Depth first**.
+
+The subject stands only in front of large faces. With a notification on the
+lock screen SystemUI shows the small face, which for the iOS style is drawn
+nearly as large, and no subject stands in front of it.
 
 ### Tilt motion
 
 With **Tilt motion** on, `host/MotionParallax` reads the game rotation vector
 (no magnetometer) and shifts a module clock's large face up to 12 dp sideways
 against the photo, measured from how the phone has been held over the last
-couple of seconds, so only movement shows. The sensor listens only while a
-clock asks before a frame and stops 1.5 s after the last ask; it is off with
-animations off. Checked on the device: the sensor is active while the lock
-screen shows and stops once it is gone (`dumpsys sensorservice`); the shift
-itself was NOT RUN by hand.
+couple of seconds, so only movement shows. The lean is read from where "up"
+points in the phone's frame (`sideTilt`); `getOrientation`'s roll, used
+before, locks up as the phone stands upright, as it is held to read the lock
+screen, so small leans swung the clock to its ends and could wrap. The shift is
+added to the face's translation rather than replacing it, since the iOS face
+also moves itself to centre a time wider than its room. The sensor listens
+only while a clock asks before a frame and stops 1.5 s after the last ask; it
+is off with animations off. Checked on the device: the sensor is active while
+the lock screen shows and stops once it is gone (`dumpsys sensorservice`); the
+shift itself was NOT RUN by hand.
 
 ### Google's clocks and previews
 

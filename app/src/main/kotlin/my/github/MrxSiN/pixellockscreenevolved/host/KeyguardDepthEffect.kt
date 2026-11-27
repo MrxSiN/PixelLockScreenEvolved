@@ -317,6 +317,7 @@ internal class KeyguardDepthEffect(
         if (last.context.getSystemService(android.app.KeyguardManager::class.java)?.isKeyguardLocked == true) {
             return logger.info("The subject editor opens only while the phone is unlocked")
         }
+        val frame = lockScreenFrame(last)
         worker.execute {
             runCatching {
                 if (last.photo.isRecycled) return@execute
@@ -334,10 +335,24 @@ internal class KeyguardDepthEffect(
                     ?: IntArray(size.width * size.height) { DepthComposite.UNEDITED }
                 val photo = last.photo.copy(Bitmap.Config.ARGB_8888, false)
                 main.post {
-                    DepthMaskEditor(last.context, photo, found, edits, logger) { saved -> saveEdits(last, saved) }.show()
+                    DepthMaskEditor(last.context, photo, found, edits, frame, logger) { saved -> saveEdits(last, saved) }.show()
                 }
             }.onFailure { logger.warn("The subject editor could not open", it) }
         }
+    }
+
+    /**
+     * The part of [taken]'s photo the lock screen shows, in the photo's pixels, as the wallpaper
+     * rests there ([LockWallpaperFeed.place]), or null where it covers none of it. On the main thread.
+     */
+    private fun lockScreenFrame(taken: Photo): android.graphics.RectF? {
+        val screen = taken.context.resources.displayMetrics
+        val placed = feed.place(WallpaperPlacement.Size(screen.widthPixels, screen.heightPixels), taken.surface, zoomed = false)
+        // A screen point back through the zoom and the surface's place, then from the surface to the photo.
+        fun photoX(x: Float) = ((x - placed.pivotX) / placed.scale + placed.pivotX - placed.left) * taken.photo.width / placed.width
+        fun photoY(y: Float) = ((y - placed.pivotY) / placed.scale + placed.pivotY - placed.top) * taken.photo.height / placed.height
+        val frame = android.graphics.RectF(photoX(0f), photoY(0f), photoX(screen.widthPixels.toFloat()), photoY(screen.heightPixels.toFloat()))
+        return if (frame.intersect(0f, 0f, taken.photo.width.toFloat(), taken.photo.height.toFloat())) frame else null
     }
 
     /** Keeps [edits] for [photo]'s subject, or forgets them where nothing is edited, and lays the subject out again. */
