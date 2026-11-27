@@ -12,6 +12,8 @@ import android.view.View
 
 import java.lang.ref.WeakReference
 
+import kotlin.math.asin
+
 import my.github.MrxSiN.pixellockscreenevolved.motion.SystemMotion
 
 /**
@@ -53,7 +55,6 @@ internal object MotionParallax : SensorEventListener {
     private val views = ArrayList<WeakReference<View>>()
 
     private val rotation = FloatArray(9)
-    private val orientation = FloatArray(3)
 
     private val idle = object : Runnable {
         override fun run() {
@@ -118,8 +119,7 @@ internal object MotionParallax : SensorEventListener {
 
     override fun onSensorChanged(event: SensorEvent) {
         SensorManager.getRotationMatrixFromVector(rotation, event.values)
-        SensorManager.getOrientation(rotation, orientation)
-        tilt = orientation[2]
+        tilt = sideTilt(rotation)
         val now = SystemClock.uptimeMillis()
         val seconds = if (lastEvent == 0L) 0f else ((now - lastEvent) / 1000f).coerceAtMost(0.2f)
         lastEvent = now
@@ -129,3 +129,12 @@ internal object MotionParallax : SensorEventListener {
 
     override fun onAccuracyChanged(sensor: Sensor?, accuracy: Int) = Unit
 }
+
+/**
+ * How far the phone leans from side to side, in radians, right side down positive: the
+ * angle between the screen's x axis and the horizontal, read from where "up" points in the
+ * phone's frame (the rotation matrix's last row). `SensorManager.getOrientation`'s roll
+ * was used before, but it locks up as the phone stands upright, as it is held to read the
+ * lock screen: small leans swung it to its ends, and it wrapped through ±π.
+ */
+internal fun sideTilt(rotation: FloatArray): Float = asin((-rotation[6]).coerceIn(-1f, 1f))

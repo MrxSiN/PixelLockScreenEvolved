@@ -135,8 +135,12 @@ internal class IosClockFace(
             super.onLayout(changed, l, t, r, b)
             val room = (parent as? View)?.width ?: return
             val shift = if (left == 0 && width > room) (room - width) / 2f else 0f
-            if (translationX != shift) translationX = shift
+            // Added to the translation, which the depth effect's tilt shares ([MotionParallax]).
+            if (shift != centring) translationX += shift - centring
+            centring = shift
         }
+
+        private var centring = 0f
     }
 
     private companion object {
