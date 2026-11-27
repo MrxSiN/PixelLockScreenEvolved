@@ -4,10 +4,14 @@ import android.content.ContentResolver
 import android.content.Context
 import android.graphics.Bitmap
 import android.graphics.Canvas
+import android.graphics.Paint
+import android.graphics.PorterDuff
+import android.graphics.PorterDuffXfermode
 import android.os.Handler
 import android.os.Looper
 import android.view.View
 
+import java.lang.reflect.Field
 import java.util.Collections
 import java.util.WeakHashMap
 import java.util.concurrent.Executors
@@ -26,6 +30,13 @@ import my.github.MrxSiN.pixellockscreenevolved.hook.HostPatch
  * scrim behind every lock-screen element. As dots, where the depth effect has
  * found the photo's subject ([onSubject]), only the subject is drawn, lighting
  * fewer pixels still.
+ *
+ * It comes and goes with the scrim's own reveal: only where the scrim is dark
+ * ([RevealMask]), so a wake, and a fingerprint unlock straight from the
+ * always-on display, sweep it away in the scrim's own shape (the ripple from
+ * the sensor, the circle from a tap, the lift) rather than all at once; and over
+ * the way in or out ([progress]) the dots grow from the photo itself, cell by
+ * cell from the middle of the screen, and shrink back into it.
  *
  * Only small copies are kept, on the GPU: half the screen's size is plenty at
  * the always-on display's brightness. The photo's is kept whatever the style,
@@ -54,13 +65,51 @@ internal class KeyguardAodWallpaper(
     private var subject: Bitmap? = null
     private var style: AodWallpaperStyle? = null
     private var watching = false
+    private var reveal: RevealMask? = null
+
+    /** A dot's cell, in dp, as Wallpaper & style's Dot size chooses ([AodDotDensity]). */
+    private var dotCellDp = AodDotDensity.cellDp(AodDotDensity.DEFAULT)
+
+    /** How far in the wallpaper was drawn last ([aodProgress]); on the main thread. */
+    private var shownProgress = 0f
 
     override fun install(classLoader: ClassLoader) {
         runCatching {
             val type = Class.forName(LIGHT_REVEAL_SCRIM, false, classLoader)
             val onDraw = type.getDeclaredMethod("onDraw", Canvas::class.java).apply { isAccessible = true }
+            reveal = runCatching { RevealMask(type) }
+                .onFailure { logger.warn("The scrim's reveal cannot be read; the always-on wallpaper fades with the doze instead", it) }
+                .getOrNull()
             hooks.after(onDraw) { target, args -> drawOnScrim(target as View, args[0] as Canvas) }
         }.onFailure { logger.warn("Always-on wallpaper hook is unavailable", it) }
+    }
+
+    /**
+     * Where SystemUI's scrim is dark, read as its `onDraw` just drew it: all of it before the reveal
+     * starts, none once it is done, and between, its gradient paint, placed by that draw. Drawn over
+     * the wallpaper's layer with DST_IN, it keeps the wallpaper only where the scrim still hides
+     * what is behind it.
+     */
+    private class RevealMask(type: Class<*>) {
+        private val amount: Field = type.field("revealAmount")
+        private val width: Field = type.field("revealGradientWidth")
+        private val height: Field = type.field("revealGradientHeight")
+        private val gradient: Field = type.field("gradientPaint")
+        private val keep = Paint().apply { xfermode = PorterDuffXfermode(PorterDuff.Mode.DST_IN) }
+
+        /** How far the scrim has revealed what is behind it, from 0 dark to 1 clear. */
+        fun amount(scrim: View): Float = amount.getFloat(scrim)
+
+        /** Keeps only what lies where [scrim] is dark, on [canvas], inside a layer. */
+        fun apply(scrim: View, canvas: Canvas) {
+            val shown = amount(scrim)
+            // As the scrim's own draw: no gradient yet or nothing revealed is dark all over.
+            if (shown <= 0f || width.getFloat(scrim) <= 0f || height.getFloat(scrim) <= 0f) return
+            val paint = gradient.get(scrim) as? Paint ?: return
+            keep.shader = paint.shader
+            canvas.drawRect(0f, 0f, scrim.width.toFloat(), scrim.height.toFloat(), keep)
+            keep.shader = null
+        }
     }
 
     /** Draws the photo behind a clock SystemUI built, on the always-on display. */
@@ -130,6 +179,10 @@ internal class KeyguardAodWallpaper(
         }
         AodWallpaperSetting.observe(resolver, follow)
         AodAppearanceSetting.observe(resolver, follow)
+        AodDotDensity.observe(resolver) {
+            dotCellDp = AodDotDensity.cellDp(AodDotDensity.get(resolver))
+            invalidate()
+        }
     }
 
     /**
@@ -144,26 +197,36 @@ internal class KeyguardAodWallpaper(
             clocks.maxOfOrNull { clock -> clock.faces.maxOf { it.dozeFraction } }
         } ?: 0f
         val current = look() ?: return stopMinuteTick()
-        if (doze <= 0f || target.width == 0 || target.height == 0) {
+        val mask = reveal
+        val revealed = mask?.let { runCatching { it.amount(target) }.getOrNull() }
+        val shown = aodProgress(doze, revealed, shownProgress)
+        shownProgress = shown
+        if (shown <= 0f || target.width == 0 || target.height == 0) {
             stopMinuteTick()
             return
         }
 
         val renderer = paint ?: AodWallpaperPaint(target.resources).also { paint = it }
-        val checkpoint = canvas.saveLayerAlpha(null, (doze * OPAQUE).roundToInt())
+        renderer.cellDp = dotCellDp
+        val checkpoint = canvas.saveLayerAlpha(null, (fadeIn(shown) * OPAQUE).roundToInt())
         renderer.draw(
             canvas,
             current,
             target.width,
             target.height,
             feed.place(WallpaperPlacement.Size(target.width, target.height), current.surface),
+            shown,
         )
+        if (revealed != null && revealed < 1f) runCatching { mask?.apply(target, canvas) }
         canvas.restoreToCount(checkpoint)
         main.removeCallbacks(minuteTick)
         main.postDelayed(minuteTick, MILLIS_PER_MINUTE - System.currentTimeMillis() % MILLIS_PER_MINUTE)
     }
 
     private fun stopMinuteTick() = main.removeCallbacks(minuteTick)
+
+    /** The layer's opacity at [progress]: it comes in over the first part of the way, where the dots are still the photo. */
+    private fun fadeIn(progress: Float): Float = (progress / FADE_IN_SHARE).coerceIn(0f, 1f)
 
     private fun invalidate() {
         main.post { scrim?.invalidate() }
@@ -173,7 +236,29 @@ internal class KeyguardAodWallpaper(
         /** The copies' longest side, against the screen's. */
         const val SCREEN_SHARE = 0.5f
         const val OPAQUE = 255f
+
+        /** The share of the way in over which the layer itself fades up, before its dots take shape. */
+        const val FADE_IN_SHARE = 0.2f
         const val MILLIS_PER_MINUTE = 60_000L
         const val LIGHT_REVEAL_SCRIM = "com.android.systemui.statusbar.LightRevealScrim"
     }
 }
+
+/**
+ * How far into the always-on wallpaper the screen is, from 0 awake to 1 dozing: how dark SystemUI's
+ * scrim is ([revealed] 0 dark, 1 clear), once the always-on display is involved at all, that is,
+ * while the clock dozes ([doze] above 0) or the wallpaper was still showing on the last frame
+ * ([previous]); the doze alone where the scrim cannot be read ([revealed] null).
+ *
+ * The doze is no measure of the way: on `CP4A.261105.040.A1` it jumps to 1 the moment the screen
+ * goes off, while the scrim takes about 400 ms to darken, and following it drew the finished dots,
+ * opaque, over the lock screen for the first frames (a blink). A fingerprint unlock drops it to 0
+ * at once, while the scrim's reveal is only starting, and the dots vanished in one frame. The scrim
+ * is the screen off and the wake as SystemUI draws them.
+ */
+// ponytail: assumes the scrim darkens whenever the always-on display shows; a build that dozes with a clear scrim would show no wallpaper, fall back to the doze if one appears.
+internal fun aodProgress(doze: Float, revealed: Float?, previous: Float): Float = when {
+    revealed == null -> doze
+    doze <= 0f && previous <= 0f -> 0f
+    else -> 1f - revealed
+}.coerceIn(0f, 1f)

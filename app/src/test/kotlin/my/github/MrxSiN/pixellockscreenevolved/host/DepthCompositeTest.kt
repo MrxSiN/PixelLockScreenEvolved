@@ -2,6 +2,7 @@ package my.github.MrxSiN.pixellockscreenevolved.host
 
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertSame
+import org.junit.Assert.assertTrue
 import org.junit.Test
 
 import my.github.MrxSiN.pixellockscreenevolved.depth.DepthInput
@@ -38,6 +39,31 @@ class DepthCompositeTest {
         assertEquals(255, edited[0])
         assertEquals(0, edited[3])
         assertEquals(255, edited[2])
+    }
+
+    @Test
+    fun aStrokePastThePhotosEdgeIsSnappedBackToIt() {
+        // A dark subject on the left half of a bright sky; nothing found, and an Add stroke that
+        // runs two pixels past the subject's edge into the sky, within the filter's reach.
+        val size = 32
+        val edge = 16
+        val guide = FloatArray(size * size) { if (it % size < edge) 0.1f else 0.9f }
+        val edits = IntArray(size * size) { if (it % size < edge + 2) DepthComposite.ADDED else DepthComposite.UNEDITED }
+        val alpha = DepthComposite.applyEdits(IntArray(size * size), edits)
+        DepthComposite.snapEdits(alpha, edits, guide, size, size, radius = 4, epsilon = 2e-3f)
+        val row = size * (size / 2)
+        assertEquals("deep inside the stroke stays painted", 255, alpha[row + 4])
+        assertEquals("well clear of any stroke is untouched", 0, alpha[row + 28])
+        assertTrue("the brush's overshoot into the sky is pulled back: ${alpha[row + edge + 1]}", alpha[row + edge + 1] < 160)
+        assertTrue("the subject's side of the edge stays solid: ${alpha[row + edge - 2]}", alpha[row + edge - 2] > 200)
+    }
+
+    @Test
+    fun withoutEditsNothingIsSnapped() {
+        val alpha = IntArray(16) { it * 16 }
+        val before = alpha.copyOf()
+        DepthComposite.snapEdits(alpha, IntArray(16) { DepthComposite.UNEDITED }, FloatArray(16), 4, 4, radius = 1, epsilon = 2e-3f)
+        assertEquals(before.toList(), alpha.toList())
     }
 
     @Test

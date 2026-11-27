@@ -42,7 +42,15 @@ internal class PickerDepthEffectPage(private val rows: PickerRows) {
         page.content.addView(statusTitle)
         page.content.addView(status)
         action.view.setOnClickListener {
-            if (action.view.isEnabled) DepthReprocessRequest.ask(resolver)
+            if (!action.view.isEnabled) return@setOnClickListener
+            // A subject already found, and any edits to it, are thrown away by a reprocess: asked first.
+            if (DepthStatus.get(resolver) != DepthStatus.READY) return@setOnClickListener DepthReprocessRequest.ask(resolver)
+            android.app.AlertDialog.Builder(context)
+                .setTitle(REPROCESS_TITLE)
+                .setMessage(REPROCESS_MESSAGE)
+                .setNegativeButton(android.R.string.cancel, null)
+                .setPositiveButton(REPROCESS_CONFIRM) { _, _ -> DepthReprocessRequest.ask(resolver) }
+                .show()
         }
 
         val layers = choices(context, page, LAYERS_TITLE, DepthLayers.entries, { it.title }, { it.description }) {
@@ -164,5 +172,9 @@ internal class PickerDepthEffectPage(private val rows: PickerRows) {
         private const val EDIT_TITLE = "Edit subject"
         private const val EDIT_DESCRIPTION = "Paint to add to the subject or take from it"
         private const val SUBJECTS_TITLE = "Subjects in front"
+        private const val REPROCESS_TITLE = "Reprocess wallpaper?"
+        private const val REPROCESS_MESSAGE = "The subject is looked for again, more carefully. This can take up to half a " +
+            "minute, and any edits you made to the subject are lost."
+        private const val REPROCESS_CONFIRM = "Reprocess"
     }
 }

@@ -70,6 +70,7 @@ internal class ClockPluginApi private constructor(private val classLoader: Class
         .firstOrNull { it.name == "createCurrentClock" && it.parameterTypes.contentEquals(arrayOf(Context::class.java)) }
 
     private val controllerLargeClock = controllerType.getMethod("getLargeClock")
+    private val controllerSmallClock = controllerType.getMethod("getSmallClock")
     private val faceControllerView = faceControllerType.getMethod("getView")
 
     private val availableClocksField = registryType.getDeclaredField("availableClocks").accessible()
@@ -244,8 +245,10 @@ internal class ClockPluginApi private constructor(private val classLoader: Class
     fun clockId(settings: Any): String? = settingsClockId.invoke(settings) as String?
 
     /** The view of a live `ClockController`'s large face, whoever provides it. */
-    fun largeView(controller: Any): View? =
-        controllerLargeClock.invoke(controller)?.let { faceControllerView.invoke(it) as? View }
+    /** The views of a live `ClockController`'s faces, large first, whoever provides it. */
+    fun faceViews(controller: Any): List<View> = listOf(controllerLargeClock, controllerSmallClock)
+        .mapNotNull { face -> face.invoke(controller)?.let { faceControllerView.invoke(it) as? View } }
+        .distinct()
 
     /** The id a live `ClockController` reports, whoever provides it. */
     fun controllerClockId(controller: Any): String? =

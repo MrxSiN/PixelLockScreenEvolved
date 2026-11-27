@@ -597,7 +597,20 @@ below the composed lock-screen elements, so the clock, smartspace and unlock
 affordances stay above the custom wallpaper. Adding a child beside the Compose
 root no longer works on Android 17 QPR1: Compose draws its opaque AOD surface
 over that child, while `AndroidViewsHandler` only draws registered interop
-views. The drawing's alpha is the clock's doze fraction. It uses one AGSL
+views. How far in it is (`aodProgress`) is how dark the scrim is
+(`1 - revealAmount`), once the clock dozes or the wallpaper was showing; not the
+doze fraction, which on `CP4A.261105.040.A1` jumps to 1 the moment the screen
+goes off (logged: doze 1.0 from the first frame while `revealAmount` eases from
+1 to 0 over ~470 ms), so following it blinked the finished, opaque dots over the
+lock screen, and drops to 0 at once on a fingerprint unlock. The layer is then kept only where
+the scrim is dark, by drawing the scrim's own `gradientPaint` over it with
+`DST_IN` after `onDraw` has placed it, so it leaves in the reveal's shape (the
+ripple from the sensor, a tap's circle, the lift). Read on `CP4A.261105.040.A1`
+from `onDraw`'s bytecode: with `revealGradientWidth` or `revealGradientHeight`
+at 0, or `revealAmount` 0, the scrim is dark all over; otherwise it draws
+`startColorAlpha` and then `gradientPaint` over the whole view. All four fields
+are optional contracts; without them the layer fades with the doze as before.
+It uses one AGSL
 `RuntimeShader`: the photo, through a `BitmapShader` placed as
 `WallpaperPlacement` places the wallpaper, multiplied by the brightness, made
 grey, or sampled at each dot cell's middle (5dp) to light a disc whose radius
@@ -856,9 +869,14 @@ com.android.systemui.shared.clocks.ClockRegistry
   ClockController createCurrentClock(Context)
 com.android.systemui.plugins.keyguard.ui.clocks.ClockController
   ClockFaceController getLargeClock()
+  ClockFaceController getSmallClock()
 com.android.systemui.plugins.keyguard.ui.clocks.ClockFaceController
   View getView()
 ```
+
+Both faces get the subject in front: the small one shows beside notifications
+(`getSmallClock`, an optional contract; a build without it keeps the large
+face only).
 
 `createCurrentClock` builds whichever clock is chosen, this module's or one of
 Google's. `host/KeyguardStockClockDepth.kt` reads its result (a result hook,

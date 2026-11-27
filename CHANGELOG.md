@@ -2,7 +2,34 @@
 
 ## Unreleased
 
+### Added
+
+- Depth effect: the subject now stands in front of the small clock shown beside
+  notifications, for module and Google clocks.
+- Depth effect: brushed subject edits snap to the photo's own edges.
+- Always-on display: **Dot size**, a seven-stop slider (3 to 9 dp cells,
+  Standard is the old 5 dp) under the Dots appearance, with a live preview of
+  your own wallpaper drawn by the always-on display's own shader at the size it
+  will be on screen. The preview follows every stop dragged across; the setting
+  (secure `pixel_lock_screen_evolved_aod_dot_density`) is kept on release and
+  the always-on display follows it live.
+- Subject editor: hold-to-compare with the subject as found, tool-coloured
+  brush ring, and a confirmation before **Reprocess wallpaper** throws a
+  subject and its edits away.
+
 ### Changed
+
+- Subject editor redesigned (glass bars, grouped history, Done) with a
+  choreographed entrance and a matching exit; its window is translucent so the
+  exit reveals Wallpaper & style instead of cutting from black.
+- Always-on Dots: on the way in and out the dots grow from the photo itself and
+  shrink back into it, cell by cell from the middle of the screen, and the
+  layer leaves with the scrim's own reveal, so a fingerprint unlock from the
+  always-on display no longer drops the dots in one frame. The way in follows
+  the scrim rather than the clock's doze, which jumps to 1 at screen off and
+  blinked the dots over the lock screen.
+- Subject editor draws under the navigation bar (a strip of the screen behind
+  showed there).
 
 - The iOS clock now defaults to AXS66Clock, bundled in the APK for both the
   lock screen and the picker. Inter remains the fallback and custom font

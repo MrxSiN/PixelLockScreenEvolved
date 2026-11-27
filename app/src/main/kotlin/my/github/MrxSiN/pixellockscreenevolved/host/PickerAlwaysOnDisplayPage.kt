@@ -7,7 +7,7 @@ import android.content.Context
  * Wallpaper & style's Always-on display page: whether the always-on display
  * keeps the lock screen wallpaper, and in which one appearance
  * ([AodWallpaperStyle]), chosen like any single choice, so no two can be on at
- * once.
+ * once, and, as dots, how large they are ([PickerDotDensity]).
  */
 internal class PickerAlwaysOnDisplayPage(private val rows: PickerRows) {
 
@@ -29,6 +29,9 @@ internal class PickerAlwaysOnDisplayPage(private val rows: PickerRows) {
         rows.shape(appearance)
         page.content.addView(rows.sectionTitle(context, APPEARANCE_TITLE))
         page.content.addView(appearance)
+        // The Dot size section comes and goes with the Dots appearance; the rows below it ease into place.
+        page.content.layoutTransition = android.animation.LayoutTransition()
+        val dots = PickerDotDensity(rows).add(context, page, page.content)
 
         val radios = choices.associate { (style, row) ->
             style to rows.radioAtEnd(row, false) {
@@ -42,6 +45,7 @@ internal class PickerAlwaysOnDisplayPage(private val rows: PickerRows) {
             if (toggle.isChecked != shown) toggle.isChecked = shown
             radios.forEach { (style, radio) -> radio.isChecked = style == chosen }
             choices.forEach { (_, row) -> rows.setEnabled(row, unavailable == null && shown) }
+            dots.show(unavailable == null && shown && chosen == AodWallpaperStyle.DOTS)
         }
 
         rows.setEnabled(wallpaper, unavailable == null)

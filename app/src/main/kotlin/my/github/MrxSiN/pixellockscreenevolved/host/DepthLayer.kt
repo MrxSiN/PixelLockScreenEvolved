@@ -19,7 +19,7 @@ import kotlin.math.abs
 import my.github.MrxSiN.pixellockscreenevolved.motion.SystemMotion
 
 /**
- * The subject of the lock screen photo, standing in front of one large clock face.
+ * The subject of the lock screen photo, standing in front of one clock face, large or small.
  *
  * The subject is not drawn: its shape is erased from the face's time, so the
  * photo itself shows through where the subject stands. The cut-out is placed

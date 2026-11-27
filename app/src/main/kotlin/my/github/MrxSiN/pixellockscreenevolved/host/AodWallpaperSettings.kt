@@ -29,6 +29,33 @@ internal enum class AodWallpaperStyle(val value: Int, val title: String, val des
     }
 }
 
+/**
+ * How large, and so how many, the always-on display's dots are, as a stop of Wallpaper & style's
+ * Dot size slider: from the finest grid, [STOPS] stops, to the boldest. [DEFAULT] is the 5 dp
+ * cell dots were drawn on before there was
+ * a choice. A dot's width follows its cell, so every stop lights about the same share of pixels.
+ */
+internal object AodDotDensity {
+
+    const val STOPS = 7
+    const val DEFAULT = 2
+
+    private const val FINEST_CELL_DP = 3f
+    private val setting = SecureIntSetting("pixel_lock_screen_evolved_aod_dot_density", DEFAULT)
+
+    /** What each stop is called, finest first. */
+    val labels = listOf("Very fine", "Fine", "Standard", "Relaxed", "Bold", "Bolder", "Very bold")
+
+    fun get(resolver: ContentResolver): Int = setting.get(resolver).coerceIn(0, STOPS - 1)
+
+    fun put(resolver: ContentResolver, stop: Int) = setting.put(resolver, stop.coerceIn(0, STOPS - 1))
+
+    fun observe(resolver: ContentResolver, onChange: () -> Unit) = setting.observe(resolver, onChange)
+
+    /** A dot's cell at [stop], in dp: one dp more per stop. */
+    fun cellDp(stop: Int): Float = FINEST_CELL_DP + stop.coerceIn(0, STOPS - 1)
+}
+
 /** Whether the always-on display keeps the lock screen wallpaper. */
 internal object AodWallpaperSetting : SecureSwitch("pixel_lock_screen_evolved_aod_wallpaper")
 

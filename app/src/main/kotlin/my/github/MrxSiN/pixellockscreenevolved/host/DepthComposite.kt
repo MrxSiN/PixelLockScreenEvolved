@@ -1,5 +1,9 @@
 package my.github.MrxSiN.pixellockscreenevolved.host
 
+import kotlin.math.abs
+
+import my.github.MrxSiN.pixellockscreenevolved.depth.GuidedFilter
+
 /**
  * What stands in front of the clock, from the subject's mask, the photo's
  * depth map and a person's own corrections. Kept free of Android so it can be
@@ -75,6 +79,30 @@ internal object DepthComposite {
         for (i in alpha.indices) when (edits[i]) {
             ADDED -> alpha[i] = 255
             REMOVED -> alpha[i] = 0
+        }
+        return alpha
+    }
+
+    /**
+     * Snaps the edges of a person's [edits], already laid over [alpha] ([applyEdits]), to the photo's
+     * own edges, in place: a brush is a circle, and a stroke that runs past a shoulder leaves the
+     * circle's edge in the sky. Within [radius] pixels of where a stroke ends, [alpha] eases toward
+     * itself run through the guided filter against [guide] (the photo's luma, 0 to 1); deep inside a
+     * stroke, and away from any, it is left as it was, so what was painted solid stays solid and the
+     * rest of the subject is not softened again. Returns [alpha].
+     */
+    fun snapEdits(alpha: IntArray, edits: IntArray, guide: FloatArray, width: Int, height: Int, radius: Int, epsilon: Float): IntArray {
+        require(alpha.size == edits.size && alpha.size == guide.size && alpha.size == width * height) { "mask, edits and guide must be one size" }
+        val edited = FloatArray(edits.size) { if (edits[it] == UNEDITED) 0f else 1f }
+        if (edited.none { it > 0f }) return alpha
+        val near = GuidedFilter.boxMean(edited, width, height, radius)
+        val refined = GuidedFilter.apply(guide, FloatArray(alpha.size) { alpha[it] / 255f }, width, height, radius, epsilon)
+        for (i in alpha.indices) {
+            // 1 where a window is half edited, at a stroke's edge; 0 wholly inside one or clear of any.
+            val weight = 1f - abs(2f * near[i] - 1f)
+            if (weight <= 0f) continue
+            val snapped = refined[i].coerceIn(0f, 1f) * 255f
+            alpha[i] = (alpha[i] + (snapped - alpha[i]) * weight + 0.5f).toInt().coerceIn(0, 255)
         }
         return alpha
     }

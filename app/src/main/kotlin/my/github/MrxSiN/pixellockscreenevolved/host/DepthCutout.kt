@@ -59,7 +59,14 @@ internal class DepthCutout(cacheDirectory: File) {
         edits: Bitmap? = null,
     ): Bitmap {
         val alpha = composedAlpha(mask, mainOnly, depth, photo)
-        edits?.let { DepthComposite.applyEdits(alpha, alphaOf(it, mask.width, mask.height)) }
+        edits?.let {
+            val marks = alphaOf(it, mask.width, mask.height)
+            DepthComposite.applyEdits(alpha, marks)
+            // The brush's round edge is snapped to the photo's own edges where a stroke ran past them.
+            if (photo != null && photo.width == mask.width && photo.height == mask.height) {
+                DepthComposite.snapEdits(alpha, marks, guideOf(photo), mask.width, mask.height, guideRadius(mask.width, mask.height), GUIDE_EPSILON)
+            }
+        }
         return stretch(alpha, mask.width, mask.height, surface)
     }
 
@@ -73,19 +80,25 @@ internal class DepthCutout(cacheDirectory: File) {
         if (depth != null && photo != null && photo.width == width && photo.height == height) {
             DepthComposite.combine(alpha, alphaOf(depth, width, height))
             // The depth map is coarser than the mask; its edge is snapped to the photo's as the mask's was.
-            // The guide is read a row at a time, so no photo-sized array of colours is held besides it.
-            val guide = FloatArray(width * height)
-            val row = IntArray(width)
-            for (y in 0 until height) {
-                photo.getPixels(row, 0, width, 0, y, width, 1)
-                for (x in 0 until width) guide[y * width + x] = luma(row[x])
-            }
-            val radius = maxOf(2, maxOf(width, height) / GUIDE_DIVISOR)
-            val refined = GuidedFilter.apply(guide, FloatArray(alpha.size) { alpha[it] / OPAQUE.toFloat() }, width, height, radius, GUIDE_EPSILON)
+            val refined = GuidedFilter.apply(guideOf(photo), FloatArray(alpha.size) { alpha[it] / OPAQUE.toFloat() }, width, height, guideRadius(width, height), GUIDE_EPSILON)
             for (i in alpha.indices) alpha[i] = (refined[i] * OPAQUE + 0.5f).toInt()
         }
         return alpha
     }
+
+    /** [photo]'s luma, 0 to 1, read a row at a time, so no photo-sized array of colours is held besides it. */
+    private fun guideOf(photo: Bitmap): FloatArray {
+        val width = photo.width
+        val guide = FloatArray(width * photo.height)
+        val row = IntArray(width)
+        for (y in 0 until photo.height) {
+            photo.getPixels(row, 0, width, 0, y, width, 1)
+            for (x in 0 until width) guide[y * width + x] = luma(row[x])
+        }
+        return guide
+    }
+
+    private fun guideRadius(width: Int, height: Int): Int = maxOf(2, maxOf(width, height) / GUIDE_DIVISOR)
 
     /** [alpha], [width] by [height], as an `ALPHA_8` bitmap the size of [surface]; [alpha] is used up, its values shifted in place. */
     fun stretch(alpha: IntArray, width: Int, height: Int, surface: WallpaperPlacement.Size): Bitmap {

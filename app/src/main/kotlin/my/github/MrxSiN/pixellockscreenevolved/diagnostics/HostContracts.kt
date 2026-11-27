@@ -169,6 +169,7 @@ object HostContracts {
         // Google's own clocks get the depth effect too: the registry builds them, and their large face is a view.
         optional(REGISTRY, method("createCurrentClock", CONTEXT), DEPTH_EFFECT),
         optional("$CLOCKS.ClockController", method("getLargeClock"), DEPTH_EFFECT),
+        optional("$CLOCKS.ClockController", method("getSmallClock"), DEPTH_EFFECT),
         optional("$CLOCKS.ClockFaceController", method("getView"), DEPTH_EFFECT),
         optional(PREVIEW_RENDERER, Member.Method("updateClockAppearance"), DEPTH_EFFECT),
         optional(PREVIEW_RENDERER, Member.Field("previewViewModel"), DEPTH_EFFECT),
@@ -178,6 +179,10 @@ object HostContracts {
 
         // Wallpaper on always-on display
         contract(LIGHT_REVEAL_SCRIM, method("onDraw", "android.graphics.Canvas"), AOD_WALLPAPER),
+        optional(LIGHT_REVEAL_SCRIM, Member.Field("revealAmount"), AOD_WALLPAPER),
+        optional(LIGHT_REVEAL_SCRIM, Member.Field("revealGradientWidth"), AOD_WALLPAPER),
+        optional(LIGHT_REVEAL_SCRIM, Member.Field("revealGradientHeight"), AOD_WALLPAPER),
+        optional(LIGHT_REVEAL_SCRIM, Member.Field("gradientPaint"), AOD_WALLPAPER),
 
         // Double tap to turn off screen: SystemUI's own gesture, its flag set from the stock setting.
         contract(TOUCH_HANDLING, method("onDoubleClick"), DOUBLE_TAP_TO_SLEEP),

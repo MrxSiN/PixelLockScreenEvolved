@@ -139,9 +139,30 @@ with the mask when the subject is found again. Checked on the device
 (CP4A.261105.040.A1, 2026-11-27): pinch, pan, two-finger tap undo, loupe,
 fit-back, discard, and a saved band erasing the time with **Depth first**.
 
-The subject stands only in front of large faces. With a notification on the
-lock screen SystemUI shows the small face, which for the iOS style is drawn
-nearly as large, and no subject stands in front of it.
+The subject stands in front of the small face too, the one SystemUI shows
+beside notifications, for this module's clocks and Google's alike: each face
+gets its own layer, weighed for readability on its own. Only the large face
+follows the tilt.
+
+The editor's look (2026-11-27): glass bars over the photo, undo and redo
+grouped, **Done** with a check; the brush's ring is drawn in its tool's colour
+(Add the accent, Erase the error colour, Restore white); holding the compare
+button shows the subject as found, before any edits; reset is an icon and says
+that Undo brings the edits back. It comes in with the backdrop fading up, the
+photo growing into place and the bars sliding in a beat apart, and leaves the
+same way reversed, over a translucent window so Wallpaper & style shows through
+as it goes (the window was opaque, so the old fade went to black and cut).
+
+Brushed edits are snapped to the photo's own edges when the matte is laid out
+(`DepthComposite.snapEdits`): within the guided filter's radius (the photo's
+long side / 128) of a stroke's edge, the alpha eases toward itself run through
+the guided filter on the photo's luma, so a stroke that runs a few pixels past
+a shoulder is pulled back to it. Deep inside a stroke, and away from any, it is
+left as painted. A stroke that overshoots by more than the radius keeps its
+edge.
+
+**Reprocess wallpaper** asks first while a subject is found, since it throws
+that subject and any edits away.
 
 ### Tilt motion
 

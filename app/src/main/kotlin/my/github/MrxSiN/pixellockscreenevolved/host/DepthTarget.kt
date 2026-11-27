@@ -4,7 +4,7 @@ import android.view.Display
 import android.view.View
 
 /**
- * A large clock the photo's subject can stand in front of ([DepthLayer]): one of
+ * A clock face, large or small, the photo's subject can stand in front of ([DepthLayer]): one of
  * this module's faces ([ClockFaceAdapter]), or a clock of Google's own
  * ([StockClockTarget]).
  */
@@ -36,7 +36,7 @@ internal interface DepthTarget {
 }
 
 /**
- * One of Google's own large clocks, which SystemUI built and the module only
+ * One of Google's own clock faces, which SystemUI built and the module only
  * looks at: its view is all of it, its time changes every minute, it is either
  * awake or on the always-on display, and its colour is not known. It is not
  * moved: SystemUI places and animates it. Whether it dozes is read from its

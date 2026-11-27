@@ -18,23 +18,59 @@ import kotlin.math.sin
  * How the always-on display draws the lock screen photo: dimmed, in greys, or as
  * sparse dots ([AodWallpaperStyle]), through one GPU shader.
  *
+ * On the way into the always-on display and out of it ([draw]'s progress), dots
+ * start as the photo itself, discs wide enough to tile it in its own colours,
+ * and shrink to their resting width and grey cell by cell, the middle of the
+ * screen first; waking plays it back.
+ *
  * An always-on display lights the same pixels for hours, so everything moves a
  * little each minute ([burnInShift]): the photo drifts within a few pixels, and
  * the dots' grid steps through its cell, so no pixel stays lit.
  */
-internal class AodWallpaperPaint(resources: Resources) {
+internal class AodWallpaperPaint(private val resources: Resources) {
 
     private val shader = RuntimeShader(SHADER)
     private val whole = Paint().apply { shader = this@AodWallpaperPaint.shader }
-    private val cell = TypedValue.applyDimension(TypedValue.COMPLEX_UNIT_DIP, DOT_CELL_DP, resources.displayMetrics)
+    private var cell = TypedValue.applyDimension(TypedValue.COMPLEX_UNIT_DIP, AodDotDensity.cellDp(AodDotDensity.DEFAULT), resources.displayMetrics)
+
+    /** A dot's cell, in dp ([AodDotDensity]). */
+    var cellDp: Float = AodDotDensity.cellDp(AodDotDensity.DEFAULT)
+        set(value) {
+            if (field == value) return
+            field = value
+            cell = TypedValue.applyDimension(TypedValue.COMPLEX_UNIT_DIP, value, resources.displayMetrics)
+        }
     private val drift = TypedValue.applyDimension(TypedValue.COMPLEX_UNIT_DIP, DRIFT_DP, resources.displayMetrics)
 
     /** The minute everything is placed for; a drawing made in an earlier one no longer matches. */
     fun minute(): Long = System.currentTimeMillis() / MS_PER_MINUTE
 
-    /** Draws [look], [placed] over [width] by [height] of [canvas], over whatever [canvas] already holds. */
-    fun draw(canvas: Canvas, look: AodWallpaperLook, width: Int, height: Int, placed: WallpaperPlacement.Placed) {
+    /**
+     * Draws [look], [placed] over [width] by [height] of [canvas], over whatever [canvas] already holds,
+     * [progress] of the way into the always-on display (1 there).
+     */
+    fun draw(canvas: Canvas, look: AodWallpaperLook, width: Int, height: Int, placed: WallpaperPlacement.Placed, progress: Float = 1f) {
+        shader.setFloatUniform("progress", progress.coerceIn(0f, 1f))
+        shader.setFloatUniform("origin", width / 2f, height / 2f)
         paint(canvas, look, width, height, placed, whole)
+    }
+
+    /**
+     * Draws [photo], any shader over [width] by [height] of [canvas], as the always-on display's dots
+     * at rest: for Wallpaper & style's preview of a dot size, which is then drawn at the size it
+     * will be on the always-on display.
+     */
+    fun preview(canvas: Canvas, photo: Shader, width: Float, height: Float) {
+        shader.setInputShader("photo", photo)
+        shader.setInputShader("subject", NOTHING)
+        shader.setFloatUniform("hasSubject", 0f)
+        shader.setFloatUniform("shift", 0f, 0f)
+        shader.setFloatUniform("brightness", BRIGHTNESS)
+        shader.setFloatUniform("style", AodWallpaperStyle.DOTS.value.toFloat())
+        shader.setFloatUniform("cell", cell)
+        shader.setFloatUniform("progress", 1f)
+        shader.setFloatUniform("origin", width / 2f, height / 2f)
+        canvas.drawRect(0f, 0f, width, height, whole)
     }
 
     private fun paint(canvas: Canvas, look: AodWallpaperLook, width: Int, height: Int, placed: WallpaperPlacement.Placed, paint: Paint) {
@@ -86,9 +122,6 @@ internal class AodWallpaperPaint(resources: Resources) {
          */
         const val BRIGHTNESS = 0.25f
 
-        /** A dot's cell: dots are laid on a grid of these, sparse enough to light few pixels. */
-        const val DOT_CELL_DP = 5f
-
         /** Pixels the dot grid steps across and down each minute; prime to the cell, so every offset comes round. */
         const val DOT_STEP_X = 7
         const val DOT_STEP_Y = 4
@@ -113,6 +146,8 @@ internal class AodWallpaperPaint(resources: Resources) {
             uniform float style;
             uniform float cell;
             uniform float2 shift;
+            uniform float progress;
+            uniform float2 origin;
 
             half lightness(half3 c) { return dot(c, half3(0.2126, 0.7152, 0.0722)); }
 
@@ -122,19 +157,29 @@ internal class AodWallpaperPaint(resources: Resources) {
                     // Contrast is stretched and the dot's width follows lightness, so its area follows its square:
                     // mid-greys give small dots and dark parts none, keeping few pixels lit. Where the photo
                     // has a subject, only the subject is dotted.
-                    float light = smoothstep(0.3, 0.95, float(lightness(photo.eval(centre).rgb)));
+                    half3 colour = photo.eval(centre).rgb;
+                    float light = smoothstep(0.3, 0.95, float(lightness(colour)));
                     if (hasSubject > 0.5) light *= float(subject.eval(centre).a);
+                    // How far this cell has gone from the photo to its dot: the middle of the screen leads,
+                    // the corners follow within the last part of the way.
+                    float reach = length(origin) + 1.0;
+                    float lead = distance(centre, origin) / reach * 0.4;
+                    float t = smoothstep(0.0, 1.0, clamp((progress - lead) / 0.6, 0.0, 1.0));
                     // Dots are lit nearly as brightly as the clock beside them, a little under it so the
                     // two still tell apart: the always-on display holds greys unsteadily and dimmed dots
                     // flickered. The brightness is spent on their width instead, by its square root, so
                     // the light asked for and the power drawn are the same.
-                    float radius = light * cell * 0.36 * sqrt(brightness);
+                    float resting = light * cell * 0.36 * sqrt(brightness);
+                    // On the way, a disc wide enough to tile its cell, in the photo's own colour, shrinks to it.
+                    float radius = mix(cell * 0.75, resting, t);
                     // A dot narrower than a pixel lights nothing. Without this the half pixel every disc
                     // covers at its own middle is lit wherever the photo is, so a grid showed over the
                     // whole screen, over the black around the subject and behind the clock.
-                    if (radius < 0.5) return half4(0.0, 0.0, 0.0, 1.0);
-                    half lit = half(clamp(radius - distance(at, centre) + 0.5, 0.0, 1.0)) * 0.8;
-                    return half4(lit, lit, lit, 1.0);
+                    // At rest that cut is sharp. On the way in or out a dot fades as it narrows instead,
+                    // since one blinking off at half a pixel, and back on the next frame, twinkled.
+                    if (radius < 0.5 && t >= 1.0) return half4(0.0, 0.0, 0.0, 1.0);
+                    half lit = half(clamp(radius - distance(at, centre) + 0.5, 0.0, 1.0) * smoothstep(0.0, 0.5, radius));
+                    return half4(lit * mix(colour, half3(0.8), half(t)), 1.0);
                 }
                 half3 c = photo.eval(at - shift).rgb;
                 if (style > 1.5) c = half3(lightness(c));
