@@ -23,6 +23,19 @@ Wallpaper & style lists them and stores the choice. The width and size are axis
 values in the clock setting the picker already writes, so choosing one keeps
 the other and nothing else is stored.
 
+### iOS clock font loading
+
+Both hosts use `clock/ios/IosClockFont.kt`. It tries the custom font override
+in the host's `filesDir`, then `assets/fonts/AXS66Clock.otf` from the module APK,
+then `assets/fonts/Inter.ttf`. If all three fail, the view uses the Pixel's
+Google Sans Flex Clock numerals.
+
+The module gives the loader its APK path on startup and hot reload. The loader
+extracts the selected bundled font into the host's `cacheDir`, keyed by font
+name, APK size and modification time. It detects support for `HGHT` by
+measuring a zero at two axis values. `IosTimeView` uses that axis for tall
+figures when present and stretches glyphs in the view for other fonts.
+
 ## Surviving host updates
 
 SystemUI and Wallpaper & style are private, shrunk code that changes every

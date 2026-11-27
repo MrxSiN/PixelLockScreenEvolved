@@ -4,6 +4,9 @@
 
 ### Changed
 
+- The iOS clock now defaults to AXS66Clock, bundled in the APK for both the
+  lock screen and the picker. Inter remains the fallback and custom font
+  overrides still take priority.
 - Clock styles: Stacked, Numerals, Analog and Split are replaced by **Hyper**
   (after HyperOS's magazine lock screen: outlined figures down the whole screen
   with a vertical date column), **Headline** and **Poster**

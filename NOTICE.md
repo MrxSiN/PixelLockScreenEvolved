@@ -12,8 +12,8 @@ other clock styles.
 ## AXS66Clock
 
 `app/src/main/assets/fonts/AXS66Clock.otf` is the iOS clock's default font.
-The file identifies Apple Inc. as the copyright holder (2015–2019) and
-refers to the applicable Apple OS Software License Agreement.
+Copyright © 2015–2019 Apple Inc. Distributed with permission. The font
+metadata refers to the applicable Apple OS Software License Agreement.
 
 ## Inter
 

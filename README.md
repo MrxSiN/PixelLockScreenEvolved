@@ -157,13 +157,16 @@ wakes.
 
 </details>
 
-The iOS clock uses AXS66Clock by default. Its `HGHT` axis draws tall figures,
-including the colon, and the Clock face width slider controls the weight.
-If the default font fails to load, the clock uses Inter Display.
+### iOS clock font
 
-You can set it in a font of your own instead: put the file, named
-`pixel_lock_screen_evolved_clock_font`, in each host's files folder and
-restart it.
+SystemUI and Wallpaper & style load AXS66Clock from the module APK by
+default. Its `HGHT` axis draws tall figures and positions the colon, and the
+**Clock face width** slider controls the weight. Inter Display is the fallback.
+
+To use a custom font, place it in each host's files folder as
+`pixel_lock_screen_evolved_clock_font` and restart both hosts. Existing
+overrides take priority. To switch back to the bundled font, move the override
+files out of those folders and restart both hosts.
 
 ```sh
 for d in /data/user_de/0/com.android.systemui /data/user/0/com.google.android.apps.wallpaper; do
