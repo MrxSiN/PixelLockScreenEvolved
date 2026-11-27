@@ -1,6 +1,7 @@
 package my.github.MrxSiN.pixellockscreenevolved.host
 
 import org.junit.Assert.assertEquals
+import org.junit.Assert.assertTrue
 import org.junit.Test
 
 class ClockPositionTest {
@@ -38,6 +39,14 @@ class ClockPositionTest {
     fun adaptiveKeepsTheAnchorShownUnlessAnotherIsClearlyBetter() {
         assertEquals(1, AdaptivePlacement.choose(floatArrayOf(0.5f, 0.2f, 0.15f, 0.5f, 0.5f), shown = 1))
         assertEquals(2, AdaptivePlacement.choose(floatArrayOf(0.5f, 0.6f, 0f, 0.5f, 0.5f), shown = 1))
+    }
+
+    @Test
+    fun theSubjectOverTheTopOfTheFaceCountsForMoreThanOverItsFoot() {
+        assertTrue(AdaptivePlacement.weigh(top = 0.4f, bottom = 0f) > AdaptivePlacement.weigh(top = 0f, bottom = 0.4f))
+        assertEquals(0.5f, AdaptivePlacement.weigh(0.5f, 0.5f), 1e-6f)
+        // A head rising into the foot of the digits is what the depth effect is for, so it does not move the clock.
+        assertEquals(0, AdaptivePlacement.choose(floatArrayOf(AdaptivePlacement.weigh(0f, 0.2f), 0f, 0f, 0f, 0f), shown = -1))
     }
 
     @Test

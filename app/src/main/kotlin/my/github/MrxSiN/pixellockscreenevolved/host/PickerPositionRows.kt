@@ -1,18 +1,27 @@
 package my.github.MrxSiN.pixellockscreenevolved.host
 
-import android.view.LayoutInflater
+import android.util.TypedValue
+import android.view.Gravity
+import android.view.HapticFeedbackConstants
 import android.view.View
 import android.view.ViewGroup
-import android.widget.CompoundButton
+import android.widget.LinearLayout
 import android.widget.TextView
 
 /**
- * The content of the clock sheet's Position tab ([PickerPositionTab]): one
- * "Adaptive position" row, built from the sheet's own Size tab row so it reads
- * as the sheet's other controls. On, the clock stands where it hides least of
- * the wallpaper's subject; off, it stands where it is dragged in the preview
- * ([PickerClockDrag]), which [PickerDragHint] says beside the preview. The
- * preview is the only place a position is chosen, so no row repeats it.
+ * The content of the clock sheet's Position tab ([PickerPositionTab]):
+ *
+ * - "Adaptive position", the sheet's own switch row ([PickerSwitchRow]). On, the clock stands where it hides least
+ *   of the wallpaper's subject; off, it stands where it is dragged in the
+ *   preview ([PickerClockDrag]), which [PickerDragHint] says beside the
+ *   preview. The preview is the only place a height is chosen, so no row
+ *   repeats it.
+ * - "Rotation", a slider built as the Size tab's "Clock size" is, from 90
+ *   degrees left to 90 right in single degrees, the angle written after its
+ *   label and a tick felt on each of [ClockRotation.DETENTS]. Twisting the
+ *   preview's clock with two fingers turns it too, and the slider follows.
+ *   A "Reset" button at the end of its label stands the clock upright,
+ *   dimmed while it is upright already.
  *
  * A choice previews on the clock at once and is kept until Apply, as the size
  * is ([PickerClockState]).
@@ -21,54 +30,120 @@ internal class PickerPositionRows(
     sheet: View,
     private val state: PickerClockState,
     colors: PickerThemeColors.InFragment?,
+    private val sliders: PickerSliderApi,
+    /** The Style tab's own slider, whose colours the Rotation slider copies. */
+    colourSource: View,
 ) {
 
+    private val rotationRow = PickerClockSliders.sliderRow(sheet, ROTATION)
+
+    /** Stands the clock upright; shares the Rotation label's line, at its end. */
+    private val reset = TextView(sheet.context).apply {
+        text = RESET
+        gravity = Gravity.CENTER
+        minWidth = PickerRows.dp(context, TOUCH_DP)
+        minHeight = PickerRows.dp(context, TOUCH_DP)
+        val padding = PickerRows.dp(context, PADDING_DP)
+        setPadding(padding, 0, padding, 0)
+        PickerRows.resource(context, "attr", TEXT_APPEARANCE).takeIf { it != 0 }?.let { attr ->
+            val value = TypedValue()
+            if (context.theme.resolveAttribute(attr, value, true)) setTextAppearance(value.resourceId)
+        }
+        val ripple = TypedValue()
+        if (context.theme.resolveAttribute(android.R.attr.selectableItemBackgroundBorderless, ripple, true)) setBackgroundResource(ripple.resourceId)
+        colors?.let { runCatching { it.follow(RESET_COLOUR, ::setTextColor) } }
+        setOnClickListener {
+            performHapticFeedback(HapticFeedbackConstants.CONFIRM)
+            state.choosePosition(state.shownPosition().copy(rotation = 0f))
+            showDegrees(0f)
+        }
+    }
+
+    /** The angle the Rotation slider shows, so a turn chosen elsewhere moves it only when it differs. */
+    private var shownDegrees = Float.NaN
+
     /** The tab's content, or null where the sheet's layouts are gone. */
-    val view: ViewGroup? = adaptiveRow(sheet)?.also { (row, toggle) ->
+    val view: ViewGroup? = PickerSwitchRow.inflate(sheet, TITLE, DESCRIPTION)?.let { (row, toggle) ->
         toggle.isChecked = state.shownPosition().adaptive
         val recolour = colors?.let { runCatching { it.follow(toggle) }.getOrNull() }
         toggle.setOnCheckedChangeListener { _, checked ->
             recolour?.invoke(checked)
             state.choosePosition(state.shownPosition().copy(adaptive = checked))
         }
-        row.setOnClickListener { toggle.toggle() }
-    }?.first
-
-    /**
-     * The Size tab's own switch row, titled "Adaptive position": inflated
-     * afresh, its views given ids of their own so nothing finds them for the
-     * picker's row, and its constraints pointed at the new ids.
-     */
-    private fun adaptiveRow(sheet: View): Pair<ViewGroup, CompoundButton>? {
-        val context = sheet.context
-        val row = runCatching {
-            LayoutInflater.from(context).inflate(PickerRows.resource(context, "layout", SIZE_CONTENT), null, false) as ViewGroup
-        }.getOrNull() ?: return null
-        val titleView = row.findViewById<TextView>(PickerRows.resource(context, "id", TITLE_ID)) ?: return null
-        val descriptionView = row.findViewById<TextView>(PickerRows.resource(context, "id", DESCRIPTION_ID)) ?: return null
-        val toggle = row.findViewById<View>(PickerRows.resource(context, "id", SWITCH_ID)) as? CompoundButton ?: return null
-        titleView.text = TITLE
-        descriptionView.text = DESCRIPTION
-        toggle.contentDescription = TITLE
-
-        val renamed = listOf(titleView, descriptionView, toggle).associate { view -> view.id to View.generateViewId().also { view.id = it } }
-        for (child in listOf(titleView, descriptionView, toggle)) {
-            val params = child.layoutParams
-            for (field in params.javaClass.fields) {
-                if (field.type != Int::class.javaPrimitiveType || !field.name.contains("To")) continue
-                renamed[field.getInt(params)]?.let { field.setInt(params, it) }
-            }
-            runCatching { params.javaClass.getMethod("validate").invoke(params) }
+        LinearLayout(sheet.context).apply {
+            orientation = LinearLayout.VERTICAL
+            addView(row)
+            rotationRow?.let { addView(it.row, LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT)) }
         }
-        row.layoutParams = ViewGroup.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT)
-        return row to toggle
     }
 
+    init {
+        rotationRow?.let { (row, label, slider) ->
+            besideLabel(row, label)
+            PickerClockSliders.followColours(sliders, colourSource, slider)
+            sliders.hideTicks(slider)
+            showDegrees(state.shownPosition().rotation)
+            sliders.onValueChange(slider) { value, fromUser ->
+                if (!fromUser) return@onValueChange
+                if (ClockRotation.detentOf(value, 0f) >= 0 && value != shownDegrees) slider.performHapticFeedback(HapticFeedbackConstants.SEGMENT_TICK)
+                shownDegrees = value
+                showReset(value)
+                label.text = labelFor(value)
+                state.choosePosition(state.shownPosition().copy(rotation = value))
+            }
+            // A twist of the preview's clock, or a double tap that stood it upright, moves the slider with it.
+            state.onAxesChosen { showDegrees(state.shownPosition().rotation) }
+            state.onPositionEditing { if (it) showDegrees(state.shownPosition().rotation) }
+        }
+    }
+
+    /** Puts the Rotation slider and its label at [degrees], unless they are there already. */
+    private fun showDegrees(degrees: Float) {
+        val (_, label, slider) = rotationRow ?: return
+        if (degrees == shownDegrees) return
+        shownDegrees = degrees
+        showReset(degrees)
+        label.text = labelFor(degrees)
+        label.contentDescription = ROTATION
+        slider.stateDescription = ClockRotation.nameOf(degrees)
+        sliders.configure(slider, -ClockRotation.MAX_DEGREES, ClockRotation.MAX_DEGREES, 1f, degrees)
+    }
+
+    /** Puts [reset] at the end of [label]'s line, the label taking the rest of it. */
+    private fun besideLabel(row: ViewGroup, label: TextView) {
+        val index = row.indexOfChild(label)
+        if (index < 0) return
+        val params = label.layoutParams
+        row.removeView(label)
+        val line = LinearLayout(row.context).apply {
+            orientation = LinearLayout.HORIZONTAL
+            gravity = Gravity.CENTER_VERTICAL
+            addView(label, LinearLayout.LayoutParams(0, ViewGroup.LayoutParams.WRAP_CONTENT, 1f))
+            addView(reset, LinearLayout.LayoutParams(ViewGroup.LayoutParams.WRAP_CONTENT, ViewGroup.LayoutParams.WRAP_CONTENT))
+        }
+        row.addView(line, index, (params as? ViewGroup.MarginLayoutParams)?.let { LinearLayout.LayoutParams(it).apply { width = ViewGroup.LayoutParams.MATCH_PARENT } }
+            ?: LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT))
+    }
+
+    /** Enables [reset] only while the clock is turned, dimmed as a disabled button is otherwise. */
+    private fun showReset(degrees: Float) {
+        val turned = degrees != 0f
+        reset.isEnabled = turned
+        reset.alpha = if (turned) 1f else DISABLED_ALPHA
+    }
+
+    private fun labelFor(degrees: Float): String = "$ROTATION  ${ClockRotation.label(degrees)}"
+
     private companion object {
-        const val SIZE_CONTENT = "floating_sheet_clock_size_content"
-        const val TITLE_ID = "clock_style_clock_size_title"
-        const val DESCRIPTION_ID = "clock_style_clock_size_description"
-        const val SWITCH_ID = "clock_style_clock_size_switch"
+        const val ROTATION = "Rotation"
+        const val RESET = "Reset"
+        const val RESET_COLOUR = "colorPrimary"
+        const val TEXT_APPEARANCE = "textAppearanceLabelLarge"
+        const val TOUCH_DP = 48f
+        const val PADDING_DP = 12f
+
+        /** Material's opacity for a disabled control's content. */
+        const val DISABLED_ALPHA = 0.38f
 
         const val TITLE = "Adaptive position"
         const val DESCRIPTION = "Keep the clock clear of your wallpaper's subject"

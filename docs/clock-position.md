@@ -19,6 +19,9 @@ Wallpaper & style → Lock screen → Clock → **Position** tab, the last one
   it landed. There is no separate position row or list: the preview is the
   editor.
 
+- **Rotation** (slider row under Adaptive position, and a two-finger twist
+  of the preview clock): see [Rotation](#rotation) below.
+
 Choices preview live and are stored on **Apply**, like the size; Back
 discards them.
 
@@ -63,11 +66,6 @@ The band:
   693‰). Without an under-display sensor, or with the screen turned, the floor
   is 78% of the window (marked `ponytail:` in the source).
 
-Split is not movable (`ClockStyle.isMovable`): its time runs from under the
-status bar down to the subject, and is laid out around it
-(`SubjectAwareClockFace`); moving it would move what it measures against. The
-position rows are hidden for it.
-
 ## Adaptive
 
 `ClockLayout` scores the four anchors only when one of its inputs changes:
@@ -77,7 +75,10 @@ it out, so the wake breath never moves the clock). Each candidate is the
 face's laid-out box at that anchor, mapped onto the cut-out through the same
 `WallpaperPlacement` the depth effect uses (anchors 0, ¼, ½, ¾, 1), and scored by the share of it the
 subject covers (`SubjectInk`, a 128-px sampled grid with a summed-area table:
-four reads per candidate). Each step down costs 0.04; the anchor shown is kept
+four reads per half). The top half of the box weighs 0.65 and the bottom 0.35
+(`AdaptivePlacement.weigh`): a head rising into the foot of the digits is what
+the depth effect is for, the subject over their tops hides how they read. Up to
+0.08 covered costs nothing. Each step down costs 0.04; the anchor shown is kept
 unless another is better by 0.1 (`AdaptivePlacement`). With no subject, or one
 that fills the screen, that leaves the clock at the top, where the depth
 effect's readability rule then decides whether the time stands in front.
@@ -101,8 +102,7 @@ face laid-out size, position ─┘
 The face's *laid-out* size and the card's laid-out height are used, not their
 drawn ones, because the scene scales both while waking; the drawn values would
 change the inputs every frame of a wake. Nothing downstream of the pin feeds
-back: the depth layer and the card read the pin's result, and Split, which
-would close the loop, never moves.
+back: the depth layer and the card read the pin's result.
 
 ### Picker preview
 
@@ -177,6 +177,131 @@ rides the Size slot (`PickerPositionTab`):
   animations are ended once the new list is laid out;
 - the tab is listed only while the previewed clock can be moved.
 
+## Rotation
+
+The large clock can be turned about its middle, from 90 degrees left to 90
+degrees right, stored as axis `PIXEL_LOCK_SCREEN_EVOLVED_ROTATION` (degrees,
+clockwise positive) in the same clock setting, beside the position. A setting
+without it stands upright, so nothing changes for existing installs; a value
+out of range reads as the nearest end, anything not a number as upright
+(`ClockPosition.of`). Placed or adaptive, the clock can be turned.
+
+### Controls (Wallpaper & style)
+
+- **Where:** every gesture is taken anywhere in the band of the screen the
+  preview stands in, its empty sides included (`PickerGestureZone`, a plain
+  transparent view over that band in the activity's content, present only
+  while the Position tab is open), not just on the clock: the preview is drawn
+  at about half size and a turned clock takes touches only inside its turned
+  outline, so twisting on the clock itself was hard (owner's report). Both
+  fingers land in the one view, so their pointers are never split.
+- **Two-finger twist** (`PickerClockDrag`): the face
+  turns with the fingers, measured on screen (the clock's own coordinates
+  turn with it; measured there a twist came out at about half its angle).
+  Within 4 degrees of a detent (0, 15, 30, 45, 90 either way) it settles on it
+  with the system's segment tick; past 90 it stretches a quarter as far and
+  springs back. While turning, the preview shows a line through the clock's
+  middle at its angle over a faint level line, and a badge with the angle,
+  drawn at screen size although the preview is drawn at about half. A second
+  finger landing mid-drag ends the drag where it is and starts the turn.
+- **Double tap** on the preview clock stands it upright, with a confirm tick.
+- **Rotation slider** (`PickerPositionRows`), built from the Style tab's own
+  slider row as the size slider is, with the angle written after its label and
+  its 181 stop marks hidden (`BaseSlider.tickVisibilityMode`); it moves with a
+  twist and a twist moves with it.
+- **TalkBack / switch access**: "Turn clock left / right" step from detent to
+  detent, and the clock's state reads "Upright" or "Turned 30 degrees right".
+- The hint beside the preview reads "Drag the clock to move it, or twist it
+  with two fingers to turn it" (placed) or "Twist the clock with two fingers
+  to turn it" (adaptive), with a twisting glyph for the second.
+
+The preview's views split a gesture's pointers between their children and
+decide, as the first finger lands, which pointers each child is sent, so a
+second finger never reached a clock that took its own touches (measured: one
+pointer, for gestures injected through `InputManager` too). The gesture zone
+takes both fingers itself, so nothing needs changing in the picker's views.
+
+### Placement
+
+| Concern | How |
+|---|---|
+| Turning | `View.setRotation` on the face's own view about its middle, applied by the pin before every draw (`ClockFacePlacement.turn`), so every reader of the face's drawn matrix follows it: the depth effect's eraser (`DepthLayer` maps the subject through the face's full matrix), the card under the clock (`ComposedSmartspacePlacement` reads its drawn bounds) |
+| The band | the face is placed by the box it covers turned, `w·|sin θ| + h·|cos θ|` tall (`ClockRotation.extentHeight`); the share places that box's middle, which turning never moves, between the band's ends (`ClockPosition.topAt(…, extent)`), so a turned clock's corners stay under the status bar and above the floor. An upright face is placed exactly as before |
+| The pin | reads the scene's scale as the length of the face's turned x axis (`hypot(MSCALE_X, MSKEW_Y)`) and aligns the top of the face upright: its drawn middle less half its height |
+| Adaptive | anchors are scored by the turned box |
+| Faces that fill the screen down | are given the upright height whose turned box fits their room (`ClockRotation.uprightRoom`), never less than 35% of it; nearly on its side, the width decides and the room is kept |
+| Motion | a turn chosen glides on the same spatial spring as a move, from wherever the face stands; a turn and a move share one animation |
+| Always-on display | the turn is handed back with the placement, as the doze fraction runs (`AodClockMotion.towardAodPosition`), so the always-on display shows the clock upright where SystemUI puts it; waking, the clock turns into its tilt as it rises into place |
+| AOD fit | the always-on fit that shrinks a wide face now scales about the face's middle (rotation and scale share one pivot); the pin keeps the always-on top it had when that fit was taken about the face's top |
+| Small clock | never turned |
+
+### Verified on device (Pixel 8 Pro, `CP4A.261105.040.A1`, 2026-11-26)
+
+- Picker: Rotation slider to 32°, the preview clock and its date turned and
+  stayed in the band, Apply enabled; a double tap stood it upright, the slider
+  followed to 0° and Apply turned off again.
+- Picker: two-finger twists injected through `InputManager` (`app_process`
+  helper, scratchpad only): 37° landed at 37°; −44° settled on −45°; a twist
+  from −45° by 52° landed at 7°; the guide and badge read 15°, 22°, 30° as it
+  turned and held on 15° passing it. Raw `sendevent` multi-touch did not work
+  on this touchscreen (Android saw one pointer), so it is not a usable test
+  route.
+- Apply stored `PIXEL_LOCK_SCREEN_EVOLVED_ROTATION 30`. Lock screen (iOS face,
+  notifications hidden): the large clock turned 30° with its date, starting
+  below the status bar; always-on display upright; waking, the clock turned
+  into its tilt as it rose. The small clock beside notifications stayed
+  upright. The owner's setting was restored afterwards.
+- Not verified on device: the depth effect's eraser over a turned clock with
+  the subject crossing the digits (follows from the matrix path, untested),
+  a filling face (Hyper) turned, and a real finger's twist (only injected).
+
+## Adaptive size
+
+Clock → Size → **Adaptive size** (a switch row above Clock size, built from the
+sheet's own Large clock row, `PickerSwitchRow`), stored as axis
+`PIXEL_LOCK_SCREEN_EVOLVED_SIZE_ADAPTIVE` (1 on). Every resizable style of the
+module's takes part: the large face is grown down to the wallpaper's subject.
+
+| Step | How |
+|---|---|
+| The edge | `SubjectInk.topEdge`: the first row of the depth effect's cut-out grid, from the band's top down, in which the subject fills at least 8% of the face's columns, mapped through the same `WallpaperPlacement` the depth effect uses (`ClockLayout.findEdge`, worked out only when the anchor's inputs change) |
+| The height | `AdaptiveSize.height`: the edge lands 18% of the face's height above its bottom (`OVERLAP`), so the subject stands in front of the foot of the time. Solved exactly for the position's share, as the face's top rises with its height at any share but 0, so the answer does not depend on the face's present height and fitting never feeds back on itself; an adaptive position counts as the top. Bounded by the band |
+| The size | `ClockFaceAdapter.refit`: the largest size of the style's own range whose measured height is no more than that, by halving the range nine times against the face measured unbounded at each size tried (`ResizableClockFace.setSizeAtOnce`: the iOS time glides to a new size on a spring while shown, and measured through that glide the search read the old size every time and landed far too large); then the face is put back where it stood and glides once to the size found. Only on a change of 6 px or more, after the draw, awake and at the scene's resting scale (the height is in window pixels over the scale the scene draws the clock at) |
+| Figures around the subject (iOS) | a face that can (`ContouredClockFace`, the iOS face) runs each figure on down from the fitted size to the subject in its own columns: SystemUI measures the subject's top edge in 24 slices across the screen (`SubjectProfile`, a slice's edge where the subject fills a quarter of it), the adapter maps them into the time view as it is drawn (`ViewBounds`, so the scene's scale and the pin are taken in) and hands a `Contour`; each figure is stretched alone until its foot stands the overlap past the highest edge in its columns, never shorter than the size makes it, tops level, the colon as the size draws it, and the view as tall as the longest figure. A slice with no subject reaches the band's floor. Measured without the contour, so sizing and contour never feed each other; none while turned, before a fit, or with Adaptive size off; mapped only at the scene's resting scale |
+| Picker redraw | the preview reads SystemUI's reports only as it draws, so a new report redraws it (`ClockLayoutReport.redrawOnChange`); before, a preview with nothing else moving kept the old edge (and the old adaptive anchor) |
+| Falling back | no subject, the depth effect off, or Adaptive size off: the size step (the Clock size slider, dimmed while Adaptive size is on). The always-on display keeps the size the face had awake |
+| Picker preview | the picker cannot read the subject; SystemUI reports the edge as a share of the screen (`pixel_lock_screen_evolved_clock_subject_edge`, permille, 0 for none) and the profile (`pixel_lock_screen_evolved_clock_subject_profile`, 24 comma-separated permille, 0 for a slice without it), `ClockLayoutReport`, and the preview fits and contours its own face to them. The edge is measured over the face SystemUI shows, so a style much narrower or wider than that previews approximately |
+
+Verified on device (Pixel 8 Pro, `CP4A.261105.040.A1`, 2026-11-26): with
+Adaptive size on and the large clock shown, SystemUI found the edge of the
+owner's wallpaper at 174‰ (the hair rising at the right, inside the clock's
+columns) and kept the smallest size, as the rule says for a subject that high.
+Picker preview (same day, iOS, Adaptive size on): with the reported edge set
+by hand to 24%, 30% and 38% of the screen, the clock grew to each, the foot of
+the digits about 18% of the clock's height below the edge every time; at 45%
+and above it stood at the style's largest size. The Size tab shows the switch
+above a dimmed Clock size slider.
+
+Figures around the subject (same day, v82): on the owner's wallpaper, whose
+hair falls from about 16% of the screen's height at the right to 60% at the
+left (reported profile `0,0,0,0,596,449,…,174,164,164`), the lock screen
+showed the 9 run down to the hair at the left while the 1 and the 5 stayed
+short under the rising hair at the right; in the preview, a hand-set diagonal
+profile gave the same.
+
+Also fixed: the Size and Position tabs, which share the Size slot's recorded
+height, were found squashed (owner's report) with the bare Large clock row's
+height in the picker's sheet heights. `PickerSizeTab.record` skipped writing a
+height it had written before without asking whether the picker still held it;
+the picker measures its tabs again as it binds the sheet anew. It now compares
+with the picker's value on every layout, so any overwrite is repaired. The
+exact sequence that overwrote it was not reproduced.
+
+Not verified on device: a wallpaper with room above the subject on the lock
+screen itself (the owner's wallpaper leaves none), the Size tab switch's Apply
+path, and the other styles' fits (the search is the same for every resizable
+face; only iOS animates its size, and that is handled).
+
 ## Not done
 
 - **Left/right alignment and custom X offsets.** Every style is centred by
@@ -188,6 +313,14 @@ rides the Size slot (`PickerPositionTab`):
 
 - `ClockPositionTest`: stored values, share geometry, adaptive choice with and
   without a subject, full-screen subject, hysteresis, anchor names.
+- `AdaptiveSizeTest`: the subject's edge in a column band (crown, shoulders,
+  a search started below the crown, a share too large, none), the height at
+  the top and at a lower share, no edge and an edge above or below the band,
+  and the highest contour edge under a figure.
+- `ClockRotationTest`: stored turn read back and clamped, the turned box,
+  upright placement unchanged, the turned box kept in the band and the share
+  round trip, the room a filling face gives up, detents and how a turn is
+  said and written.
 - `SubjectInkTest`: coverage of boxes inside, across and off the cut-out.
 - `HostCompatibilityTest` / `HostContractsTest`: the new contracts against the
   recorded `CP3A.261005.005` descriptions, re-captured for this change.

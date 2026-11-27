@@ -2,6 +2,7 @@ package my.github.MrxSiN.pixellockscreenevolved.host
 
 import android.content.Context
 import android.graphics.drawable.Drawable
+import android.view.View
 
 import java.lang.reflect.AccessibleObject
 import java.lang.reflect.Method
@@ -19,7 +20,7 @@ import my.github.MrxSiN.pixellockscreenevolved.clock.FaceSize
  * up front rather than the lock screen later. HOOK_NOTES.md records where each
  * signature was read from.
  */
-internal class ClockPluginApi(private val classLoader: ClassLoader) {
+internal class ClockPluginApi private constructor(private val classLoader: ClassLoader) {
 
     val registryType: Class<*> = load("com.android.systemui.shared.clocks.ClockRegistry")
     val providerType: Class<*> = load("$CLOCKS.ClockProvider")
@@ -60,6 +61,16 @@ internal class ClockPluginApi(private val classLoader: ClassLoader) {
     val currentClockChanged: Method? = registryType.declaredMethods
         .firstOrNull { it.name == "triggerOnCurrentClockChanged" && it.parameterCount == 0 }
         ?.accessible()
+
+    /**
+     * Builds the chosen clock, whoever provides it: this module's or Google's own. Null where the
+     * registry has no such call.
+     */
+    val createCurrentClock: Method? = registryType.declaredMethods
+        .firstOrNull { it.name == "createCurrentClock" && it.parameterTypes.contentEquals(arrayOf(Context::class.java)) }
+
+    private val controllerLargeClock = controllerType.getMethod("getLargeClock")
+    private val faceControllerView = faceControllerType.getMethod("getView")
 
     private val availableClocksField = registryType.getDeclaredField("availableClocks").accessible()
     private val registryContextField = registryType.getDeclaredField("context").accessible()
@@ -115,7 +126,6 @@ internal class ClockPluginApi(private val classLoader: ClassLoader) {
     private val themeAodColor = themeType.getMethod("getAodColor", Context::class.java)
 
     private val previewType = load("$CLOCKS.ClockPreviewConfig")
-    private val previewClockTopMargin = previewType.getMethod("getClockTopMargin")
     private val previewStatusBarHeight = previewType.getMethod("getStatusBarHeight")
     private val previewSmallClockTopPadding =
         previewType.getMethod("getSmallClockTopPadding", Int::class.java)
@@ -233,6 +243,10 @@ internal class ClockPluginApi(private val classLoader: ClassLoader) {
 
     fun clockId(settings: Any): String? = settingsClockId.invoke(settings) as String?
 
+    /** The view of a live `ClockController`'s large face, whoever provides it. */
+    fun largeView(controller: Any): View? =
+        controllerLargeClock.invoke(controller)?.let { faceControllerView.invoke(it) as? View }
+
     /** The id a live `ClockController` reports, whoever provides it. */
     fun controllerClockId(controller: Any): String? =
         clockConfigId.invoke(controllerConfig.invoke(controller)) as String?
@@ -250,10 +264,9 @@ internal class ClockPluginApi(private val classLoader: ClassLoader) {
         doze = themeAodColor.invoke(theme, context) as Int,
     )
 
-    fun previewTops(config: Any): PreviewTops = PreviewTops(
-        largeClock = previewClockTopMargin.invoke(config) as Int,
-        smallClock = previewSmallClockTopPadding.invoke(config, previewStatusBarHeight.invoke(config)) as Int,
-    )
+    /** Where the picker preview puts the top of the small clock, in pixels. */
+    fun previewSmallClockTop(config: Any): Int =
+        previewSmallClockTopPadding.invoke(config, previewStatusBarHeight.invoke(config)) as Int
 
     fun viewId(size: FaceSize): Int = when (size) {
         FaceSize.LARGE -> largeViewId
@@ -264,18 +277,27 @@ internal class ClockPluginApi(private val classLoader: ClassLoader) {
 
     private fun <T : AccessibleObject> T.accessible(): T = apply { isAccessible = true }
 
-    private companion object {
-        const val CLOCKS = "com.android.systemui.plugins.keyguard.ui.clocks"
-        val STRING = String::class.java
-        val BOOLEAN = Boolean::class.java
+    companion object {
+        private const val CLOCKS = "com.android.systemui.plugins.keyguard.ui.clocks"
+        private val STRING = String::class.java
+        private val BOOLEAN = Boolean::class.java
 
         /** Candidates for [registryReady], the one that runs earliest first. */
-        val REGISTRY_READY = listOf("registerListeners", "querySettings")
+        private val REGISTRY_READY = listOf("registerListeners", "querySettings")
+
+        /** The last API built, and the class loader it reaches; one host process has one. */
+        private var built: ClockPluginApi? = null
+
+        /**
+         * The clock plugin API of the host [classLoader] loads. Every patch of a host asks for it as it
+         * installs, and building one looks up some sixty classes and members by reflection, so it is
+         * built once per class loader and shared. Only a build that succeeded is kept.
+         */
+        @Synchronized
+        fun of(classLoader: ClassLoader): ClockPluginApi =
+            built?.takeIf { it.classLoader === classLoader } ?: ClockPluginApi(classLoader).also { built = it }
     }
 }
 
 /** The two colours a theme gives a clock: awake, and in always-on display. */
 internal data class ThemeColors(val normal: Int, val doze: Int)
-
-/** Where the picker preview puts the top of each clock size, in pixels. */
-internal data class PreviewTops(val largeClock: Int, val smallClock: Int)

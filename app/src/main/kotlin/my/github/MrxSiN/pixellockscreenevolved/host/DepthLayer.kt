@@ -9,6 +9,7 @@ import android.graphics.PixelFormat
 import android.graphics.PorterDuff
 import android.graphics.PorterDuffXfermode
 import android.graphics.RectF
+import android.provider.Settings
 import android.graphics.drawable.Drawable
 import android.os.SystemClock
 import android.view.View
@@ -24,13 +25,21 @@ import my.github.MrxSiN.pixellockscreenevolved.motion.SystemMotion
  * photo itself shows through where the subject stands. The cut-out is placed
  * over the screen exactly as the window manager places the wallpaper
  * ([LockWallpaperFeed]) and erased from the time alone, so nothing else on the
- * lock screen goes behind it. Where the subject would hide more than half of the
- * time ([TimeCoverage]), the time stays in front of it instead, so it can still
- * be read, as on iOS. Before each frame it follows the face: erased only as far
+ * lock screen goes behind it. Where the subject would leave the time hard to
+ * read ([TimeOcclusion]: too much of its ink, any one digit, the hour or the
+ * minute, weighed by how thin the clock is, its contrast against the wallpaper
+ * and the person's accessibility settings), the time stays in front of it
+ * instead, as on iOS. Before each frame it follows the face: erased only as far
  * as the face has come in while the clock changes size, and not at all in a
  * preview of another wallpaper, where the photo behind it is not this one. It
  * stays through an unlock: whatever the app coming up behind the keyguard does
  * to the wallpaper shows through it as it shows around it.
+ *
+ * In a preview of another wallpaper, the subject Wallpaper & style found for
+ * that photo stands in front instead ([showPreview]), spread over the whole
+ * preview as the picker spreads the photo. A clock that follows the phone's
+ * tilt ([DepthTarget.followsMotion]) is shifted a little against the photo
+ * ([MotionParallax]), and erased again where it now stands.
  *
  * While it erases, the face is drawn as one layer, the erasing included
  * ([Eraser]). An earlier version laid a copy of the subject over the time
@@ -43,15 +52,21 @@ import my.github.MrxSiN.pixellockscreenevolved.motion.SystemMotion
  * the subject too.
  */
 internal class DepthLayer(
-    private val face: ClockFaceAdapter,
+    private val face: DepthTarget,
     private val feed: LockWallpaperFeed,
     private val overOtherWallpaper: () -> Boolean,
 ) {
 
     private val faceView = face.view
+
+    /** The context of the clock the subject stands in front of. */
+    val context: android.content.Context get() = faceView.context
     private val eraser = Eraser()
 
     private var cutout: Bitmap? = null
+    private var preview: Bitmap? = null
+    private var previewing = false
+    private var luma: LumaGrid? = null
     private var enabled = false
     private var attached = false
     private var faceLayerType = View.LAYER_TYPE_NONE
@@ -66,6 +81,8 @@ internal class DepthLayer(
     private val timeInFace = RectF()
     private val subjectToView = Matrix()
     private val windowToView = Matrix()
+    private val viewToSubject = Matrix()
+    private val timeOnSubject = RectF()
 
     // The sizes the subject is placed with, kept while they hold, so a draw allocates none ([LockWallpaperFeed.place]).
     private var screenSize = WallpaperPlacement.Size(0, 0)
@@ -112,12 +129,25 @@ internal class DepthLayer(
     }
 
     init {
-        BeforeEachDraw.follow(faceView, ::place)
+        BeforeEachDraw.follow(faceView, action = ::place)
     }
 
-    /** Shows [cutout], as big as the wallpaper surface, or nothing. */
-    fun show(cutout: Bitmap?) {
+    /** Shows [cutout], the subject's matte as big as the wallpaper surface, or nothing; [luma] is its photo's. */
+    fun show(cutout: Bitmap?, luma: LumaGrid?) {
         this.cutout = cutout
+        this.luma = luma
+        faceView.invalidate()
+    }
+
+    /** Shows [matte], the subject of a photo Wallpaper & style previews before it is set, over such a preview, or none. */
+    fun showPreview(matte: Bitmap?) {
+        preview = matte
+        faceView.invalidate()
+    }
+
+    /** Weighs the time again, as what the answer depends on beyond it has changed ([DepthOcclusion]). */
+    fun remeasure() {
+        measured.clear()
         faceView.invalidate()
     }
 
@@ -134,11 +164,20 @@ internal class DepthLayer(
 
     /** Erases the subject, as opaque as [alpha] makes it, from [canvas], whose units are the face's time's own pixels. */
     private fun eraseSubject(canvas: Canvas, alpha: Int) {
-        drawSubject(canvas, face.timeView, ERASE.apply { this.alpha = alpha })
+        drawSubject(canvas, face.depthView, ERASE.apply { this.alpha = alpha })
     }
 
     /** Draws the cut-out, through [paint], where the wallpaper's own pixels are on screen, into [canvas] in [view]'s units. */
     private fun drawSubject(canvas: Canvas, view: View, paint: Paint) {
+        if (previewing) {
+            val subject = preview ?: return
+            // The picker spreads the photo it previews over the whole preview, so its subject is spread the same way.
+            val root = faceView.rootView
+            subjectToView.setScale(root.width.toFloat() / subject.width, root.height.toFloat() / subject.height)
+            subjectToView.postConcat(ViewBounds.fromWindow(view, windowToView))
+            canvas.drawBitmap(subject, subjectToView, paint)
+            return
+        }
         val subject = cutout ?: return
         val screen = faceView.resources.displayMetrics
         if (screenSize.width != screen.widthPixels || screenSize.height != screen.heightPixels) {
@@ -156,13 +195,22 @@ internal class DepthLayer(
     }
 
     private fun place() {
-        val picture = cutout
-        if (picture == null || !enabled || !faceView.isInNotificationShade() || overOtherWallpaper()) {
+        if (!enabled) {
+            follow(0f)
             detach()
             return
         }
+        previewing = overOtherWallpaper()
+        val picture = if (previewing) preview else cutout
+        if (picture == null || !(previewing || faceView.isInNotificationShade())) {
+            follow(0f)
+            detach()
+            return
+        }
+        // The clock follows the tilt whichever of it and the subject is in front, but not dozing or in a preview.
+        follow(if (face.followsMotion && !previewing && face.dozeFraction == 0f) MotionParallax.offsetFor(faceView) else 0f)
 
-        val time = ViewBounds.inAncestor(faceView, face.timeView, timeInFace, beforeDraw = true)
+        val time = ViewBounds.inAncestor(faceView, face.depthView, timeInFace, beforeDraw = true)
         // None on the always-on display, where the time is drawn in outline and nothing goes over it. The
         // time comes out in front of the subject before SystemUI moves it to its AOD region, and goes
         // back behind it only once it has moved back ([AodClockMotion]).
@@ -192,6 +240,11 @@ internal class DepthLayer(
     }
 
     /** Lets the face draw as it did before. */
+    /** Shifts the clock [shift] pixels across, as the phone's tilt asks ([MotionParallax]); only a clock that follows it is moved. */
+    private fun follow(shift: Float) {
+        if (face.followsMotion && faceView.translationX != shift) faceView.translationX = shift
+    }
+
     private fun detach() {
         if (!attached) return
         attached = false
@@ -201,8 +254,8 @@ internal class DepthLayer(
     }
 
     /**
-     * Whether [subject], placed over the face's [time] as it is now, hides no
-     * more than [MOST_HIDDEN] of the time's ink. A measure takes about a
+     * Whether [subject], placed over the face's [time] as it is now, leaves the
+     * time readable ([TimeOcclusion]). A measure takes about a
      * millisecond, so while the time or the subject moves, as the screen wakes,
      * the last answer holds, and the share is measured again once they have held
      * still for a frame; only the first answer is measured at once. The
@@ -230,8 +283,33 @@ internal class DepthLayer(
         }
         measured.take(subject, crop, scroll, time, timeChanges)
         unsettled.clear()
-        timeReadable = TimeCoverage.of(face.timeView) { eraseSubject(it, OPAQUE) } <= MOST_HIDDEN
+        val reading = TimeCoverage.read(face.depthView) { eraseSubject(it, OPAQUE) }
+        timeReadable = TimeOcclusion.inFront(reading, conditions(subject), timeReadable)
         return timeReadable
+    }
+
+    /** What the answer depends on beyond the time; read just after the subject was erased from it, so [subjectToView] places the time. */
+    private fun conditions(subject: Bitmap): TimeOcclusion.Conditions {
+        val context = faceView.context
+        val resolver = context.contentResolver
+        val accessible = runCatching { Settings.Secure.getInt(resolver, HIGH_TEXT_CONTRAST, 0) == 1 }.getOrDefault(false) ||
+            context.resources.configuration.fontScale >= LARGE_FONT_SCALE
+        return TimeOcclusion.Conditions(DepthOcclusion.get(resolver), contrast(subject), accessible)
+    }
+
+    /** The contrast of the clock against the photo under its time, or null where the photo's light is not known. */
+    private fun contrast(subject: Bitmap): Float? {
+        val grid = luma?.takeUnless { previewing } ?: return null
+        val time = face.depthView
+        if (!subjectToView.invert(viewToSubject)) return null
+        timeOnSubject.set(0f, 0f, time.width.toFloat(), time.height.toFloat())
+        viewToSubject.mapRect(timeOnSubject)
+        val under = grid.mean(
+            timeOnSubject.left / subject.width, timeOnSubject.top / subject.height,
+            timeOnSubject.right / subject.width, timeOnSubject.bottom / subject.height,
+        ) ?: return null
+        val ink = face.inkColor ?: return null
+        return TimeOcclusion.contrast(LumaGrid.luminance(ink), under)
     }
 
     /**
@@ -295,8 +373,11 @@ internal class DepthLayer(
         const val SETTLED = 0.002f
         const val MS_PER_SECOND = 1000f
 
-        /** The most of the time's ink the subject may hide and still stand in front of it. */
-        const val MOST_HIDDEN = 0.5f
+        /** Settings.Secure's high-contrast text switch, which Android does not make public. */
+        const val HIGH_TEXT_CONTRAST = "high_text_contrast_enabled"
+
+        /** A font scale from which a person is taken to want large text. */
+        const val LARGE_FONT_SCALE = 1.3f
 
         val ERASE = Paint(Paint.FILTER_BITMAP_FLAG).apply { xfermode = PorterDuffXfermode(PorterDuff.Mode.DST_OUT) }
     }

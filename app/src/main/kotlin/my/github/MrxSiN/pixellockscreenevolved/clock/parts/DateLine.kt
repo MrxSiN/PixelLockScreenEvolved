@@ -32,6 +32,10 @@ class DateLine(context: Context, private val look: Look) {
         val alpha: Float = 0.85f,
         val gravity: Int = android.view.Gravity.CENTER_HORIZONTAL,
         val showsWeather: Boolean = true,
+        /** Date skeleton while the weather is shown beside it, or null for [skeleton]. */
+        val weatherSkeleton: String? = null,
+        /** Whether the temperature is written with its unit, "72°F", or bare, "72°". */
+        val temperatureUnit: Boolean = true,
     )
 
     private var weather: ClockWeather? = null
@@ -51,14 +55,16 @@ class DateLine(context: Context, private val look: Look) {
     fun refresh() {
         val now = Calendar.getInstance()
         val locale = Locale.getDefault()
+        val weather = weather?.takeIf { look.showsWeather }
+        val skeleton = weather?.let { look.weatherSkeleton } ?: look.skeleton
         view.text = buildString {
-            append(DateFormat.format(DateFormat.getBestDateTimePattern(locale, look.skeleton), now))
-            weather?.takeIf { look.showsWeather }?.let {
+            append(DateFormat.format(DateFormat.getBestDateTimePattern(locale, skeleton), now))
+            weather?.let {
                 append(WEATHER_GAP)
                 append(icon(it.condition))
                 append(' ')
                 append(it.temperature)
-                append(if (it.celsius) "°C" else "°F")
+                append(if (!look.temperatureUnit) "°" else if (it.celsius) "°C" else "°F")
             }
         }
     }

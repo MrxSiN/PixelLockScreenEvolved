@@ -1,6 +1,7 @@
 package my.github.MrxSiN.pixellockscreenevolved.host
 
 import android.content.Context
+import android.view.View
 
 import java.io.PrintWriter
 
@@ -25,6 +26,8 @@ internal class ClockControllerAdapter(
     private val large = face(FaceSize.LARGE)
     private val small = face(FaceSize.SMALL)
 
+    private val morph = ComposedClockSizeMorph()
+
     /** Both faces, for whatever needs the one on screen. */
     val faces: List<ClockFaceAdapter> = listOf(large, small)
 
@@ -35,7 +38,30 @@ internal class ClockControllerAdapter(
             it.setWidth(width)
             it.setSizeStep(sizeStep)
         }
-        large.setPosition(api.axis(settings, ClockAxes.POSITION_KEY), api.axis(settings, ClockAxes.POSITION_SHARE_KEY))
+        large.setPosition(
+            api.axis(settings, ClockAxes.POSITION_KEY),
+            api.axis(settings, ClockAxes.POSITION_SHARE_KEY),
+            api.axis(settings, ClockAxes.ROTATION_KEY),
+        )
+        large.setSizeAdaptive(ClockAxes.isSizeAdaptive(api.axis(settings, ClockAxes.SIZE_ADAPTIVE_KEY)))
+        if (context.packageName == ClockFaceAdapter.SYSTEMUI_PACKAGE) {
+            morphOnSwap(small, large)
+            morphOnSwap(large, small)
+        }
+    }
+
+    /**
+     * Resizes [from] into [to] when the scene attaches [to] while [from] is still on an awake lock screen, as
+     * it does when the clock changes size ([ComposedClockSizeMorph]); otherwise [to] simply shows.
+     */
+    private fun morphOnSwap(to: ClockFaceAdapter, from: ClockFaceAdapter) {
+        to.view.addOnAttachStateChangeListener(object : View.OnAttachStateChangeListener {
+            override fun onViewAttachedToWindow(view: View) {
+                if (from.view.isShown && from.dozeFraction == 0f) morph.start(from, to) else view.transitionAlpha = 1f
+            }
+
+            override fun onViewDetachedFromWindow(view: View) = Unit
+        })
     }
 
     /** The large face, the one the depth effect draws in front of. */
@@ -47,6 +73,11 @@ internal class ClockControllerAdapter(
     /** Shows [step] on the large face at once, as the picker's size slider moves. */
     fun previewSizeStep(step: Float) {
         large.setSizeStep(step)
+    }
+
+    /** Fits the large face to the wallpaper's subject, or stops, at once, as the picker's Adaptive size switch changes. */
+    fun previewSizeAdaptive(adaptive: Boolean) {
+        large.setSizeAdaptive(adaptive)
     }
 
     /** Shows [position] on the large face at once, as the picker's position controls change. */
@@ -105,7 +136,6 @@ internal class ClockControllerAdapter(
         face = style.createFace(context, size),
         size = size,
         sizeSteps = style.sizeSteps,
-        movable = style.isMovable,
         context = context,
         initialTheme = initialTheme,
     )

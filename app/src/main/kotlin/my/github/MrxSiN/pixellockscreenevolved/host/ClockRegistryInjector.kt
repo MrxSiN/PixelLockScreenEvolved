@@ -37,7 +37,7 @@ internal class ClockRegistryInjector(
 
     override fun install(classLoader: ClassLoader) {
         val api = try {
-            ClockPluginApi(classLoader)
+            ClockPluginApi.of(classLoader)
         } catch (error: ReflectiveOperationException) {
             logger.warn("Clock plugin API not found; no clock style can be added", error)
             return

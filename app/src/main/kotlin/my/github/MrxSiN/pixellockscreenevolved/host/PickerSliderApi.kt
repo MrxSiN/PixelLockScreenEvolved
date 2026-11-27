@@ -57,6 +57,7 @@ internal class PickerSliderApi(classLoader: ClassLoader) {
     private val stepSize = sliderType.field("stepSize")
     private val dirtyConfig = sliderType.field("dirtyConfig")
     private val changeListeners = sliderType.field("changeListeners")
+    private val tickVisibility = runCatching { sliderType.field("tickVisibilityMode") }.getOrNull()
     private val setValues = sliderType.getDeclaredMethod("setValuesInternal", ArrayList::class.java)
         .apply { isAccessible = true }
     private val changeListenerType = load("com.google.android.material.slider.BaseOnChangeListener", classLoader)
@@ -100,6 +101,16 @@ internal class PickerSliderApi(classLoader: ClassLoader) {
         stepSize.setFloat(slider, step)
         dirtyConfig.setBoolean(slider, true)
         setValues.invoke(slider, arrayListOf(value.coerceIn(from, to)))
+        slider.postInvalidate()
+    }
+
+    /**
+     * Draws [slider] without its stop marks, as a slider of a great many
+     * stops reads best (Material's `TICK_VISIBILITY_HIDDEN`); where the field
+     * is gone the marks stay.
+     */
+    fun hideTicks(slider: View) {
+        tickVisibility?.setInt(slider, TICKS_HIDDEN)
         slider.postInvalidate()
     }
 
@@ -160,6 +171,9 @@ internal class PickerSliderApi(classLoader: ClassLoader) {
         const val SHEET_BINDER = "com.android.customization.picker.clock.ui.binder.ClockFloatingSheetBinder"
 
         const val SIZE_HEIGHT = 2
+
+        /** `BaseSlider.TICK_VISIBILITY_HIDDEN`. */
+        const val TICKS_HIDDEN = 2
 
         val COLOUR_FIELDS = listOf("trackColorActive", "trackColorInactive", "tickColorActive", "tickColorInactive")
         val PAINT_FIELDS = listOf("activeTrackPaint", "inactiveTrackPaint", "activeTicksPaint", "inactiveTicksPaint")

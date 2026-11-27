@@ -19,7 +19,7 @@ import my.github.MrxSiN.pixellockscreenevolved.hook.Hooks
 
 /**
  * A Position tab in Wallpaper & style's clock sheet, last, after Size, for
- * this module's clocks that can be moved ([ClockStyle.isMovable]).
+ * this module's clocks.
  *
  * The sheet's tabs are a fixed enum (Style, Color, Size), each owning one
  * content view and one recorded height. The Position tab rides on the Size
@@ -42,6 +42,13 @@ import my.github.MrxSiN.pixellockscreenevolved.hook.Hooks
  * behind, drawn over its neighbours and taking their taps (the Size tab that
  * could not be tapped). Once a list with another number of tabs has been laid
  * out, the animator's work is ended, so the tab comes or goes at once.
+ *
+ * The animator also never gives back a tab view it animated a selection on:
+ * each selection change leaves the view marked not recyclable once more. The
+ * picker never removes a tab, so it never shows; but a removed Position tab so
+ * marked stayed in the list after its removal, drawn over the Position tab
+ * added later (the "Position" written twice, slightly apart). Before a list
+ * that adds or removes a tab, the tab views are released ([Motion.release]).
  */
 internal class PickerPositionTab(
     classLoader: ClassLoader,
@@ -79,7 +86,10 @@ internal class PickerPositionTab(
             original = tabs
             tabs.forEach { tab -> tab?.let { api.onClick.get(it) }?.let(pickerClicks::add) }
             val rewritten = rewrite(tabs)
-            if (shownCount >= 0 && rewritten.size != shownCount) settleWithoutMotion(rewritten.size)
+            if (shownCount >= 0 && rewritten.size != shownCount) {
+                releaseTabViews()
+                settleWithoutMotion(rewritten.size)
+            }
             shownCount = rewritten.size
             listOf(rewritten)
         }
@@ -94,6 +104,9 @@ internal class PickerPositionTab(
             }
         }
     }
+
+    /** Whether the picker's Size tab, whose slot the Position tab rides on, is the one selected. */
+    val isSizeSelected: Boolean get() = selectedTabName() == SIZE
 
     /** Follows the clock sheet [binding] binds into [sheet]: its tab adapter, the list showing it, and its clock picker. */
     fun bind(binding: Any, sheet: View) {
@@ -120,6 +133,13 @@ internal class PickerPositionTab(
         if (view !is ViewGroup) return null
         for (i in 0 until view.childCount) findList(motion, view.getChildAt(i), listId, adapter)?.let { return it }
         return null
+    }
+
+    /** Gives back every tab view the picker's tab animator left marked not recyclable, so a removed tab can go. */
+    private fun releaseTabViews() {
+        val motion = api.motion ?: return
+        val list = tabList(motion) as? ViewGroup ?: return
+        runCatching { motion.release(list) }.onFailure { logger.warn("The clock sheet's tab views could not be released", it) }
     }
 
     /**
@@ -266,10 +286,22 @@ internal class PickerPositionTab(
         private val animator: Field = list.field("mItemAnimator")
         private val hasPendingUpdates: Method = list.getDeclaredMethod("hasPendingAdapterUpdates")
         private val end: Method = Class.forName(ITEM_ANIMATOR, false, classLoader).getDeclaredMethod("endAnimations")
+        private val holderOf: Method = list.getDeclaredMethod("getChildViewHolder", View::class.java)
+        private val holderType = Class.forName("$RECYCLER_VIEW\$ViewHolder", false, classLoader)
+        private val notRecyclableCount: Field = holderType.field("mIsRecyclableCount")
+        private val setIsRecyclable: Method = holderType.getDeclaredMethod("setIsRecyclable", Boolean::class.javaPrimitiveType)
 
         /** Whether [list] has laid out [adapter] at its [count] items, with no update of it still to process. */
         fun isLaidOut(list: View, adapter: Any, count: Int): Boolean =
             adapter.javaClass.getMethod("getItemCount").invoke(adapter) == count && hasPendingUpdates.invoke(list) == false
+
+        /** Takes back every not-recyclable mark left on [list]'s tab views, one `setIsRecyclable(true)` per mark. */
+        fun release(list: ViewGroup) {
+            for (i in 0 until list.childCount) {
+                val holder = holderOf.invoke(list, list.getChildAt(i)) ?: continue
+                repeat(notRecyclableCount.getInt(holder)) { setIsRecyclable.invoke(holder, true) }
+            }
+        }
 
         /** Ends whatever [list]'s item animator runs or is about to: a removed view goes, an added one stays. */
         fun endAnimations(list: View) {

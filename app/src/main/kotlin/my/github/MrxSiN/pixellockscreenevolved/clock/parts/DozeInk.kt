@@ -37,24 +37,40 @@ class DozeInk(context: Context) {
 
     var color: Int = Color.WHITE
 
-    /** From 0 filled to 1 outline only. */
+    /**
+     * How the shapes are inked awake: how opaque their fill and their outline are, from 0 to 1.
+     * Filled and unoutlined unless a face asks for frosted or outlined figures.
+     */
+    var awakeFill: Float = 1f
+    var awakeOutline: Float = 0f
+
+    /** How wide the outline is drawn awake, in dp; the always-on display's stays thin ([OUTLINE_DP]). */
+    var awakeOutlineDp: Float = OUTLINE_DP
+
+    private val density = context.resources.displayMetrics.density
+
+    /** From 0 as awake to 1 outline only. */
     var outline: Float = 0f
         set(value) {
             field = value.coerceIn(0f, 1f)
         }
 
     /** Room a view leaves around its shapes for half the outline and a pixel of anti-aliasing. */
-    val inset: Int get() = ceil(stroke.strokeWidth / 2f).toInt() + 1
+    val inset: Int get() = ceil(maxOf(awakeOutlineDp, OUTLINE_DP) * density).toInt() + 1
 
     /** Draws [shape] filled or in outline as the doze asks, as opaque as [alpha] makes it. */
     fun draw(canvas: Canvas, shape: Path, alpha: Float = 1f) {
         if (alpha <= 0f) return
-        if (outline < 1f) {
-            fill.color = withAlpha(color, (1f - outline) * alpha)
+        val filled = awakeFill * (1f - outline)
+        val outlined = awakeOutline + (1f - awakeOutline) * outline
+        if (filled > 0f) {
+            fill.color = withAlpha(color, filled * alpha)
             canvas.drawPath(shape, fill)
         }
-        if (outline > 0f) {
-            canvas.saveLayerAlpha(null, (outline * alpha * OPAQUE).roundToInt())
+        if (outlined > 0f) {
+            // Stroked twice as wide and cut down the middle by the shape's inside, so only the outer half shows.
+            stroke.strokeWidth = 2 * density * (awakeOutlineDp + (OUTLINE_DP - awakeOutlineDp) * outline)
+            canvas.saveLayerAlpha(null, (outlined * alpha * OPAQUE).roundToInt())
             stroke.color = color
             canvas.drawPath(shape, stroke)
             canvas.drawPath(shape, inside)

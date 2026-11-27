@@ -15,7 +15,6 @@ import java.util.Locale
 import kotlin.math.roundToInt
 
 import my.github.MrxSiN.pixellockscreenevolved.clock.AdjustableWidthClockFace
-import my.github.MrxSiN.pixellockscreenevolved.clock.DozingClockFace
 import my.github.MrxSiN.pixellockscreenevolved.clock.EdgeToEdgeClockFace
 import my.github.MrxSiN.pixellockscreenevolved.clock.ResizableClockFace
 import my.github.MrxSiN.pixellockscreenevolved.clock.ClockWeather
@@ -25,33 +24,29 @@ import my.github.MrxSiN.pixellockscreenevolved.clock.parts.DateLine
 /**
  * The iOS clock: the date and weather over a large, centred time.
  *
- * Both SystemUI faces are this drawing, shown at the size and width the host
- * decides; [showsInfo] leaves the row out where SystemUI
- * writes its own. The date keeps its classic size however large the time
- * grows, as on iOS. On the always-on display the time is drawn in outline, so
- * its wide strokes do not keep lighting the same pixels.
+ * Both SystemUI faces are this same drawing, shown at the size and width the
+ * host decides: with notifications the small face is the iOS clock at its
+ * default size, date above, as iOS keeps it. The date keeps its classic size however large the time
+ * grows, as on iOS, and the always-on display keeps the time filled, as iOS
+ * does.
  */
 internal class IosClockFace(
     private val context: Context,
-    showsInfo: Boolean,
-) : ResizableClockFace, AdjustableWidthClockFace, EdgeToEdgeClockFace, DozingClockFace, WeatherClockFace {
+) : ResizableClockFace, AdjustableWidthClockFace, EdgeToEdgeClockFace, WeatherClockFace {
 
     override val timeView = IosTimeView(context)
 
-    private val info: DateLine? = if (showsInfo) DateLine(context, DATE) else null
+    private val info = DateLine(context, DATE)
 
     override val view: View = WideFace(context).apply {
         orientation = LinearLayout.VERTICAL
-        // The small face is given the band the lock screen lays its own small clock out in, and sits in the middle of it.
-        gravity = if (showsInfo) Gravity.CENTER_HORIZONTAL else Gravity.CENTER
+        gravity = Gravity.CENTER_HORIZONTAL
         layoutParams = ViewGroup.LayoutParams(WRAP, WRAP)
-        info?.let { addView(it.view, LinearLayout.LayoutParams(WRAP, WRAP)) }
+        addView(info.view, LinearLayout.LayoutParams(WRAP, WRAP))
         addView(timeView, LinearLayout.LayoutParams(WRAP, WRAP))
     }
 
-    override val drawsDate: Boolean = showsInfo
-
-    override val isChanging: Boolean get() = timeView.isChanging
+    override val drawsDate: Boolean = true
 
     init {
         spaceInfoFromTime()
@@ -71,24 +66,24 @@ internal class IosClockFace(
                 locale = locale,
             ),
         )
-        info?.refresh()
+        info.refresh()
     }
 
     override fun setWeather(weather: ClockWeather?) {
-        info?.setWeather(weather)
+        info.setWeather(weather)
     }
 
     override fun setColor(color: Int) {
         timeView.setColor(color)
-        info?.setColor(color)
-    }
-
-    override fun setDoze(fraction: Float) {
-        timeView.setOutline(fraction)
+        info.setColor(color)
     }
 
     override fun setSize(size: Float) {
         timeView.setSize(size)
+    }
+
+    override fun setSizeAtOnce(size: Float) {
+        timeView.setSizeAtOnce(size)
     }
 
     override fun setDrawnScale(scale: Float) {
@@ -100,21 +95,11 @@ internal class IosClockFace(
     }
 
     /**
-     * Spaces the rows around the time by the lock screen's one row gap,
-     * whatever its size: the large face's date row above it, with room above
-     * that from the status bar; below, the smartspace card is spaced by the
-     * lock screen itself, and SystemUI's date row under the small face by room
-     * added under it.
+     * Spaces the date row above the time by the lock screen's one row gap,
+     * whatever its size, with room above it from the status bar; below, the
+     * smartspace card is spaced by the lock screen itself.
      */
     private fun spaceInfoFromTime() {
-        val row = info?.view
-        if (row == null) {
-            val bottom = dp(IosClockTypography.SMALL_BOTTOM_DP).roundToInt()
-            view.setPadding(0, 0, 0, bottom)
-            // The scene lowers the small band by all it grows, so the time is lifted back by the room added under it.
-            view.translationY = -bottom.toFloat()
-            return
-        }
         view.setPadding(0, dp(IosClockTypography.TOP_EXTRA_DP).roundToInt(), 0, 0)
         val params = timeView.layoutParams as? ViewGroup.MarginLayoutParams ?: return
         params.topMargin = dp(IosClockTypography.DATE_TO_TIME_DP).roundToInt()
@@ -157,9 +142,11 @@ internal class IosClockFace(
     private companion object {
         const val WRAP = ViewGroup.LayoutParams.WRAP_CONTENT
 
-        /** The classic iOS date: "Saturday, September 13", a little translucent. */
+        /** The iOS 26 date: "Tue Apr 1", or "Sat 13" beside the weather as iOS writes it with an inline widget, "☀️ 72°". */
         val DATE = DateLine.Look(
             skeleton = IosClockTypography.DATE_SKELETON,
+            weatherSkeleton = IosClockTypography.DATE_WITH_WEATHER_SKELETON,
+            temperatureUnit = false,
             sizeToShortSide = 0.045f,
             weight = 600,
             alpha = IosClockTypography.DATE_ALPHA,

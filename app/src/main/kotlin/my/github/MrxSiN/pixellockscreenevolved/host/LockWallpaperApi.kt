@@ -62,6 +62,15 @@ internal class LockWallpaperApi(classLoader: ClassLoader) {
     private val wallpaperFlags = Class.forName("android.service.wallpaper.WallpaperService\$Engine")
         .getMethod("getWallpaperFlags")
 
+    /**
+     * The photo an engine draws, read again from the wallpaper service: the lock screen's own, or the home
+     * screen's where the lock screen shares it. SystemUI may read wallpapers. Null where there is none.
+     */
+    fun photo(engine: Any, context: Context): android.graphics.Bitmap? = runCatching {
+        val which = if ((wallpaperFlags.invoke(engine) as Int) and FLAG_SYSTEM != 0) FLAG_SYSTEM else FLAG_LOCK
+        (WallpaperManager.getInstance(context).getDrawable(which) as? android.graphics.drawable.BitmapDrawable)?.bitmap
+    }.getOrNull()
+
     /** Whether an engine draws the lock screen, alone or shared with the home screen. */
     fun drawsLockScreen(engine: Any): Boolean = (wallpaperFlags.invoke(engine) as Int) and FLAG_LOCK != 0
 

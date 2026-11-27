@@ -6,6 +6,7 @@ import android.graphics.Color
 import android.graphics.ColorFilter
 import android.graphics.Paint
 import android.graphics.Path
+import android.graphics.RectF
 import android.graphics.PixelFormat
 import android.graphics.drawable.Drawable
 
@@ -19,10 +20,12 @@ import android.graphics.drawable.Drawable
  *   the tab's icon.
  * - [Glyph.DRAG]: a fingertip with an arrow above and below, beside the hint
  *   that the clock is dragged up and down the preview ([PickerDragHint]).
+ * - [Glyph.TWIST]: two fingertips on a circling arrow, beside the hint that
+ *   the clock is twisted to turn it.
  */
 internal class PositionIconDrawable(private val sizePx: Int, glyph: Glyph = Glyph.TAB) : Drawable() {
 
-    enum class Glyph { TAB, DRAG }
+    enum class Glyph { TAB, DRAG, TWIST }
 
     private val paint = Paint(Paint.ANTI_ALIAS_FLAG).apply { color = Color.WHITE }
     private val path = Path().apply {
@@ -57,6 +60,22 @@ internal class PositionIconDrawable(private val sizePx: Int, glyph: Glyph = Glyp
                 moveTo(12f, 23.5f)
                 lineTo(8f, 19.5f)
                 lineTo(16f, 19.5f)
+                close()
+            }
+            Glyph.TWIST -> {
+                // Two fingertips across the middle.
+                addCircle(7.5f, 15f, 2.5f, Path.Direction.CW)
+                addCircle(16.5f, 9f, 2.5f, Path.Direction.CW)
+                // Most of a ring around them, clockwise from its open end at the lower left...
+                val outer = RectF(1.5f, 1.5f, 22.5f, 22.5f)
+                val inner = RectF(3.5f, 3.5f, 20.5f, 20.5f)
+                arcTo(outer, 150f, 250f, true)
+                arcTo(inner, 40f, -250f, false)
+                close()
+                // ...ending in an arrowhead at the right, pointing on round.
+                moveTo(23.8f, 15.5f)
+                lineTo(16.5f, 15.5f)
+                lineTo(22f, 9.5f)
                 close()
             }
         }

@@ -24,7 +24,7 @@ internal class SceneFrames(private val view: View, private val onFrame: () -> Un
 
     private val frame = Runnable {
         pending = false
-        if (view.isAttachedToWindow && view.visibility == View.VISIBLE) onFrame()
+        if (!BeforeEachDraw.retired && view.isAttachedToWindow && view.visibility == View.VISIBLE) onFrame()
     }
 
     /** Asks for one check on the next frame, unless one is already asked for. */

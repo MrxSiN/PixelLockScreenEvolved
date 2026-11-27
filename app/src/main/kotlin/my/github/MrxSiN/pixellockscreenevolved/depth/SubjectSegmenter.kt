@@ -55,10 +55,13 @@ internal class SubjectSegmenter(assets: AssetManager) : AutoCloseable {
         }
         if (scaled !== photo) scaled.recycle()
 
-        val small = Bitmap.createBitmap(SIDE, SIDE, Bitmap.Config.ALPHA_8).apply {
-            copyPixelsFromBuffer(ByteBuffer.wrap(SubjectInput.alphaOf(logits)))
-        }
-        return Bitmap.createScaledBitmap(small, photo.width, photo.height, true).also { if (it !== small) small.recycle() }
+        val width = photo.width
+        val height = photo.height
+        val pixels = IntArray(width * height).also { photo.getPixels(it, 0, width, 0, 0, width, height) }
+        val alpha = SubjectInput.refinedAlpha(logits, pixels, width, height)
+        // Written as colours, whose alpha is kept: an ALPHA_8 row may be padded past its width.
+        for (i in pixels.indices) pixels[i] = (alpha[i].toInt() and 0xff) shl 24
+        return Bitmap.createBitmap(width, height, Bitmap.Config.ALPHA_8).apply { setPixels(pixels, 0, width, 0, 0, width, height) }
     }
 
     private fun logitsOf(photo: Bitmap): FloatArray =
@@ -119,9 +122,49 @@ internal object SubjectInput {
         (logits[i] + mirrored[i - x + SIDE - 1 - x]) / 2f
     }
 
-    /** One alpha byte per pixel from the model's logits, through a sigmoid and eased at the edge. */
-    fun alphaOf(logits: FloatArray): ByteArray = ByteArray(SIDE * SIDE) { i ->
-        val confidence = 1f / (1f + exp(-logits[i]))
-        (MaskEdge.alphaOf(confidence) * 255f + 0.5f).toInt().toByte()
+    /**
+     * One alpha byte for each of the photo's [pixels], [width] by [height]: the
+     * model's confidence (its logits through a sigmoid), stretched from [SIDE]
+     * square over the photo, then snapped to the photo's own edges by a guided
+     * filter ([GuidedFilter]) and eased at the edge ([MaskEdge]). Stretching
+     * the model's answer alone smeared it over the photo's outline by as many
+     * pixels as the photo is larger than the model's input.
+     */
+    fun refinedAlpha(logits: FloatArray, pixels: IntArray, width: Int, height: Int): ByteArray {
+        val confidence = resize(FloatArray(SIDE * SIDE) { 1f / (1f + exp(-logits[it])) }, SIDE, SIDE, width, height)
+        val guide = FloatArray(pixels.size) { luma(pixels[it]) }
+        val radius = maxOf(MIN_RADIUS, maxOf(width, height) / RADIUS_DIVISOR)
+        val refined = GuidedFilter.apply(guide, confidence, width, height, radius, EPSILON)
+        return ByteArray(refined.size) { (MaskEdge.alphaOf(refined[it]) * 255f + 0.5f).toInt().toByte() }
     }
+
+    /** [values], [fromWidth] by [fromHeight], stretched bilinearly to [toWidth] by [toHeight], pixel centres aligned. */
+    fun resize(values: FloatArray, fromWidth: Int, fromHeight: Int, toWidth: Int, toHeight: Int): FloatArray {
+        val sx = fromWidth.toFloat() / toWidth
+        val sy = fromHeight.toFloat() / toHeight
+        return FloatArray(toWidth * toHeight) { i ->
+            val fx = ((i % toWidth + 0.5f) * sx - 0.5f).coerceIn(0f, fromWidth - 1f)
+            val fy = ((i / toWidth + 0.5f) * sy - 0.5f).coerceIn(0f, fromHeight - 1f)
+            val x0 = fx.toInt()
+            val y0 = fy.toInt()
+            val x1 = minOf(x0 + 1, fromWidth - 1)
+            val y1 = minOf(y0 + 1, fromHeight - 1)
+            val tx = fx - x0
+            val ty = fy - y0
+            val top = values[y0 * fromWidth + x0] * (1 - tx) + values[y0 * fromWidth + x1] * tx
+            val bottom = values[y1 * fromWidth + x0] * (1 - tx) + values[y1 * fromWidth + x1] * tx
+            top * (1 - ty) + bottom * ty
+        }
+    }
+
+    /** Rec. 601 luma of an ARGB colour, from 0 to 1. */
+    private fun luma(color: Int): Float =
+        (0.299f * ((color shr 16) and 0xff) + 0.587f * ((color shr 8) and 0xff) + 0.114f * (color and 0xff)) / 255f
+
+    /** The guided filter's box, against the photo's long side: about 8 pixels on a 1024 pixel photo. */
+    private const val RADIUS_DIVISOR = 128
+    private const val MIN_RADIUS = 2
+
+    /** How sharp an edge in the photo must be to hold the mask to it; tuned by eye on hair and fur. */
+    private const val EPSILON = 2e-3f
 }

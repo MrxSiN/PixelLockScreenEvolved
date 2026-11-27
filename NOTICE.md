@@ -2,12 +2,23 @@
 
 Pixel Lock Screen Evolved is an independent project. It is not affiliated with,
 endorsed by, or sponsored by Google LLC or Apple Inc. Android and Pixel are
-trademarks of Google LLC; iOS is a trademark of Apple Inc. These names are used
+trademarks of Google LLC; iOS is a trademark of Apple Inc.; HyperOS, One UI,
+ColorOS, OxygenOS and Nothing OS are trademarks of their owners. These names are used
 only to identify the software this module extends and the design it imitates.
 
 The module draws its clocks with fonts already on the device (Roboto Flex and
-the system sans-serif). It does not redistribute any Google or Apple asset, and
-does not include SF Pro or any other font of theirs.
+the system sans-serif), except the iOS clock's time, set in Inter. It does not
+redistribute any Google or Apple asset, and does not include SF Pro or any other
+font of theirs.
+
+## Inter
+
+`app/src/main/assets/fonts/Inter.ttf` is Inter 4.001 by The Inter Project
+Authors, https://github.com/rsms/inter, Copyright 2020, licensed under the SIL
+Open Font License 1.1 (`app/src/main/assets/fonts/Inter-OFL.txt`). It is a
+subset of Google Fonts' `ofl/inter/Inter[opsz,wght].ttf`, keeping the figures,
+the colon and the capital I with both variation axes; the command that makes it
+is in `clock/ios/IosClockFont.kt`. Inter has no Reserved Font Name.
 
 ## BiRefNet_lite
 
@@ -23,6 +34,18 @@ https://huggingface.co/ZhengPeng7/BiRefNet_lite (revision
 that most are stored in half precision. The MIT License is in
 `app/src/main/assets/models/BiRefNet-LICENSE.txt` and ships inside the APK next
 to the model.
+
+## Depth Anything V2 Small
+
+`app/src/main/assets/models/depth_anything_v2_small.onnx` estimates how near
+each part of the lock screen photo is, for the depth effect's depth map
+layering. It is Depth Anything V2 Small, from "Depth Anything V2" by Lihe Yang,
+Bingyi Kang, Zilong Huang, Zhen Zhao, Xiaogang Xu, Jiashi Feng and Hengshuang
+Zhao, https://github.com/DepthAnything/Depth-Anything-V2, Apache License 2.0.
+The file is `onnx/model_quantized.onnx` (int8 weights) from
+https://huggingface.co/onnx-community/depth-anything-v2-small, unchanged. The
+licence is in `app/src/main/assets/models/DepthAnythingV2-LICENSE.txt` and
+ships inside the APK next to the model.
 
 ## DexKit
 

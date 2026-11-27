@@ -26,7 +26,7 @@ internal class PickerClockSettings(
 
     override fun install(classLoader: ClassLoader) {
         val api = try {
-            ClockPluginApi(classLoader)
+            ClockPluginApi.of(classLoader)
         } catch (error: ReflectiveOperationException) {
             logger.warn("Clock plugin API not found; the size cannot be stored", error)
             return
@@ -47,14 +47,20 @@ internal class PickerClockSettings(
                 ?: state.storedAxis(ClockAxes.SIZE_KEY)?.takeIf { sameClock }
                 ?: 0f
 
+            val sizeAdaptive = state.chosenSizeAdaptive
+                ?: state.storedSizeAdaptive().takeIf { sameClock }
+                ?: false
+
             val position = state.chosenPosition
                 ?: state.storedPosition().takeIf { sameClock }
                 ?: ClockPosition.TOP
 
             api.putAxis(settings, ClockAxes.WIDTH_KEY, width)
             api.putAxis(settings, ClockAxes.SIZE_KEY, size)
+            api.putAxis(settings, ClockAxes.SIZE_ADAPTIVE_KEY, if (sizeAdaptive) 1f else 0f)
             api.putAxis(settings, ClockAxes.POSITION_KEY, position.modeValue)
             api.putAxis(settings, ClockAxes.POSITION_SHARE_KEY, position.share)
+            api.putAxis(settings, ClockAxes.ROTATION_KEY, position.rotation)
             api.putAxis(settings, ClockAxes.WIDTH_AXIS_KEY, ClockAxes.WIDE_CLOCK_WIDTH)
         }
     }

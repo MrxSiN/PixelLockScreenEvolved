@@ -39,7 +39,7 @@ internal class PickerClockPatches(
 
     override fun install(classLoader: ClassLoader) {
         val state = try {
-            PickerClockState(ClockPluginApi(classLoader))
+            PickerClockState(ClockPluginApi.of(classLoader))
         } catch (error: ReflectiveOperationException) {
             logger.warn("Clock plugin API not found; no clock style can be added", error)
             return
@@ -84,6 +84,7 @@ internal class PickerClockPatches(
             gate.gate(Feature.PICKER_CLOCK_SIZE, PickerClockSettings(sizeHooks, styles, state, logger)),
             gate.gate(Feature.PICKER_CLOCK_SIZE, PickerSizeEdit(sizeHooks, styles, state, logger)),
             gate.gate(Feature.PICKER_LOCK_SCREEN_OPTIONS, lockScreenOptions),
+            gate.gate(Feature.PICKER_DEPTH_PREVIEW, PickerDepthPreview(hooksFor(Feature.PICKER_DEPTH_PREVIEW), logger)),
             gate.gate(Feature.PICKER_LOCK_SCREEN_OPTIONS, PickerPreviewCollapse(optionHooks, logger, addedHeight = lockScreenOptions::addedHeight)),
             PickerSafeModePrompt(hooks, logger),
         ).forEach { patch -> runCatching { patch.install(classLoader) }.onFailure { logger.warn("A picker patch failed to install", it) } }

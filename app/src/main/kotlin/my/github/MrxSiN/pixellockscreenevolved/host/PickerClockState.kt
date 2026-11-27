@@ -23,6 +23,11 @@ internal class PickerClockState(private val api: ClockPluginApi) {
     var chosenSizeStep: Float? = null
         private set
 
+    /** Whether adaptive size was turned on or off since the picker opened, or null if it was not touched. */
+    @Volatile
+    var chosenSizeAdaptive: Boolean? = null
+        private set
+
     /** The position chosen since the picker opened, or null if it was not touched. */
     @Volatile
     var chosenPosition: ClockPosition? = null
@@ -48,6 +53,19 @@ internal class PickerClockState(private val api: ClockPluginApi) {
         choiceListeners.forEach { it() }
     }
 
+    /** Records whether adaptive size is [on], shows it on every preview clock, and tells whoever listens. */
+    fun chooseSizeAdaptive(on: Boolean) {
+        chosenSizeAdaptive = on
+        synchronized(previews) { previews.toList() }.forEach { it.previewSizeAdaptive(on) }
+        choiceListeners.forEach { it() }
+    }
+
+    /** Whether adaptive size is on as shown now: as chosen since the picker opened, or as stored. */
+    fun shownSizeAdaptive(): Boolean = chosenSizeAdaptive ?: storedSizeAdaptive()
+
+    /** Whether the setting in effect turns adaptive size on. */
+    fun storedSizeAdaptive(): Boolean = ClockAxes.isSizeAdaptive(storedAxis(ClockAxes.SIZE_ADAPTIVE_KEY))
+
     /** Records [position], shows it on every preview clock, and tells whoever listens. */
     fun choosePosition(position: ClockPosition) {
         chosenPosition = position
@@ -67,21 +85,26 @@ internal class PickerClockState(private val api: ClockPluginApi) {
         return chosen != storedPosition()
     }
 
-    /** Whether the size or the position chosen differs from what the setting in effect stores. */
-    fun isAxisEdited(): Boolean = isSizeStepEdited() || isPositionEdited()
+    /** Whether adaptive size, as chosen, differs from what the setting in effect stores. */
+    fun isSizeAdaptiveEdited(): Boolean = chosenSizeAdaptive?.let { it != storedSizeAdaptive() } ?: false
+
+    /** Whether the size, adaptive size or the position chosen differs from what the setting in effect stores. */
+    fun isAxisEdited(): Boolean = isSizeStepEdited() || isSizeAdaptiveEdited() || isPositionEdited()
 
     /** The axes chosen since the picker opened, for a preset to carry to the preview and to Apply. */
     fun chosenAxes(): Map<String, Float> = buildMap {
         chosenSizeStep?.let { put(ClockAxes.SIZE_KEY, it) }
+        chosenSizeAdaptive?.let { put(ClockAxes.SIZE_ADAPTIVE_KEY, if (it) 1f else 0f) }
         chosenPosition?.let {
             put(ClockAxes.POSITION_KEY, it.modeValue)
             put(ClockAxes.POSITION_SHARE_KEY, it.share)
+            put(ClockAxes.ROTATION_KEY, it.rotation)
         }
     }
 
     /** The position the setting in effect stores. */
     fun storedPosition(): ClockPosition =
-        ClockPosition.of(storedAxis(ClockAxes.POSITION_KEY), storedAxis(ClockAxes.POSITION_SHARE_KEY))
+        ClockPosition.of(storedAxis(ClockAxes.POSITION_KEY), storedAxis(ClockAxes.POSITION_SHARE_KEY), storedAxis(ClockAxes.ROTATION_KEY))
 
     /** The position shown now: the one chosen since the picker opened, or the stored one. */
     fun shownPosition(): ClockPosition = chosenPosition ?: storedPosition()
@@ -108,6 +131,7 @@ internal class PickerClockState(private val api: ClockPluginApi) {
     /** Forgets a size or position chosen earlier, as a newly opened picker should. */
     fun reset() {
         chosenSizeStep = null
+        chosenSizeAdaptive = null
         chosenPosition = null
         isEditingPosition = false
     }

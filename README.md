@@ -6,7 +6,7 @@
 
 **The lock screen clocks and depth effect the Android 17 Pixel does not ship — picked where you already choose one.**
 
-Wallpaper & style → **Clock** → iOS, Stacked, Numerals, Analog or Split, beside Google's own.
+Wallpaper & style → **Clock** → iOS, Hyper, Headline, Poster, One, Horizon, Dot or Cinema, beside Google's own.
 
 <br>
 
@@ -58,20 +58,32 @@ share the screen.
 
 | Style | Large face | Small face |
 |---|---|---|
-| **iOS** | The date over a time on one line, set in the Pixel clock's own font (Google Sans Flex Clock, the first clock in the picker), spanning the same margins as the date and smartspace. 12-hour time without AM/PM or a leading zero; 24-hour time padded. | The same line at the stock clock's height, with Pixel's date and weather row below. |
-| **Stacked** | Hour over minute, flush to the start of the screen, date below. | One line. |
-| **Numerals** | Giant Roboto Flex figures whose minute grows heavier and wider as the hour passes. | One line. |
-| **Analog** | A dial with rounded hands, the date below. Its ticks fade and its hands go to outline on the always-on display. | A small dial. |
-| **Split** | One heavy line drawn down the screen, stretched until it meets the photo's subject. | One line, taller than a Pixel small clock's. |
+| **iOS** | The date over a time on one line, set in the Pixel clock's own font (Google Sans Flex Clock, the first clock in the picker), at one text size, so its width follows the figures as on iOS. 12-hour time without AM/PM or a leading zero; 24-hour time padded. | As on iOS, the same clock at its default size, date above; Pixel's own date row is hidden. |
+| **Hyper** | After HyperOS's magazine lock screen: outlined, condensed figures, the hour (in the wallpaper's accent) over the minute, running down the whole screen, with the date beside them as a narrow column and the weekday turned on its side in an accent pill. The photo shows through the outlines, and its subject can stand in front of them. | One condensed line. |
+| **Headline** | After HyperOS: the time, the weekday and the date as one condensed, heavy headline down the start of the screen, each line as wide as the block, the minute in the wallpaper's accent colour. | One condensed line. |
+| **Poster** | After HyperOS: the weekday and the date as a bold title across the top, which the photo's subject stands in front of, and a small serif time set to the end below it, in the accent colour. | A serif time. |
+| **One** | After One UI: tall, light, slightly narrow figures, hour over minute, centred under the date. | One line. |
+| **Horizon** | After ColorOS and OxygenOS: one wide hairline line of time, the date and weather under it. | One line. |
+| **Dot** | After Nothing OS: a five-by-seven dot matrix, hour over minute, with a spaced capital date. The dots shrink on the always-on display. | One dot-matrix line. |
+| **Cinema** | Towering condensed figures side by side, stretched taller than the font, with a credit-line date: made to stand behind the depth effect's subject. | One line. |
+
+The other styles are inspired by those systems' lock screens and drawn in the
+Pixel's own Roboto Flex; no font or artwork of theirs is bundled.
 
 <table>
 <tr>
 <td align="center"><img src="docs/screenshots/style-ios.png" width="250"><br><sub><b>iOS</b></sub></td>
-<td align="center"><img src="docs/screenshots/style-stacked.png" width="250"><br><sub><b>Stacked</b></sub></td>
+<td align="center"><img src="docs/screenshots/style-hyper.png" width="250"><br><sub><b>Hyper</b></sub></td>
 </tr>
 <tr>
-<td align="center"><img src="docs/screenshots/style-numerals.png" width="250"><br><sub><b>Numerals</b>: the minute is lighter and narrower than the hour</sub></td>
-<td align="center"><img src="docs/screenshots/style-analog.png" width="250"><br><sub><b>Analog</b></sub></td>
+<td align="center"><img src="docs/screenshots/style-headline.png" width="250"><br><sub><b>Headline</b></sub></td>
+<td align="center"><img src="docs/screenshots/style-poster.png" width="250"><br><sub><b>Poster</b></sub></td>
+<td align="center"><img src="docs/screenshots/style-one.png" width="250"><br><sub><b>One</b></sub></td>
+</tr>
+<tr>
+<td align="center"><img src="docs/screenshots/style-horizon.png" width="250"><br><sub><b>Horizon</b></sub></td>
+<td align="center"><img src="docs/screenshots/style-dot.png" width="250"><br><sub><b>Dot</b></sub></td>
+<td align="center"><img src="docs/screenshots/style-cinema.png" width="250"><br><sub><b>Cinema</b>, behind the subject</sub></td>
 </tr>
 </table>
 
@@ -90,10 +102,10 @@ the size slider; the iOS clock has the width slider as well.
 | Control | Where | What it does |
 |---|---|---|
 | **Clock face width** (iOS) | Clock → Style | The same seven cuts Google's flex clock steps through, read from its own presets: `wght` 200 at `wdth` 120 through to `wght` 800 at `wdth` 30, widest and lightest first. The numerals grow heavier as they narrow, so every stop keeps about the same ink on screen. |
-| **Clock size** | Clock → Size | In place of the Large switch. Four steps for iOS, from the height of Google's own large clock to 2.2 times it; six for the other styles. Moving the slider alone enables Apply. |
+| **Clock size** | Clock → Size | In place of the Large switch. Four steps for iOS, from the iOS default clock ("9:41" 0.45 of the screen's width, figures 0.18) to the tallest iOS 26 clock (0.70 wide, 0.68 tall), measured on Apple's own Lock Screen guide screenshots; six for the other styles. Moving the slider alone enables Apply. |
 
-The iOS time always spans the lock screen's text column, edge to edge with the
-date and smartspace: the width cut sets how heavy the figures are, and the size
+The iOS time is set at one text size, as on iOS, so "1:11" is narrower than
+"12:59": the width cut sets how heavy the figures are, and the size
 sets only how tall, so a taller size stretches the figures upward rather than
 crowding the screen. Every pair of figures stands the same gap apart, and the
 sliders glide the preview to each step.
@@ -126,11 +138,60 @@ the bottom, and keeps clear of the fingerprint sensor and the smartspace card.
 A hint beside the preview says so. Apply stores the place as a share of the
 screen, so it holds at every resolution.
 
+**Rotation** turns the clock up to 90° either way: twist it with two fingers
+anywhere around the preview (the empty sides too, not just on the clock), or
+use the Rotation slider under Adaptive position. One finger anywhere there
+drags the clock. The turn pulls
+gently onto upright, 15°, 30°, 45° and on its side, with a tick; a double tap,
+or **Reset** beside the Rotation label, stands the clock upright again. A turned clock is placed by the box it covers,
+so its corners never run under the status bar or onto the fingerprint sensor,
+and the depth effect and the card under the clock follow it. The always-on
+display shows the clock upright, and it turns into its tilt as the screen
+wakes.
+
 <table>
 <tr>
 <td align="center"><img src="docs/screenshots/page-position.png" width="250"><br><sub>Clock → Position, Adaptive off</sub></td>
 </tr>
 </table>
+
+</details>
+
+The iOS clock is set in [Inter](https://github.com/rsms/inter) Display, the
+free look-alike of Apple's SF Pro (which Apple licenses only for its own
+platforms), bundled under the SIL Open Font License 1.1
+(`app/src/main/assets/fonts/Inter-OFL.txt`). The Clock face width slider picks
+its weight. Tall figures are drawn thin and thickened evenly, so their strokes
+stay even instead of the bars swelling as they stretch.
+
+You can set it in a font of your own instead: put the file, named
+`pixel_lock_screen_evolved_clock_font`, in each host's files folder and
+restart it. Nothing is shipped; the file is yours to supply. A font with
+iOS 26's `HGHT` axis (`.SF Adaptive Soft Numeric`) draws its own tall figures,
+at `SOFT` 70 as iOS does.
+
+```sh
+for d in /data/user_de/0/com.android.systemui /data/user/0/com.google.android.apps.wallpaper; do
+  cp /data/local/tmp/pixel_lock_screen_evolved_clock_font $d/files/
+  chown $(stat -c %u $d):$(stat -c %u $d) $d/files/pixel_lock_screen_evolved_clock_font
+  chcon $(ls -dZ $d/files | cut -d" " -f1) $d/files/pixel_lock_screen_evolved_clock_font
+done
+```
+
+
+<details open>
+<summary><b>📐 Adaptive size</b></summary>
+<br>
+
+Clock → **Size** → **Adaptive size**, for every style of this module's. The
+large clock grows down to the wallpaper's subject: the subject's top edge in
+the clock's columns lands near the foot of the time, so the subject stands in
+front of the bottom of the digits and the rest reads clear, as the depth effect
+is made for. It works from the depth effect's own cut-out, so it needs the depth
+effect on; without a subject, or with the subject too high to leave room, the
+Clock size slider (dimmed while Adaptive size is on) decides. As on iOS, every
+figure is stretched to the same height. The
+picker's preview shows what the lock screen chose.
 
 </details>
 
@@ -140,8 +201,11 @@ screen, so it holds at every resolution.
 
 The subject of a photo wallpaper in front of the large clock, as on iOS: the
 time goes behind the subject, and nothing else on the lock screen does. Where
-the subject would hide more than half of the time, the time stays in front so
-it can still be read. The lock screen tab of Wallpaper & style shows the effect
+the subject would leave the time hard to read, the time comes forward: the
+clock weighs how much ink is hidden, each digit, the hour and the minute
+apart, how thin the clock's strokes are, its contrast against the wallpaper
+under it and your high-contrast text and font size settings, and does not
+flip back and forth at the edge of that line. The lock screen tab of Wallpaper & style shows the effect
 too; the preview of a photo not yet set does not.
 
 Wallpaper & style → Lock screen, at the bottom:
@@ -150,6 +214,18 @@ Wallpaper & style → Lock screen, at the bottom:
 |---|---|---|
 | **Depth effect** | Its switch, or its page | Finds the subject of the lock screen photo on the device and draws it over the time, placed exactly where the window manager puts the wallpaper and following its scroll, zoom and dimming. |
 | **Reprocess wallpaper** / **Try again** | Depth effect page | Shows whether the subject was found, and looks again, more carefully (the photo and its mirror image, averaged), when the outline came out wrong or none was found. No app data needs clearing. |
+| **Clock and subject**: Balanced, Readability first or Depth first | Depth effect page | How soon the time comes forward: as above; sooner, for small or thin clocks; or never, the subject always in front. |
+| **Subjects in front**: All subjects or Main subject only | Depth effect page | With several subjects in the photo, whether all stand in front or only the largest. Applied to the mask already found, without looking again. |
+| **In front of the clock**: Subject or Depth map | Depth effect page | The subject alone, or everything as near as the subject by the photo's depth map (Depth Anything V2 Small, on the device): a railing before someone stands in front too, and the sky between an arm and a body goes back behind the clock. |
+| **Edit subject** | Depth effect page | Paint over the photo to add to the subject or erase from it. Kept until the subject is found again. |
+| **Tilt motion** | Depth effect page | The clock shifts a little against the photo as you tilt the phone. Off by default; the sensor runs only while the lock screen shows. |
+
+The effect also works with Google's own clocks, and in Wallpaper & style's
+preview of a photo before you set it.
+
+The subject's outline is snapped to the photo's own edges (a guided filter over
+the model's answer), so hair and shoulders hold their shape rather than a soft
+halo.
 
 The subject is found once per photo, by the module's own app, with
 BiRefNet_lite on ONNX Runtime; nothing leaves the device. It takes about 12
@@ -161,33 +237,7 @@ wallpapers are drawn by their own apps and have no depth effect.
 <table>
 <tr>
 <td align="center"><img src="docs/screenshots/page-depth-effect.png" width="250"><br><sub>The Depth effect page</sub></td>
-<td align="center"><img src="docs/screenshots/split-large.png" width="250"><br><sub>The subject in front of the time</sub></td>
-</tr>
-</table>
-
-</details>
-
-<details open>
-<summary><b>✂️ Split: a clock that reads the photo</b></summary>
-<br>
-
-Split is drawn for the depth effect. The time is one heavy line stretched down
-the lock screen until it meets the photo's subject, and a little past it, so
-the subject stands in front of the ends of the numerals rather than beside
-them. The subject's box is measured from the cut-out the depth effect already
-made, placed exactly where the wallpaper is placed, and the face is laid out
-around it again whenever the photo or its scroll changes.
-
-A photo whose subject fills the screen from its top is a background rather than
-something to stand the time above, so there the numerals reach toward the
-middle of the screen instead — as they do when the depth effect is off or no
-subject was found.
-
-<table>
-<tr>
-<td align="center"><img src="docs/screenshots/split-large.png" width="250"><br><sub>Stretched to the subject</sub></td>
-<td align="center"><img src="docs/screenshots/split-small.png" width="250"><br><sub>Beside notifications</sub></td>
-<td align="center"><img src="docs/screenshots/split-aod.png" width="250"><br><sub>On the always-on display</sub></td>
+<td align="center"><img src="docs/screenshots/style-cinema.png" width="250"><br><sub>The subject in front of the time</sub></td>
 </tr>
 </table>
 
@@ -205,7 +255,7 @@ Wallpaper & style → Lock screen → **Always-on display**:
 | **Appearance**: Color, Black & white or Dots | One of three: the photo dimmed; dimmed in greys; or sparse dots on black, only the photo's subject where the depth effect found one, about 4% of pixels lit, for the least power. Each dot is lit nearly as brightly as the clock beside it, since the always-on display holds greys unsteadily. |
 
 Going to sleep, the numerals thin along the font's weight axis rather than
-fading, so few pixels stay lit, and the iOS clock is traced in outline. The
+fading, so few pixels stay lit; the iOS clock stays filled, as on iOS. The
 time comes out in front of the depth effect's subject first and only then gives
 its place back to SystemUI's fingerprint-aware clock region, so nothing crosses
 the subject midway. Everything shifts a little every minute, the photo on a
@@ -306,7 +356,7 @@ Built against the modern [libxposed API](https://github.com/libxposed/api)
 1. Install the APK from Releases
 2. Enable Pixel Lock Screen Evolved in your Xposed manager
 3. Restart System UI and force-stop Wallpaper & style once
-4. Wallpaper & style → Clock → choose a clock (iOS, Stacked, Numerals, Analog or Split) → Apply
+4. Wallpaper & style → Clock → choose a clock (iOS, Hyper, One, Horizon, Dot or Cinema) → Apply
 5. Optional: Wallpaper & style → Lock screen → Depth effect
 ```
 
