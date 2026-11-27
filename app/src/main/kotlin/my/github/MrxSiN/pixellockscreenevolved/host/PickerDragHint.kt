@@ -11,10 +11,10 @@ import android.widget.FrameLayout
 import android.widget.TextView
 
 /**
- * "Drag the clock to reposition it", said beside Wallpaper & style's lock
- * screen preview while the clock sheet's Position tab is open and the
- * position is not adaptive: the only times the preview's clock can be dragged
- * ([PickerClockDrag]).
+ * How the preview's clock is placed by hand ([PickerClockDrag]), said beside
+ * Wallpaper & style's lock screen preview while the clock sheet's Position tab
+ * is open: dragged and twisted while the position is placed, only twisted
+ * while it is adaptive, each with its own glyph.
  *
  * The hint stands in the empty column left of the preview when that column is
  * wide enough to read it, and otherwise in the strip above the preview, so it
@@ -22,7 +22,9 @@ import android.widget.TextView
  * added to the activity's content: it takes no touches, so nothing under it
  * stops answering. It follows the preview as the sheet resizes it, before each
  * draw, and fades in and out as the sheet's tabs do; it is removed with the
- * sheet.
+ * sheet. Once the sheet starts to slide away (Apply, close, back), it goes at
+ * once: the Position tab stays open while the sheet leaves, and the hint stood
+ * over the main screen's "Lock screen" label until the sheet had gone.
  */
 internal class PickerDragHint(
     private val sheet: View,
@@ -36,9 +38,13 @@ internal class PickerDragHint(
     private var root: FrameLayout? = null
     private var card: View? = null
 
-    private val icon = PositionIconDrawable(PickerRows.dp(context, ICON_DP), PositionIconDrawable.Glyph.DRAG)
+    private val dragIcon = PositionIconDrawable(PickerRows.dp(context, ICON_DP), PositionIconDrawable.Glyph.DRAG)
+    private val twistIcon = PositionIconDrawable(PickerRows.dp(context, ICON_DP), PositionIconDrawable.Glyph.TWIST)
+
+    /** Whether the hint says what an adaptive position allows, or null before it says anything. */
+    private var saysAdaptive: Boolean? = null
     private val hint = TextView(context).apply {
-        text = TEXT
+        text = TEXT_PLACED
         gravity = Gravity.CENTER
         compoundDrawablePadding = PickerRows.dp(context, ICON_GAP_DP)
         PickerRows.resource(context, "attr", TEXT_APPEARANCE).takeIf { it != 0 }?.let { attr ->
@@ -52,6 +58,7 @@ internal class PickerDragHint(
     }
 
     private val cardBounds = RectF()
+    private val sheetBounds = RectF()
     private val placedBounds = RectF()
     private var placedWidth = 0
     private var placedHeight = 0
@@ -89,15 +96,13 @@ internal class PickerDragHint(
         this.root = null
         card = null
         beside = null
-        wanted = false
-        hint.animate().cancel()
-        hint.alpha = 0f
-        hint.visibility = View.INVISIBLE
+        hide()
     }
 
     private fun paint(colour: Int) {
         hint.setTextColor(colour)
-        icon.setTintList(ColorStateList.valueOf(colour))
+        dragIcon.setTintList(ColorStateList.valueOf(colour))
+        twistIcon.setTintList(ColorStateList.valueOf(colour))
     }
 
     /** Shows or hides the hint, and keeps it beside the preview where the preview is drawn now. */
@@ -105,9 +110,21 @@ internal class PickerDragHint(
         val card = card ?: return
         val root = root ?: return
         // Cheapest first: the stored position is read through the picker's registry.
-        if (!state.isEditingPosition || !sheet.isShown || !card.isShown || state.shownPosition().adaptive) {
+        if (!state.isEditingPosition || !sheet.isShown || !card.isShown) {
             show(false)
             return
+        }
+        ViewBounds.inAncestor(root, sheet, sheetBounds)
+        if (sheetBounds.bottom > root.height + SETTLED_PX) {
+            hide()
+            return
+        }
+        val adaptive = state.shownPosition().adaptive
+        if (adaptive != saysAdaptive) {
+            saysAdaptive = adaptive
+            hint.text = if (adaptive) TEXT_ADAPTIVE else TEXT_PLACED
+            // Given its glyph again below, beside or above the words, once laid out at its new length.
+            beside = null
         }
 
         ViewBounds.inAncestor(root, card, cardBounds)
@@ -118,6 +135,7 @@ internal class PickerDragHint(
             beside = side
             placedBounds.setEmpty()
             hint.layoutParams = hint.layoutParams.apply { width = if (side) column.toInt() else ViewGroup.LayoutParams.WRAP_CONTENT }
+            val icon = if (saysAdaptive == true) twistIcon else dragIcon
             if (side) hint.setCompoundDrawablesRelativeWithIntrinsicBounds(null, icon, null, null)
             else hint.setCompoundDrawablesRelativeWithIntrinsicBounds(icon, null, null, null)
             // Shown once laid out at its new width and placed, never where it stood before.
@@ -140,6 +158,14 @@ internal class PickerDragHint(
     }
 
 
+    /** Hides the hint at once, without its fade. */
+    private fun hide() {
+        wanted = false
+        hint.animate().cancel()
+        hint.alpha = 0f
+        hint.visibility = View.INVISIBLE
+    }
+
     private fun show(show: Boolean) {
         if (show == wanted) return
         wanted = show
@@ -151,7 +177,8 @@ internal class PickerDragHint(
     }
 
     private companion object {
-        const val TEXT = "Drag the clock to reposition it"
+        const val TEXT_PLACED = "Drag the clock to move it, or twist it with two fingers to turn it"
+        const val TEXT_ADAPTIVE = "Twist the clock with two fingers to turn it"
         const val PREVIEW_CARD = "lock_preview_card"
         const val TEXT_APPEARANCE = "textAppearanceBodySmall"
         const val COLOUR = "colorOnSurfaceVariant"
@@ -161,6 +188,9 @@ internal class PickerDragHint(
 
         /** Narrower than this, the hint would break into a word a line, so it goes above the preview instead. */
         const val MIN_COLUMN_DP = 96f
+
+        /** A sheet reaching further below the screen than this is sliding away. */
+        const val SETTLED_PX = 1f
 
         /** As the clock sheet fades its tab content. */
         const val FADE_MS = 150L

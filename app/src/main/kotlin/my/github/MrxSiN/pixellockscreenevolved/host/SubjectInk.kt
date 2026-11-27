@@ -81,6 +81,26 @@ internal class SubjectInk(
         return (inked / cells).coerceIn(0f, 1f)
     }
 
+    /**
+     * The top, in the cut-out's pixels, of the first row of the grid from [fromTop] down to [toBottom]
+     * in which the subject fills at least [share] of the columns from [boxLeft] to [boxRight]: where the
+     * subject first rises into that column band. NaN where it never does.
+     */
+    fun topEdge(boxLeft: Float, boxRight: Float, fromTop: Float, toBottom: Float, share: Float): Float {
+        val x0 = cell(boxLeft, sourceWidth, columns)
+        val x1 = cell(boxRight, sourceWidth, columns)
+        if (x1 <= x0) return Float.NaN
+        val y0 = cellExact(fromTop, sourceHeight, rows).toInt().coerceIn(0, rows)
+        val y1 = cell(toBottom, sourceHeight, rows)
+        val stride = columns + 1
+        val wanted = share * (x1 - x0)
+        for (y in y0 until y1) {
+            val inked = sums[(y + 1) * stride + x1] - sums[y * stride + x1] - sums[(y + 1) * stride + x0] + sums[y * stride + x0]
+            if (inked > 0 && inked >= wanted) return y * sourceHeight.toFloat() / rows
+        }
+        return Float.NaN
+    }
+
     private fun cellExact(pixel: Float, size: Int, cells: Int): Float = pixel * cells / size
 
     private fun cell(pixel: Float, size: Int, cells: Int): Int = cellExact(pixel, size, cells).roundToInt().coerceIn(0, cells)

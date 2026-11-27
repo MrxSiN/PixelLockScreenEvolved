@@ -10,6 +10,10 @@ internal object HyperColors {
     fun accent(context: Context): Int =
         runCatching { context.getColor(android.R.color.system_accent3_200) }.getOrDefault(Color.WHITE)
 
+    /** Ink that reads on [accent]: the same tertiary hue at its darkest, or black where the system has none. */
+    fun onAccent(context: Context): Int =
+        runCatching { context.getColor(android.R.color.system_accent3_900) }.getOrDefault(Color.BLACK)
+
     /** [accent] awake, easing to the clock's own [color] as the display dozes, which settles its colour for the always-on display. */
     fun accented(color: Int, accent: Int, doze: Float): Int {
         val t = doze.coerceIn(0f, 1f)

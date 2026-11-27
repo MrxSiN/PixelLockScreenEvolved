@@ -1,8 +1,11 @@
 package my.github.MrxSiN.pixellockscreenevolved.clock.styles
 
 import android.content.Context
+import android.graphics.Canvas
 import android.graphics.Color
 import android.graphics.Paint
+import android.graphics.PorterDuff
+import android.graphics.PorterDuffXfermode
 import android.graphics.Typeface
 import android.graphics.drawable.Drawable
 import android.text.format.DateFormat
@@ -48,7 +51,10 @@ class PosterClockStyle : ClockStyle {
         val right = box.right - box.width() * THUMB_MARGIN
         paint.typeface = TITLE_TYPEFACE
         paint.textSize = box.height().toFloat()
-        paint.textSize = box.height() * minOf(THUMB_TITLE, (right - left) / paint.measureText(THUMB_TITLE_LINES.maxBy(paint::measureText)) * THUMB_TITLE)
+        // As tall as the title share of the box allows, or as the longest line fitting the margins does: measured at
+        // a text size of the box's height, the width that fits scales that size by the room over the line's width.
+        val longest = paint.measureText(THUMB_TITLE_LINES.maxBy(paint::measureText))
+        paint.textSize = minOf(box.height() * THUMB_TITLE, box.height() * (right - left) / longest)
         var baseline = box.top + box.height() * 0.12f - paint.ascent()
         THUMB_TITLE_LINES.forEach {
             canvas.drawText(it, left, baseline, paint)
@@ -75,13 +81,16 @@ class PosterClockStyle : ClockStyle {
         protected abstract val plain: List<TextView>
         protected abstract val accented: List<TextView>
 
+        /** The lines traced rather than filled on the always-on display: the large ones. */
+        protected open val traced: List<TextView> get() = plain
+
         protected fun time(): String {
             val now = Calendar.getInstance()
             val parts = TimeParts.of(now[Calendar.HOUR_OF_DAY], now[Calendar.MINUTE], DateFormat.is24HourFormat(context), Locale.getDefault())
             return "${parts.hour.padStart(2, '0')}:${parts.minute}"
         }
 
-        protected fun text(typeface: Typeface, gravity: Int): TextView = TextView(context).apply {
+        protected fun text(typeface: Typeface, gravity: Int): TextView = OutlinedText(context).apply {
             this.typeface = typeface
             this.gravity = gravity
             includeFontPadding = false
@@ -98,8 +107,15 @@ class PosterClockStyle : ClockStyle {
             paint()
         }
 
+        /**
+         * The always-on display traces the bold title rather than filling it, as the other faces thin or
+         * outline their large figures there: filled, it kept a block of pixels lit all night. Switched
+         * half way through the doze, which SystemUI runs in a moment as the display sleeps or wakes.
+         */
         private fun paint() {
+            val outline = doze >= HALF
             plain.forEach { it.setTextColor(color) }
+            traced.forEach { (it as? OutlinedText)?.outlined = outline }
             accented.forEach { it.setTextColor(HyperColors.accented(color, accent, doze)) }
         }
     }
@@ -167,9 +183,12 @@ class PosterClockStyle : ClockStyle {
     }
 
     private class Small(context: Context) : Face(context) {
-        private val clock = text(SERIF, Gravity.CENTER).apply { setTextSize(TypedValue.COMPLEX_UNIT_PX, shortSide * SMALL_SIZE) }
+        private val clock = text(SERIF, Gravity.CENTER).apply { setTextSize(TypedValue.COMPLEX_UNIT_PX, columnFilling(this)) }
         override val plain = emptyList<TextView>()
         override val accented = listOf(clock)
+
+        /** Run across the column, the small time is large enough to trace on the always-on display too. */
+        override val traced = listOf(clock)
         override val timeView: View get() = clock
         override val drawsDate: Boolean = false
         override val view: View = clock
@@ -181,9 +200,57 @@ class PosterClockStyle : ClockStyle {
         override fun refresh() {
             clock.text = time()
         }
+
+        /**
+         * The text size at which the widest time, "00:00", runs across the lock screen's text column, no taller
+         * than [SMALL_MAX] of the short side: beside notifications the time fills the space, as iOS's does.
+         */
+        private fun columnFilling(text: TextView): Float {
+            val paint = text.paint
+            paint.textSize = PROBE
+            val perSize = paint.measureText(WIDEST_TIME) / PROBE
+            return minOf(shortSide * SMALL_COLUMN / perSize, shortSide * SMALL_MAX)
+        }
+    }
+
+    /**
+     * A line of text that can be traced in outline ([outlined]). A plain stroke traced the overlapping
+     * contours inside the bold title's letters (crossbars through the H and the A), so, as [my.github.MrxSiN.pixellockscreenevolved.clock.parts.DozeInk]
+     * does, it is stroked twice as wide and the letters' insides cut back out of it, leaving only the line
+     * around their outer edge.
+     */
+    private class OutlinedText(context: Context) : TextView(context) {
+        var outlined = false
+            set(value) {
+                if (field == value) return
+                field = value
+                invalidate()
+            }
+
+        private val cut = PorterDuffXfermode(PorterDuff.Mode.DST_OUT)
+
+        override fun onDraw(canvas: Canvas) {
+            if (!outlined) return super.onDraw(canvas)
+            val saved = canvas.saveLayer(null, null)
+            paint.style = Paint.Style.STROKE
+            paint.strokeJoin = Paint.Join.ROUND
+            paint.strokeWidth = 2 * OUTLINE_DP * resources.displayMetrics.density
+            super.onDraw(canvas)
+            paint.style = Paint.Style.FILL
+            paint.xfermode = cut
+            super.onDraw(canvas)
+            paint.xfermode = null
+            canvas.restoreToCount(saved)
+        }
     }
 
     private companion object {
+        /** Past this far into the doze, the title is traced ([Face]). */
+        const val HALF = 0.5f
+
+        /** The title's always-on outline, as [my.github.MrxSiN.pixellockscreenevolved.clock.parts.DozeInk] draws its own. */
+        const val OUTLINE_DP = 1.5f
+
         val TITLE_TYPEFACE: Typeface = Typeface.create(Typeface.create("sans-serif", Typeface.NORMAL), 800, false)
         val SERIF: Typeface = Typeface.create(Typeface.SERIF, Typeface.NORMAL)
 
@@ -197,7 +264,11 @@ class PosterClockStyle : ClockStyle {
         const val TITLE_LINE_SPACING = 0.9f
         const val TIME_SIZE = 0.12f
         const val SIDE_SIZE = 0.06f
-        const val SMALL_SIZE = 0.1f
+        /** The small time's widest run and tallest size, against the short side. */
+        const val SMALL_COLUMN = 0.86f
+        const val SMALL_MAX = 0.3f
+        const val WIDEST_TIME = "00:00"
+        const val PROBE = 100f
         const val LARGEST_SCALE = 1.35f
 
         /** Space between the title and the time block, against the short side: the subject's room. */

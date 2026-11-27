@@ -40,6 +40,7 @@ import my.github.MrxSiN.pixellockscreenevolved.host.KeyguardDoubleTapToSleep
 import my.github.MrxSiN.pixellockscreenevolved.host.KeyguardPreviewWallpapers
 import my.github.MrxSiN.pixellockscreenevolved.host.KeyguardSmartspacePlacement
 import my.github.MrxSiN.pixellockscreenevolved.host.LockWallpaperFeed
+import my.github.MrxSiN.pixellockscreenevolved.clock.ios.IosClockFont
 import my.github.MrxSiN.pixellockscreenevolved.host.PickerClockPatches
 import my.github.MrxSiN.pixellockscreenevolved.host.SafeModeNotice
 import my.github.MrxSiN.pixellockscreenevolved.safemode.CrashGuard
@@ -85,6 +86,12 @@ class PixelLockScreenEvolvedModule : XposedModule() {
     private class LoadedHost(val host: Host, val classLoader: ClassLoader, val dataDir: String, val apk: String) {
         @Volatile var application: Context? = null
         @Volatile var registry: Any? = null
+
+        /** SystemUI's lock screen photo feed, whose wallpaper engine a hot reload hands on ([LockWallpaperFeed.replay]). */
+        @Volatile var wallpaperFeed: LockWallpaperFeed? = null
+
+        /** The wallpaper engine the replaced code last saw draw, handed on by a hot reload. */
+        @Volatile var wallpaperEngine: Any? = null
     }
 
     private val loadedHosts = mutableMapOf<Host, LoadedHost>()
@@ -94,6 +101,7 @@ class PixelLockScreenEvolvedModule : XposedModule() {
 
     override fun onModuleLoaded(param: ModuleLoadedParam) {
         processName = param.processName
+        IosClockFont.apk = moduleApplicationInfo.sourceDir
     }
 
     override fun onPackageReady(param: PackageReadyParam) {
@@ -120,6 +128,7 @@ class PixelLockScreenEvolvedModule : XposedModule() {
                 KEY_APK to loaded.apk,
                 KEY_APPLICATION to loaded.application,
                 KEY_REGISTRY to loaded.registry,
+                KEY_WALLPAPER_ENGINE to loaded.wallpaperFeed?.currentEngine,
             )
         })
         param.setSavedInstanceState(hosts)
@@ -129,11 +138,13 @@ class PixelLockScreenEvolvedModule : XposedModule() {
     }
 
     override fun onHotReloaded(param: HotReloadedParam) {
+        IosClockFont.apk = moduleApplicationInfo.sourceDir
         (param.savedInstanceState as? List<*>).orEmpty().filterIsInstance<Map<*, *>>().forEach { saved ->
             val host = Host.of(saved[KEY_HOST] as? String ?: return@forEach) ?: return@forEach
             val loaded = LoadedHost(host, saved[KEY_CLASS_LOADER] as? ClassLoader ?: return@forEach, saved[KEY_DATA_DIR] as String, (saved[KEY_APK] as? String).orEmpty().ifEmpty { (saved[KEY_APPLICATION] as? Context)?.applicationInfo?.sourceDir.orEmpty() }).apply {
                 application = saved[KEY_APPLICATION] as? Context
                 registry = saved[KEY_REGISTRY]
+                wallpaperEngine = saved[KEY_WALLPAPER_ENGINE]
             }
             loadedHosts[host] = loaded
             runCatching { load(loaded, reloaded = true) }.onFailure { AndroidLogger.warn("Hot reload failed in ${host.packageName}", it) }
@@ -180,6 +191,8 @@ class PixelLockScreenEvolvedModule : XposedModule() {
         (listOf(startup, capture) + patchesFor(loaded, hooks, hooksFor, gate, logger)).forEach { patch ->
             runCatching { patch.install(loaded.classLoader) }.onFailure { logger.warn("A patch failed to install in ${host.packageName}", it) }
         }
+        // A hot reload brings in a feed no wallpaper draw reaches until the photo changes; it is handed the photo now.
+        if (reloaded) loaded.wallpaperEngine?.let { engine -> loaded.wallpaperFeed?.replay(engine) }
     }
 
     private fun patchesFor(
@@ -199,6 +212,7 @@ class PixelLockScreenEvolvedModule : XposedModule() {
                 val aod = gate.allows(Feature.AOD_WALLPAPER)
                 val previewWallpapers = KeyguardPreviewWallpapers(hooksFor(Feature.DEPTH_EFFECT), logger)
                 val wallpaperFeed = LockWallpaperFeed(hooks, logger)
+                loaded.wallpaperFeed = wallpaperFeed
                 val aodWallpaper = KeyguardAodWallpaper(hooksFor(Feature.AOD_WALLPAPER), wallpaperFeed, logger)
                 val depthEffect = KeyguardDepthEffect(wallpaperFeed, moduleApplicationInfo.packageName, previewWallpapers, logger)
                 if (aod) wallpaperFeed.addListener(aodWallpaper)
@@ -250,5 +264,6 @@ class PixelLockScreenEvolvedModule : XposedModule() {
         const val KEY_APK = "apk"
         const val KEY_APPLICATION = "application"
         const val KEY_REGISTRY = "registry"
+        const val KEY_WALLPAPER_ENGINE = "wallpaperEngine"
     }
 }

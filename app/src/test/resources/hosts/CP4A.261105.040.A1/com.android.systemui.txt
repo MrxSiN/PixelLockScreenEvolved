@@ -2163,6 +2163,52 @@ class androidx.compose.ui.res.PrimitiveResources_androidKt extends java.lang.Obj
   method booleanResource(int,androidx.compose.runtime.Composer,int)
   method dimensionResource(int,androidx.compose.runtime.Composer,int)
   method integerResource(int,androidx.compose.runtime.Composer,int)
+class com.android.systemui.Dependency extends java.lang.Object
+  field BG_LOOPER
+  field TIME_TICK_HANDLER
+  field mAmbientStateLazy
+  field mAssistManager
+  field mBgLooper
+  field mBluetoothController
+  field mBroadcastDispatcher
+  field mCommandQueue
+  field mDarkIconDispatcher
+  field mDependencies
+  field mDeviceProvisionedController
+  field mDialogTransitionAnimatorLazy
+  field mDumpManager
+  field mFeatureFlagsLazy
+  field mFragmentService
+  field mGroupExpansionManagerLazy
+  field mGroupMembershipManagerLazy
+  field mKeyguardUpdateMonitor
+  field mLauncherProxyService
+  field mLightBarController
+  field mLockscreenSmartspaceControllerLazy
+  field mMetricsLogger
+  field mNavBarModeController
+  field mNavigationBarController
+  field mNotificationMediaManager
+  field mNotificationSectionsManagerLazy
+  field mPluginManager
+  field mPluginPackageConfig
+  field mProviders
+  field mScreenOffAnimationController
+  field mStatusBarStateController
+  field mStatusBarWindowControllerStoreLazy
+  field mSysUIStateDisplaysInteractor
+  field mSysUiStateFlagsContainer
+  field mSystemUIDialogManagerLazy
+  field mTimeTickHandler
+  field mTunerService
+  field mUiEventLogger
+  field mUiOffloadThread
+  field mUserTrackerLazy
+  field mVolumeDialogController
+  field sDependency
+  method createDependency(java.lang.Object)
+  method getDependencyInner(java.lang.Object)
+  method setInstance(com.android.systemui.Dependency)
 class com.android.systemui.classifier.BrightLineFalsingManager extends java.lang.Object
   field DEBUG
   field RECENT_INFO_LOG
@@ -2742,6 +2788,16 @@ class com.android.systemui.plugins.keyguard.ui.composable.elements.LockscreenSco
 class com.android.systemui.plugins.keyguard.ui.composable.elements.MovableLockscreenElement
   method LockscreenElement(com.android.systemui.plugins.keyguard.ui.composable.elements.LockscreenScope,androidx.compose.runtime.Composer,int)
   method getKey()
+class com.android.systemui.plugins.statusbar.StatusBarStateController
+  field VERSION
+  method addCallback(com.android.systemui.plugins.statusbar.StatusBarStateController$StateListener)
+  method getDozeAmount()
+  method getState()
+  method isDozing()
+  method isDreaming()
+  method isExpanded()
+  method isPulsing()
+  method removeCallback(com.android.systemui.plugins.statusbar.StatusBarStateController$StateListener)
 class com.android.systemui.shade.PulsingGestureListener extends android.view.GestureDetector$SimpleOnGestureListener
   field ambientDisplayConfiguration
   field dockManager

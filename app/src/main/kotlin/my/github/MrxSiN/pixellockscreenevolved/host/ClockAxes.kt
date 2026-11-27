@@ -24,6 +24,21 @@ internal object ClockAxes {
     const val POSITION_SHARE_KEY = "PIXEL_LOCK_SCREEN_EVOLVED_POSITION_Y"
 
     /**
+     * How far the large clock is turned awake, in degrees, clockwise positive,
+     * from -90 to 90 ([ClockRotation]). A setting without it stands upright.
+     */
+    const val ROTATION_KEY = "PIXEL_LOCK_SCREEN_EVOLVED_ROTATION"
+
+    /**
+     * Whether the large clock's size follows the wallpaper's subject ([AdaptiveSize]): 1 on, 0 or absent
+     * off, when the size step ([SIZE_KEY]) is what sizes it, as it also does where no subject is found.
+     */
+    const val SIZE_ADAPTIVE_KEY = "PIXEL_LOCK_SCREEN_EVOLVED_SIZE_ADAPTIVE"
+
+    /** Whether a stored [SIZE_ADAPTIVE_KEY] value means on. */
+    fun isSizeAdaptive(value: Float?): Boolean = value == 1f
+
+    /**
      * Stops on the picker's "Clock face width" slider, the widest and lightest
      * first, as Google's flex clock orders its own seven
      * ([my.github.MrxSiN.pixellockscreenevolved.clock.ios.FlexClockNumerals]).

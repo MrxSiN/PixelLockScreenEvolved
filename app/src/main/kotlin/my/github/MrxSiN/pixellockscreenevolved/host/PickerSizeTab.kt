@@ -31,6 +31,11 @@ import my.github.MrxSiN.pixellockscreenevolved.host.ConstraintParams.validate
  * The height is recorded again whenever the rows shown change it, because the
  * picker animates its sheet to each tab's height, measured once, and holds the
  * tab's content to it.
+ *
+ * When Position closes because Style or Color was chosen, the picker is fading
+ * this slot out. Swapping its rows then, and recording the size rows' height
+ * under the picker's own animation, cut that fade short: the sheet jumped
+ * straight to the other tab. The swap waits until the slot is hidden.
  */
 internal class PickerSizeTab(
     private val content: ViewGroup,
@@ -40,6 +45,8 @@ internal class PickerSizeTab(
     private val sliders: PickerSliderApi,
     private val previewed: () -> ClockStyle?,
     private val state: PickerClockState,
+    /** Whether the picker's Size tab, this slot's, is selected. */
+    private val isSelected: () -> Boolean,
     /** Told of the clock the slot is shown for, every time it changes: one of this module's, or null for Google's. */
     private val onStyle: (ClockStyle?) -> Unit,
     private val logger: Logger,
@@ -68,6 +75,8 @@ internal class PickerSizeTab(
     private fun showFor(style: ClockStyle?) {
         val editing = state.isEditingPosition && positionRows != null
         if (shownOnce && style === shown && editing == shownEditing) return
+        // Left for another tab: the picker is fading the slot out; it is swapped once hidden (a later layout).
+        if (shownOnce && style === shown && shownEditing && !editing && content.isShown && !isSelected()) return
         // Between the size and the position rows the picker keeps its Size tab, so it animates nothing itself.
         val swapping = shownOnce && style === shown && content.isShown && !SystemMotion.isReduced
         val leaving = if (editing) rows else positionRows
@@ -139,8 +148,13 @@ internal class PickerSizeTab(
         ).apply { start() }
     }
 
+    /**
+     * Writes [height] into the picker's sheet heights, unless they already hold it. Compared with the
+     * picker's own value, not with what this last wrote: the picker measures its tabs again as it binds
+     * the sheet anew, and wrote the bare Large clock row's height over this one, which, never written
+     * back, left the Size and Position tabs squashed (owner's report).
+     */
     private fun record(height: Int) {
-        if (height == recordedHeight) return
         recordedHeight = height
         runCatching { sliders.recordSizeTabHeight(height) }
             .onFailure { if (!heightFailureReported) logger.warn("Size tab height could not be recorded", it) }

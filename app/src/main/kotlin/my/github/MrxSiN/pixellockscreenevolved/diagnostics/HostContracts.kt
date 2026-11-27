@@ -60,6 +60,7 @@ object HostContracts {
     private const val CLOCK_OPTION_BUILDER = "$PICKER_VIEW_MODEL\$clockStyleOptions\$1"
     private const val AXIS_STYLE_EDITED = "$PICKER_VIEW_MODEL\$isClockAxisStyleEdited\$1"
     private const val TAB_CLICKED = "$PICKER_VIEW_MODEL\$tabs\$1\$1"
+    private const val OPTION_CLICKED = "$PICKER_VIEW_MODEL\$toOption\$2\$1"
     private const val SLIDER = "com.google.android.material.slider.BaseSlider"
     private const val SHAPE_DRAWABLE = "com.google.android.material.shape.MaterialShapeDrawable"
     private const val TAB_ADAPTER = "com.android.wallpaper.picker.customization.ui.view.adapter.FloatingToolbarTabAdapter"
@@ -104,7 +105,6 @@ object HostContracts {
         contract("$CLOCKS.ThemeConfig", method("getSeedColor"), features),
         contract("$CLOCKS.ThemeConfig", method("getDefaultColor", CONTEXT), features),
         contract("$CLOCKS.ThemeConfig", method("getAodColor", CONTEXT), features),
-        contract("$CLOCKS.ClockPreviewConfig", method("getClockTopMargin"), features),
         contract("$CLOCKS.ClockPreviewConfig", method("getStatusBarHeight"), features),
         contract("$CLOCKS.ClockPreviewConfig", method("getSmallClockTopPadding", INT), features),
         contract("$CLOCKS.ClockViewIds", Member.Field("INSTANCE"), features),
@@ -207,6 +207,10 @@ object HostContracts {
         optional(LIST_SPACING, Member.Field("dividerIndex"), PICKER_CLOCKS),
         optional("com.android.wallpaper.picker.option.ui.viewmodel.OptionItemViewModel2", Member.Field("key"), PICKER_CLOCKS),
         optional(CLOCK_OPTION_BUILDER, method("invokeSuspend", OBJECT), PICKER_CLOCKS),
+        // A chosen option's position, which the list centres on (host/PickerClockSection.kt).
+        optional(OPTION_CLICKED, method("invoke"), PICKER_CLOCKS),
+        optional(OPTION_CLICKED, Member.Field("\$index"), PICKER_CLOCKS),
+        optional(OPTION_CLICKED, Member.Field("\$this_toOption"), PICKER_CLOCKS),
 
         // Clock size slider and position controls
         contract(REGISTRY, Member.Method("applySettings"), PICKER_CLOCK_SIZE, PICKER_CLOCK_POSITION),
@@ -220,6 +224,8 @@ object HostContracts {
         contract(SLIDER, Member.Field("stepSize"), PICKER_CLOCK_SIZE, PICKER_CLOCK_POSITION),
         contract(SLIDER, Member.Field("dirtyConfig"), PICKER_CLOCK_SIZE, PICKER_CLOCK_POSITION),
         contract(SLIDER, Member.Field("changeListeners"), PICKER_CLOCK_SIZE, PICKER_CLOCK_POSITION),
+        // The Rotation slider's 181 stops are drawn without their marks (host/PickerPositionRows.kt).
+        optional(SLIDER, Member.Field("tickVisibilityMode"), PICKER_CLOCK_POSITION),
         contract(SLIDER, method("setValuesInternal", "java.util.ArrayList"), PICKER_CLOCK_SIZE, PICKER_CLOCK_POSITION),
         HostContract(
             Signature(SLIDER, Member.Field("defaultThumbDrawables")),
@@ -264,6 +270,10 @@ object HostContracts {
         optional(RECYCLER_VIEW, Member.Field("mItemAnimator"), PICKER_CLOCK_POSITION),
         optional(RECYCLER_VIEW, method("hasPendingAdapterUpdates"), PICKER_CLOCK_POSITION),
         optional("androidx.recyclerview.widget.DefaultItemAnimator", method("endAnimations"), PICKER_CLOCK_POSITION),
+        // The tab views the picker's tab animator leaves marked not recyclable (host/PickerPositionTab.kt).
+        optional(RECYCLER_VIEW, method("getChildViewHolder", "android.view.View"), PICKER_CLOCK_POSITION),
+        optional("$RECYCLER_VIEW\$ViewHolder", Member.Field("mIsRecyclableCount"), PICKER_CLOCK_POSITION),
+        optional("$RECYCLER_VIEW\$ViewHolder", method("setIsRecyclable", BOOLEAN), PICKER_CLOCK_POSITION),
 
         // Lock screen options
         HostContract(
@@ -300,6 +310,7 @@ object HostContracts {
             "$KEYGUARD.ui.composable.LockscreenTouchHandlingKt", setOf("f\$0"), setOf("invoke"),
             calling = Locator.MethodCalling("java.lang.Float", "intBitsToFloat"),
         ),
+        Signature(OPTION_CLICKED) to Locator.NestedClass(PICKER_VIEW_MODEL, setOf("\$index", "\$this_toOption"), setOf("invoke")),
         Signature(CLOCK_OPTION_BUILDER) to Locator.NestedClass(PICKER_VIEW_MODEL, setOf("\$context", "\$resources"), setOf("invokeSuspend")),
         Signature(AXIS_STYLE_EDITED) to Locator.NestedClass(
             PICKER_VIEW_MODEL, setOf("L\$0", "L\$1", "label"), setOf("invokeSuspend"),

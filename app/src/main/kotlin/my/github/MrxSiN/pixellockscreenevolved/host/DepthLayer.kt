@@ -129,7 +129,7 @@ internal class DepthLayer(
     }
 
     init {
-        BeforeEachDraw.follow(faceView, ::place)
+        BeforeEachDraw.follow(faceView, action = ::place)
     }
 
     /** Shows [cutout], the subject's matte as big as the wallpaper surface, or nothing; [luma] is its photo's. */

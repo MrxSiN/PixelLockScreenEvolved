@@ -31,8 +31,14 @@ import my.github.MrxSiN.pixellockscreenevolved.motion.SystemMotion
  * depth effect's erasing ([DepthLayer]) and the card under it, neither of which
  * this reads. Only a large face moves ([movable]).
  *
- * A move once a clock is placed glides on the system's spatial spring while
- * the lock screen is up, awake and animating; otherwise it is made at once.
+ * A turned clock ([ClockPosition.rotation]) is placed by the box it covers
+ * turned, so its corners stay in the band, and is scored by that box when
+ * adaptive. Its turn is told before each frame ([rotation]) and applied about
+ * the face's middle by the pin, so a turn never moves the clock's middle.
+ *
+ * A move or a turn once a clock is placed glides on the system's spatial
+ * spring while the lock screen is up, awake and animating; otherwise it is
+ * made at once.
  */
 internal class ClockLayout(private val view: View, private val movable: Boolean) {
 
@@ -60,6 +66,25 @@ internal class ClockLayout(private val view: View, private val movable: Boolean)
             view.postInvalidate()
         }
 
+    /** Where SystemUI last found the subject's top edge, in this window's pixels, for a face that cannot read the photo; NaN for none. */
+    var reportedEdge: Float = Float.NaN
+        set(value) {
+            if (field.toBits() == value.toBits()) return
+            field = value
+            view.postInvalidate()
+        }
+
+    /**
+     * Where the subject first rises into the face's columns below the band's top, in window pixels, as
+     * last worked out with the anchor; NaN where there is no subject there, or none is known.
+     */
+    var subjectEdge: Float = Float.NaN
+        private set
+
+    /** The upright height adaptive size gives the face ([AdaptiveSize]), or NaN with no subject edge. */
+    fun adaptiveHeight(): Float =
+        AdaptiveSize.height(subjectEdge, bandTop, bandBottom, if (position.adaptive) 0f else position.share)
+
     /** Called with the share of the anchor an adaptive clock moved to, on the main thread. */
     var onAdaptiveChosen: (Float) -> Unit = {}
 
@@ -80,6 +105,7 @@ internal class ClockLayout(private val view: View, private val movable: Boolean)
     private var faceRight = 0f
     private var chosenFor = ClockPosition.TOP
     private var reportedFor = 0f
+    private var edgeFor = Float.NaN
     private var inkFor: SubjectInk? = null
     private var cropFor: Any? = null
     private var scrollFor: Any? = null
@@ -90,9 +116,12 @@ internal class ClockLayout(private val view: View, private val movable: Boolean)
     private var placed = false
     private var target = 0f
     private var from = 0f
+    private var turnTarget = 0f
+    private var turnFrom = 0f
     private var progress = 1f
     private var move: ValueAnimator? = null
     private var dragTop = Float.NaN
+    private var dragTurn = Float.NaN
 
     /**
      * Uses the depth effect's [cutout] of the photo [feed] places, or none,
@@ -117,17 +146,67 @@ internal class ClockLayout(private val view: View, private val movable: Boolean)
         if (!movable || !enabled) return top
         if (!chosenOnce || changed(top, bottom, left, right, height)) {
             remember(top, bottom, left, right, height)
+            // The face turns about its middle, so it is placed and scored by the box it covers turned.
+            val turned = position.rotation
+            val extentWidth = ClockRotation.extentWidth(right - left, height, turned)
+            val extent = ClockRotation.extentHeight(right - left, height, turned)
+            val middle = (left + right) / 2
             // Where the lock screen reads the photo, the adaptive anchor is kept chosen whatever position is
             // set, so the picker's preview can show it before Adaptive is applied.
-            val adaptiveShare = if (feed != null || position.adaptive) chooseAdaptive(top, bottom, left, right, height) else 0f
+            val adaptiveShare = if (feed != null || position.adaptive) {
+                chooseAdaptive(top, bottom, middle - extentWidth / 2, middle + extentWidth / 2, extent)
+            } else {
+                0f
+            }
             val share = if (position.adaptive) adaptiveShare else position.share
-            moveTo(ClockPosition.topAt(share, top, bottom, height), glide && dragTop.isNaN())
+            subjectEdge = findEdge(top, bottom, left, right)
+            moveTo(ClockPosition.topAt(share, top, bottom, height, extent), turned, glide && dragTop.isNaN() && dragTurn.isNaN())
         }
         return if (dragTop.isNaN()) from + (target - from) * progress else dragTop
     }
 
+    /**
+     * How far the face is turned now, in degrees clockwise: under a turning finger, gliding to a turn
+     * just chosen, or as its position turns it; upright where positions do not apply.
+     */
+    fun rotation(): Float = when {
+        !movable || !enabled -> 0f
+        !dragTurn.isNaN() -> dragTurn
+        else -> turnFrom + (turnTarget - turnFrom) * progress
+    }
+
     /** Whether the face can be moved at all, as its style and the feature allow. */
     val isMovable: Boolean get() = movable && enabled
+
+    /** The top, in the pin's pixels, of the face upright when it stands at [share] of the band as its position turns it. */
+    fun topAt(share: Float): Float =
+        ClockPosition.topAt(share, bandTop, bandBottom, faceHeight, ClockRotation.extentHeight(faceRight - faceLeft, faceHeight, position.rotation))
+
+    /** The share of the band the face upright with its top at [top] stands at, as its position turns it; unclamped. */
+    fun shareAt(top: Float): Float =
+        ClockPosition.shareAt(top, bandTop, bandBottom, faceHeight, ClockRotation.extentHeight(faceRight - faceLeft, faceHeight, position.rotation))
+
+    /** Turns the face to [degrees] under a turning finger. On the main thread. */
+    fun turnTo(degrees: Float) {
+        move?.cancel()
+        move = null
+        dragTurn = degrees
+        view.invalidate()
+    }
+
+    /** Lets the face go from under a turning finger: it glides from there to what [position] turns it to. */
+    fun endTurn() {
+        if (dragTurn.isNaN()) return
+        val shownTop = from + (target - from) * progress
+        from = shownTop
+        target = shownTop
+        turnFrom = dragTurn
+        turnTarget = dragTurn
+        progress = 1f
+        dragTurn = Float.NaN
+        chosenOnce = false
+        view.invalidate()
+    }
 
     /** Holds the face's top at [top], in the pin's pixels, under a dragging finger. On the main thread. */
     fun dragTo(top: Float) {
@@ -140,8 +219,11 @@ internal class ClockLayout(private val view: View, private val movable: Boolean)
     /** Lets the face go from under the finger: it glides from there to where [position] puts it. */
     fun endDrag() {
         if (dragTop.isNaN()) return
+        val shownTurn = turnFrom + (turnTarget - turnFrom) * progress
         from = dragTop
         target = dragTop
+        turnFrom = shownTurn
+        turnTarget = shownTurn
         progress = 1f
         dragTop = Float.NaN
         chosenOnce = false
@@ -150,6 +232,7 @@ internal class ClockLayout(private val view: View, private val movable: Boolean)
 
     private fun changed(top: Float, bottom: Float, left: Float, right: Float, height: Float): Boolean {
         if (top != bandTop || bottom != bandBottom || height != faceHeight || position != chosenFor) return true
+        if (feed == null && reportedEdge.toBits() != edgeFor.toBits()) return true
         if (feed == null && !position.adaptive) return false
         if (left != faceLeft || right != faceRight || reportedAdaptive != reportedFor || ink !== inkFor) return true
         val feed = feed ?: return false
@@ -165,12 +248,13 @@ internal class ClockLayout(private val view: View, private val movable: Boolean)
         faceHeight = height
         chosenFor = position
         reportedFor = reportedAdaptive
+        edgeFor = reportedEdge
         inkFor = ink
         cropFor = feed?.placementCrop
         scrollFor = feed?.placementScroll
     }
 
-    /** The share an adaptive clock stands at. */
+    /** The share an adaptive clock stands at, scoring the box from [left] to [right], [height] tall, it covers. */
     private fun chooseAdaptive(top: Float, bottom: Float, left: Float, right: Float, height: Float): Float {
         val feed = feed
         // No photo read here, as in the picker's preview: where SystemUI last put an adaptive clock.
@@ -206,14 +290,42 @@ internal class ClockLayout(private val view: View, private val movable: Boolean)
         return ClockPosition.ANCHORS[chosen]
     }
 
-    /** Glides from where the face stands now to [top], or goes there at once. */
-    private fun moveTo(top: Float, glide: Boolean) {
-        if (placed && top == target) return
+    /**
+     * Where the subject first rises into the columns from [left] to [right] between the band's [top] and
+     * [bottom], in window pixels ([SubjectInk.topEdge]); where the photo cannot be read, as in the
+     * picker's preview, where SystemUI last found it ([reportedEdge]).
+     */
+    private fun findEdge(top: Float, bottom: Float, left: Float, right: Float): Float {
+        val feed = feed ?: return reportedEdge
+        val subject = ink ?: return Float.NaN
+        val photo = cutout ?: return Float.NaN
+        val metrics = view.resources.displayMetrics
+        val placed = feed.place(
+            WallpaperPlacement.Size(metrics.widthPixels, metrics.heightPixels),
+            WallpaperPlacement.Size(photo.width, photo.height),
+            zoomed = false,
+        )
+        val edge = subject.topEdge(
+            toPhotoX(placed, left, photo.width),
+            toPhotoX(placed, right, photo.width),
+            toPhotoY(placed, top, photo.height),
+            toPhotoY(placed, bottom, photo.height),
+            AdaptiveSize.EDGE_SHARE,
+        )
+        return if (edge.isNaN()) edge else placed.toScreenY(edge, photo.height)
+    }
+
+    /** Glides from where the face stands now and how it is turned to [top] and [turn], or goes there at once. */
+    private fun moveTo(top: Float, turn: Float, glide: Boolean) {
+        if (placed && top == target && turn == turnTarget) return
         val shown = from + (target - from) * progress
+        val shownTurn = turnFrom + (turnTarget - turnFrom) * progress
         move?.cancel()
         move = null
         from = shown
         target = top
+        turnFrom = shownTurn
+        turnTarget = turn
         progress = 1f
         val first = !placed
         placed = true

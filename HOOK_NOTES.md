@@ -908,4 +908,480 @@ restarted. `onHotReloading` now retires the replaced code
 `SceneFrames` stop, and its secure-setting observers unregister instead of
 acting (they had segmented the photo again beside the new code). The new code
 finds the card SystemUI already built by its id, `bc_smartspace_view`, when
-its large clock is first attached (`ComposedSmartspacePlacement.adoptCard`).
+its large clock is first attached (`ComposedSmartspacePlacement.adopt`).
+
+The date rows needed the same, plus a hand-over: the replaced code had hidden
+the row beside a large clock, and the new code, which neither knew it had been
+hidden nor followed it (SystemUI does not build its rows again), left the row
+hidden under the small clock until SystemUI restarted. Seen on device
+(`CP4A.261105.040.A1`): `date_smartspace_view` INVISIBLE with notifications on
+the lock screen. Now the replaced code shows the rows it hid as its last act,
+before the row's next draw or, if the row was detached when the code was
+replaced, as it is next attached (`BeforeEachDraw.follow`'s `onRetired`); the new
+code adopts `date_smartspace_view` and `date_smartspace_view_large` by id
+alongside the card.
+
+## Small clock at lock, and clock size swaps (`CP4A.261105.040.A1`)
+
+With "show only new notifications" on, locking with the power key showed the
+small clock on the always-on display for about a second before the large one.
+`KeyguardClockInteractor.dynamicClockSize` combines `isDozing` with
+`ActiveNotificationsInteractor.areAnyNotificationsPresent`, and the notifications
+the person has already seen leave that list only once the keyguard transition
+away from GONE has finished. Logged on device: the status bar state turned
+KEYGUARD at t, the doze fraction jumped to 1 at t+43 ms, the small face attached
+at t+52 ms, and the large face at t+1269 ms.
+
+A hold that kept the small face transparent for 1.5 s after the status bar
+state turned KEYGUARD was tried and removed: the scene keeps the small face
+whenever notifications stay on the lock screen, the usual case, so the clock
+then reached the always-on display 1.5 s after the rest of it (recorded on
+device: date row at lock + 1.0 s, clock at + 1.45 s). Nothing SystemUI exposes
+at the lock says whether the list will drop, so the module shows what the scene
+chooses at once, as stock does (stock's small clock is on the always-on display
+0.4 s after the screen turns off).
+
+The composed scene swaps clock sizes by fading one face out and only then the
+other in (see the composed lock screen notes above). Each module face now plays
+its own entrance (`ExpressiveClockFace.enter`) when the scene attaches it on an
+awake lock screen, so the incoming size moves into place instead of popping in.
+
+## Clock list jumps when a clock is chosen (`CP4A.261105.040.A1`)
+
+Choosing Hyper in Wallpaper & style slid the clock list two clocks past it.
+The picker centres the list on the chosen option
+(`ClockFloatingSheetBinder$bind$16$1$10$1$1.run` calls
+`RecyclerView.smoothScrollBy` by the distance from the list's centre to the
+child at `ClockPickerViewModel.previewingClockStyleOptionIndex`). Each option's
+click (`ClockPickerViewModel$toOption$2$1.invoke`, R8-merged with the colour
+options' clicks on `$r8$classId`) writes the `$index` it captured when the
+option was built, which is the stock position, before `PickerClockSection`
+regroups the module's clocks. `PickerClockSection` now remembers the order it
+returns and, before a clock option's click runs, sets its `$index` to that
+clock's shown position (looked up by `ClockMetadataModel.clockId`; a colour
+option's `$this_toOption` has none and is left alone). The lambda is found by
+its fields `$index` and `$this_toOption` when its name misses
+(`HostContracts.locators`).
+
+## Clock sheet tabs: "Position" written twice, and the jump leaving it (`CP4A.261105.040.A1`)
+
+The picker's `TabItemAnimator` never gives back a tab view it animated a
+selection change on: each change leaves the view's
+`RecyclerView$ViewHolder.mIsRecyclableCount` one higher (logged: `not
+recyclable(2)` on Style and Position after a few taps). The picker never
+removes a tab, so it never shows. The module removes Position when a Google
+clock is previewed; RecyclerView then keeps the removed view as a child
+(`removed not recyclable(2)`), and when Position came back it was drawn twice,
+a few pixels apart. Before a tab list that adds or removes a tab,
+`PickerPositionTab` now takes those marks back (`setIsRecyclable(true)` once
+per count; `RecyclerView.getChildViewHolder(View)`).
+
+Leaving Position for Style or Color swapped the Size slot's rows back and
+recorded their height while the picker was fading that slot out, which cut the
+fade short: the sheet jumped straight to the other tab. `PickerSizeTab` now
+waits until the slot is hidden before swapping when another tab is selected.
+
+## Clock rotation (`CP4A.261105.040.A1`)
+
+No new SystemUI members: the large face is turned with `View.setRotation` on
+the module's own view, and every reader of where the face is drawn already
+goes through its full matrix (`ViewBounds`, `ComposedViewPlacement`). The axis
+`PIXEL_LOCK_SCREEN_EVOLVED_ROTATION` rides in the clock setting beside the
+position axes. See `docs/clock-position.md`, Rotation.
+
+Wallpaper & style:
+
+- `com.google.android.material.slider.BaseSlider.tickVisibilityMode` (optional,
+  Clock position): set to `TICK_VISIBILITY_HIDDEN` (2) on the Rotation slider,
+  whose 181 one-degree stops drew a solid row of marks. Without it the marks
+  stay.
+- The preview's view hierarchy above the clock (`ClockConstraintLayoutHostView`
+  < `FullPreviewFrameLayout` < `DisplayAspectRatioFrameLayout` <
+  `ClickableMotionLayout` < … < `DecorView`) splits pointers: each `ViewGroup`
+  records, as the first finger lands, which pointer ids each child gets, and a
+  second finger never reached the clock (logged: every event `pointers=1`,
+  also for two-pointer `MotionEvent`s injected through
+  `InputManagerGlobal.injectInputEvent`). Turning splitting off on the first
+  finger's `ACTION_DOWN` came too late, the ids were already recorded; it is
+  turned off on those ancestors while the Position tab is open and given back
+  when it closes (`PickerClockDrag.holdPointersTogether`). Plain
+  `View.isMotionEventSplittingEnabled`, no host member.
+- The twist is measured with `MotionEvent.getRawX/getRawY(pointerIndex)`: the
+  event's own coordinates are the turned clock's, and measured there the turn
+  fed back on itself and came out at about half the fingers' angle (35°
+  twisted landed on the 15° detent).
+
+## Twist zone and adaptive size (`CP4A.261105.040.A1`)
+
+- The preview's gestures moved from the clock's own view to a transparent view
+  over the whole band the preview stands in (`host/PickerGestureZone.kt`),
+  added to `android.R.id.content` as the drag hint is and gone outside the
+  Position tab; the owner found twisting a half-size clock hard. With both
+  fingers in that one view the pointer splitting above is no longer in play,
+  and the workaround that turned splitting off on the clock's ancestors was
+  removed. The zone finds the clock shown by comparing the face's `rootView`
+  with the window's root (`DecorView`), not with the content view.
+- Adaptive size adds no host members. SystemUI reports where the subject's
+  edge stands in the clock's columns in secure setting
+  `pixel_lock_screen_evolved_clock_subject_edge` (permille of the screen
+  height, 0 for none), beside `_clock_adaptive` and `_clock_floor`, written off
+  the main thread on change only. It is written only while the large clock is
+  on screen (only the large face is pinned), so with notifications showing the
+  small clock the picker keeps the last edge seen.
+
+## Figures around the subject, and the squashed Size slot (`CP4A.261105.040.A1`)
+
+- SystemUI also reports the subject's top edge in 24 slices across the screen
+  in secure string `pixel_lock_screen_evolved_clock_subject_profile`
+  (comma-separated permille of the screen height, 0 for a slice without it),
+  written off the main thread when it changes, read by the picker's preview
+  with a `ContentObserver`. Like the edge, it is written only while the large
+  clock is on screen.
+- The Size and Position tabs share the picker's `clockSizeContentHeight`
+  (`ClockFloatingSheetHeightsViewModel`), which the picker measures again as it
+  binds the sheet anew. `PickerSizeTab` compared a new height only with the one
+  it had last written, so after the picker wrote its own (the bare Large clock
+  row) the module never wrote back, and both tabs stayed squashed. It now always
+  goes through `PickerSliderApi.recordSizeTabHeight`, which compares with the
+  picker's current value; every layout of the slot repairs an overwrite.
+
+## iOS font and the picker's small previews (`CP4A.261105.040.A1`)
+
+- The iOS time is set in Inter (OFL 1.1, `assets/fonts/Inter.ttf`, from
+  google/fonts `ofl/inter/Inter[opsz,wght].ttf`, Inter 4.001) at `opsz` 32, the
+  Display cut. Hosts cannot load this module's resources, so `IosClockFont`
+  copies the font out of the module APK (`moduleApplicationInfo.sourceDir`,
+  read with `ZipFile`) into the host's `cacheDir` once per APK and loads it with
+  `Typeface.Builder(File)`; on failure the Pixel's `google-sans-flex-clock`
+  numerals stand in. Figures stretched more than 5% are drawn from `wght` 100,
+  stretched, and thickened with a round stroke by the difference between the
+  chosen weight's stem and the thinnest's (the ink width of "I"), unioned with
+  `Path.op`.
+- SystemUI also draws the module's faces into the picker's small lock screen
+  previews (KeyguardPreviewRenderer windows, scaled down). Adaptive size and
+  the figure contour map screen-pixel measurements and ran the figures off
+  those cards; they now run only where the face is in the notification shade
+  window, and those previews keep the stepped size.
+- A profile slice without the subject now gives its figures nothing to reach
+  for (NaN), so a figure over empty wallpaper keeps the size's height instead
+  of running to the band's floor.
+
+## Full sweep since v0.0.8 (`CP4A.261105.040.A1`, 2026-11-26)
+
+All eight styles on the lock screen, the always-on display and the small
+clock beside notifications, at the smallest and largest sizes and turned.
+Found and fixed:
+
+- **Condensed figures on the always-on display.** Headline (`wdth` 30) and
+  Cinema (`wdth` 25) thinned to `wght` 200 at their bold advances and fell
+  apart into widely spaced hairlines. `NumeralView.dozesAsOutline` now defaults
+  on for every cut narrower than `wdth` 60, as Hyper already did.
+- **Poster's title on the always-on display** stayed solid bold text. It is now
+  traced (`OutlinedText`), stroked twice as wide with its inside cut out, as
+  `DozeInk` does, so the overlapping contours of Roboto's bold letters do not
+  show through.
+- **Turned faces wider than the screen.** Hyper and Cinema at 30 degrees ran off
+  the screen's side. `ClockFacePlacement.fitAcrossScreen` now shrinks any face
+  whose turned box is wider than the text column, on the lock screen and in the
+  picker preview.
+- **The turned iOS face vanished** once fitted: the drawn scale it sizes its
+  time against included the fit, so it grew to undo it and was fitted smaller
+  again until it disappeared. The scene's own scale (`sceneScale`, without the
+  face's) is what faces are told now.
+- **A fitted face stood too high**: the pin aligned the fitted face's top with
+  the top meant for the face at its own size, raising it by half of what it
+  lost (Hyper on its side ran under the status bar). The pin now aligns the
+  face's middle, and converts translations with the scene's scale.
+
+Picker part (after the owner unlocked the phone): every style's preview in
+the clock sheet, the size slider, Apply, Adaptive size and the twist on Dot.
+Found and fixed:
+
+- **Poster's thumbnail** drew its title as a smudge in the corner: the
+  fit-to-width ratio was multiplied by the title share a second time. Not
+  re-checked on device (the phone locked again).
+- **A hot reload left the depth effect without a subject**, so the subject no
+  longer stood in front of the digits and adaptive size found no edge, until
+  SystemUI restarted or the wallpaper changed: the new code's feed is reached
+  by no wallpaper draw. The replaced code now hands the wallpaper engine on
+  (`KEY_WALLPAPER_ENGINE`), and the new feed reads the photo again with
+  `WallpaperManager.getDrawable(FLAG_LOCK or FLAG_SYSTEM)` off the main thread
+  (`LockWallpaperFeed.replay`), finding the cached subject. Verified: v91 to v92
+  reload, "Depth effect ready" logged, edge 174 kept, hair in front again.
+- **A tall iOS figure's flag ran down like a second leg** (the 1 stretched to
+  the subject). Figures now keep their top and bottom 22% as drawn and stretch
+  only the middle (`TallFigures`, remapping each glyph's points with
+  `android.graphics.PathIterator`), as iOS draws its tall clock.
+
+## Small clocks across the column, and an optimization pass (`CP4A.261105.040.A1`)
+
+- Beside notifications, Poster, One, Horizon, Dot, Headline and Cinema stood at
+  a Pixel small clock's height (13% of the short side) in the middle of empty
+  space. `OneLineSmallFace` now runs the time across the text column (86% of the
+  short side) up to 24% tall; Dot's small line is 19% tall; Poster's small serif
+  time is measured to run "00:00" across the column. SystemUI's small clock band
+  already follows the face's height (`KeyguardSmallClockBand`). Poster's small
+  time traces an outline on the always-on display, as its title does.
+- iOS contour: a figure runs at most twice the height its size gives it
+  (`IosTimeView.MAX_REACH`); a shoulder met at the very bottom of a column ran a
+  lone 1 four times taller than its neighbours, and that slice's edge came and
+  went with the band's floor. A newly mapped contour is taken only once it has
+  held still for 250 ms: the first awake frame mapped it with the face still at
+  the always-on display's place.
+
+Optimization (no new host members):
+
+- `ClockFaceAdapter.followContour` ran before every resting frame and allocated
+  two arrays and a `Contour` each time; it now maps into reused scratch and
+  allocates only when the contour moved.
+- `ClockRotation.extentHeight` / `uprightRoom` return at once for an upright
+  face, so the per-frame fit runs no trigonometry.
+- Adaptive size's nine-step search measured the iOS face by building every
+  glyph, with a `Path.op` union per stretched figure, at each step;
+  `IosTimeView.setSizeAtOnce` now only lays the time out, and the glyphs are
+  built once, for the size found, before the next frame.
+- Inter is subset to the figures, the colon and the capital I with both axes:
+  15 KB instead of 860 KB in the APK and in each host's cache, and a smaller
+  font to load at startup.
+
+## The iOS clock brought back to how iOS draws it (2026-11-27)
+
+Supersedes the earlier iOS notes on spanning the column, the minute roll, the
+always-on outline and the contour; those sections stay as history.
+
+- One text size (`IosClockScale.NUMERAL_TO_SHORT_SIDE`, numerals 0.2 of the
+  short side, estimated from an iPhone 14 Pro screenshot), so the width follows
+  the figures; it was resized every minute to span the text column.
+- Characters stand at the font's own advances and kerning
+  (`Paint.getRunAdvance`), centred on their ink; equal ink gaps are gone.
+- Size stretches every figure by the same amount, up to 3.3 times, as the
+  iOS 26 clock does. The per-figure contour is off: the iOS face no longer
+  implements `ContouredClockFace`, so the host's contour mapping has no user.
+- A new minute replaces the digits at once; no roll.
+- The always-on display keeps the time filled; no outline.
+- With weather, the date reads "Sat 13" and the temperature "26°", as iOS
+  writes the date beside an inline widget.
+- Device (Pixel 8 Pro, `CP4A.261105.040.A1`, v101): EXECUTED. Small face and
+  always-on display checked by screencap. Large face NOT RUN: notifications
+  kept it small.
+
+### Size measured against iOS, and the contour code removed (same day)
+
+- Apple's iPhone Lock Screen guide (support.apple.com `iph4d0e6c351`, 490 x
+  1008 screenshots, screen 444 px wide). iOS 18 default clock: "9:41" ink 200
+  px wide, figures 80 px tall (0.45 and 0.18 of the width). iOS 26, clock
+  dragged tallest: about 0.70 wide and 0.68 tall. So iOS widens the time as it
+  grows, not only taller. `IosClockScale` now sets the text size so "9:41"
+  spans the size's width and stretches the figures to its height, both
+  interpolated between those two ends. iOS 26 writes the date as "Tue Apr 1"
+  (`DATE_SKELETON` `EEEMMMd`).
+- `ContouredClockFace`, `Contour`, `SubjectProfile`, the profile report
+  (secure `pixel_lock_screen_evolved_clock_subject_profile`, no longer written
+  or read) and `AdaptiveFit.contour` are deleted; `AdaptiveFit` is a
+  `fun interface` with `fit(height)` only.
+- Device (v102): EXECUTED install; small face seen on the lock screen. Large
+  face NOT RUN: the phone was locked behind fingerprint and notifications kept
+  the clock small.
+
+### An own font for the iOS clock (same day)
+
+- `IosClockFont` first loads `context.filesDir/pixel_lock_screen_evolved_clock_font`
+  (SystemUI `/data/user_de/0/com.android.systemui/files/`, picker
+  `/data/user/0/com.google.android.apps.wallpaper/files/`), then Inter. Never
+  bundled: the owner supplies it. Copied in with su it needs the folder's
+  owner and its full SELinux context with categories (`restorecon` left them off).
+- iOS 26's clock font (`.SF Adaptive Soft Numeric`, CFF2; axes `HGHT`
+  100-500, `wdth` 60-100, `wght` 1-1000, `SOFT` 0-100 default 70; only the
+  figures, colon, comma, full stop). Measured with fontTools: `HGHT` keeps the
+  figures' top and runs them down linearly, `HGHT`/100 times their height,
+  colon included, widths nearly unchanged. Detected at load by a zero drawing
+  taller at `HGHT` 200; the view then sets `HGHT` from the size's stretch and
+  draws the font's own colon, with no `TallFigures` or even strokes.
+- Device (v103): EXECUTED. Logged "iOS clock set in ... (HGHT axis: true)"
+  in SystemUI; the small face draws in it. Large face NOT RUN: phone locked
+  behind fingerprint.
+
+### The iOS clock with notifications (same day)
+
+- iOS keeps its clock with notifications: date above, time at its default
+  size (a tall iOS 26 clock shrinks back to it). The small iOS face is now the
+  same face as the large one, at size 0, with its date (`drawsDate` true).
+- `ModuleClockFaces.datedIn` (was `largeIn`) also answers a shown small face
+  that writes its own date, so `ComposedSmartspacePlacement` hides SystemUI's
+  date row and stacks the card under it there too. This also applies to
+  Hyper's small face, which already wrote its date and had SystemUI's row
+  under it as well.
+- Device (v106, lock screen with notifications and always-on display):
+  EXECUTED. The date is shown once, above the time; the card sits under the time.
+
+### Gap above the notifications, and transitions with notifications (same day)
+
+- The date row beside a dated face is now `GONE` instead of `INVISIBLE`: the
+  row's interop holder then measures nothing, and the card and the
+  notifications close up under the clock. Notifications now start 12 px under
+  the card's laid-out box (uiautomator: card holder 666-1038, first row from
+  1050, on a 1344 x 2992 screen). What still looks like a gap is the card's own
+  empty lower part (its text ends near 880).
+- Clock ratio with and without notifications: both faces are told the scene's
+  drawn scale and sit at size 0 with notifications, so the time is 0.18 of the
+  width tall either way (0.175 measured on the lock screen). Only a clock made
+  taller by the size slider or Adaptive size shrinks back to the default when
+  notifications come, as iOS 26's tall clock does.
+- Device (v107, four notifications), screenrecord at 672 x 1496, frames
+  checked: lock screen to always-on display, always-on display to waking,
+  unlock to home, home to always-on display (power and the launcher's double
+  tap), notification shade down and up on the lock screen: EXECUTED. Clock,
+  date and card held still in every one; no jump or blank frame. A
+  recording that went black after an unlock swipe was the secure PIN screen
+  (face not recognized), which screenrecord cannot capture.
+
+### The smartspace card cut to its content (same day)
+
+- `BcSmartspaceView` (the composed card, `bc_smartspace_view`) measures itself
+  at `enhanced_smartspace_height` (104 dp, 312 px) whatever it is offered:
+  neither `minimumHeight` 0 nor a wrapping pager changed that (logged: 312
+  under `UNSPECIFIED` and `AT_MOST`). Its pager is centred in it (a
+  `FrameLayout`), and two lines leave 67 px empty above and below.
+- `SmartspaceCardCrop` hooks the card class's own `onMeasure` (found from the
+  card instance, walking up to the first class that declares it; filtered to
+  followed cards) and, beside a dated face, sets the measured height to the
+  bottom of its lowest shown `TextView` or `ImageView`. The pager is pinned
+  to the card's top first; left centred, cutting raised it by half the cut and
+  the next measure cut again, until the card was 179 px with its text against
+  the clock. A card showing anything beside its pager (page dots) keeps its
+  height. `ComposedSmartspacePlacement` asks for a new measure before a frame
+  whenever the wanted height differs from the shown one.
+- Device (v116): EXECUTED. The card is 245 px and the first notification
+  stands 77 px under its last line (was about 190). Lock screen to
+  always-on display, waking, unlocking, and power from home re-recorded: no
+  jump; a notification arriving while the phone was awake slotted in.
+- The large faces' floor (`LockScreenFloor`) reads the cut height too, so a
+  large face with Adaptive size gets the card's empty 67 px back. NOT RUN on
+  the large face: notifications never cleared during the test.
+
+### Previews against the lock screen, the Position hint, rotation reset (same day)
+
+- Wallpaper & style shows two lock screen previews drawn by different
+  processes: the main screen's carousel is SystemUI's (`KeyguardPreviewRenderer`,
+  root `ConstraintLayout` scaled 0.486 to the card), the Clock screen's is the
+  picker's own. Both stood lower than the lock screen:
+  - The Clock screen's took `maxOf(largeClockTop, ClockPreviewConfig.getClockTopMargin())`;
+    that margin leaves room for SystemUI's date row above a Pixel clock. It now
+    takes `largeClockTop`, as the lock screen pins it; `getClockTopMargin` is no
+    longer read (contract removed).
+  - SystemUI's runs the composed lock screen's pin (`pinComposedTop`), which
+    measured the face in the window, root scale included, against tops in the
+    root's unscaled pixels: the face was translated 175 px down
+    (166 x (1/0.486 - 1)). The pin now removes the root's own transform first
+    (identity on the lock screen), and reports the resting scale with the
+    root's scale put back, as every other caller does.
+  - Device (v121, Top position, adaptive size, notifications snoozed): lock
+    screen, main preview and Clock preview, scaled to one height, put the date
+    and the time's top on the same rows. EXECUTED. Still different, as SystemUI
+    previews are: no smartspace card, sample weather, no depth effect in front
+    of the time.
+- The Position tab's hint (`PickerDragHint`) outlived the sheet after Apply:
+  the tab stays open while the sheet slides away, so it stood over the main
+  screen's "Lock screen" label for about 0.6 s. It now hides at once, without
+  its fade, when the sheet reaches below the content's bottom. Recorded on
+  device: gone within two frames of the title changing. EXECUTED.
+- Rotation reset: a "Reset" text button at the end of the Rotation label's
+  line (the row is a vertical `LinearLayout`; the label is wrapped in a
+  horizontal line with it), `colorPrimary`, dimmed to 0.38 and disabled at 0
+  degrees. Device: 45 degrees, Reset, 0 degrees and Apply disabled again.
+  EXECUTED.
+- After Apply the preview drops the clock for about 0.6 s and fades it back
+  in; that is the picker reloading the preview, not this module.
+
+### Card motion as notifications come and go, and the clock jumping after a setting changes (same day)
+
+- Measured with a per-frame log of the card's holder and a screenrecord of a
+  first notification arriving and the last one leaving:
+  - `ModuleClockFaces.largeIn` picked the highest dated face. While the scene
+    swaps sizes both faces are shown, and the card's target flipped from one
+    to the other part way (logged: clock 461 px tall at y -233, then 775 px at
+    y 75 a frame later). Now `datedIn` takes the face attached last, the one
+    the scene is swapping to.
+  - The card's glide counted from its own translation, while the scene moved
+    its holder by hundreds of pixels a frame (holder top 208 to 666): the card
+    lagged over the notifications for about 0.3 s. The glide now keeps where
+    the card was drawn in the window, and the translation is worked out from
+    that each frame.
+  - The scene morphs the card between the two sizes: it lays the card out
+    1545 to 1583 px wide (window 1344), scales it to 0.79 to 0.81, slides its
+    holder 100 to 122 px left, and snaps all of it back at the end. The view
+    scale can be undone, but its lines stayed shrunk and off the left edge (a
+    layer of the holder's). Since the card stands in the same place under
+    either iOS face, it now sits that morph out: `transitionAlpha` 0 from the
+    measure that lays it out wider than the window (`SmartspaceCardCrop.cut`),
+    faded back in over 200 ms once it fits again.
+  - SystemUI's date row beside the small clock was hidden with a 150 ms fade:
+    it showed for a tenth of a second as a notification arrived. Now hidden at
+    once, and again whenever the scene shows it anew.
+- Clock jump after Apply: every clock setting makes SystemUI build new faces,
+  and a new face had no resting scale until 0.4 s into the next wake, so
+  adaptive size fitted it only then (logged: shown 0.333, refit to 0.436 after
+  the wake). The last resting scale per face size is now kept
+  (`ClockFacePlacement.restedScales`) and given to a new face at once, and the
+  fit runs on the always-on display too, so the clock is at its new size
+  before the wake.
+- Device (v133): EXECUTED. Notification arriving and leaving with the screen
+  on (screen kept on while charging for the test, setting put back): card,
+  date and clock hold; the card fades out and back during the size swap;
+  the date row never shows. Setting changed with the phone dozing, then woken,
+  twice (rotation 15 to 0 and back, written to the clock setting as Apply
+  does, since the phone was locked behind fingerprint): fitted size already on
+  the always-on display, no jump after the wake. Your clock setting was put back
+  byte for byte.
+
+### The clock resizing into the other size (same day)
+
+- Android 17's composed lock screen does not run the constraint transition
+  `KeyguardClockSizeMotion` hooks, so `ClockSizeMorph` never ran there. Logged
+  per frame: when the first notification arrives the large face stays put and
+  the scene fades it on a Compose layer (its view alpha stays 1); the small
+  face's holder is attached and slides from 233 px above the screen to its
+  place in about 0.25 s. When the last one goes, the scene hides the small
+  face at once and attaches the large one about 50 ms later. The face left is
+  detached once the scene is done with it.
+- `ComposedClockSizeMorph`, started by `ClockControllerAdapter` when one face
+  attaches while the other is on an awake lock screen: the arriving time is
+  drawn over the time just left (its middle, its size and its turn, read from
+  the outgoing time's window matrix) and carried to its own place on the
+  expressive spatial spring. Its place is read before every frame, so the
+  scene's slide is taken out. The face left is hidden (`transitionAlpha`) from
+  the arriving time's first frame and shown again when the morph ends, as the
+  scene can show the same view again without attaching it anew (kept hidden, a
+  clock went missing). Turned faces (Rotation) turn on the way.
+- Not removable from here: the scene fades the arriving face in on its Compose
+  layer, and leaves one or two frames (about 50 ms) with neither face drawn.
+- Device (v138, Rotation 15 degrees): first notification arriving and last one
+  leaving, each recorded twice: EXECUTED. The turned large time shrinks and
+  straightens into the small one, and back.
+
+### Audit since v0.0.8 and optimization of this session's code (same day)
+
+- Audit of `158c704..` (86 main files, +5918/-1683) against AGENTS.md:
+  compiler warnings none; of 211 functions and 689 properties added, none is
+  unused; no host class name is spelled outside `HostContracts` and the one
+  `*Api` or patch that reaches it, except two that duplicate a contract's
+  name (`PickerClockSection.OPTION_CLICK`, `PickerDepthPreview.NEW_PHOTO_PREVIEW`),
+  left as found: both predate this session.
+- Optimized, per frame on the lock screen:
+  - `SmartspaceCardCrop.check` walked the card's whole view tree before every
+    frame to compare its content height. It now only compares whether a dated
+    face is beside it with how the card was last measured; the card's own
+    content changes measure it anew without help. `cut` skips the walk when
+    no dated face is there.
+  - `ComposedSmartspacePlacement`: one `glides` map lookup per frame instead of
+    two, the card gap read from resources once, and the morph fade-in
+    animator built once per card and reused (was a new animator and listener
+    per size swap).
+  - `ComposedClockSizeMorph`: the arriving face's box is reused, not allocated,
+    on each of the morph's frames.
+  - `IosTimeView.setText`: a new minute lays out its characters only; it no
+    longer re-reads the font's bounds, the reference width and the stem
+    widths, which do not depend on the text.
+- Device (v140): EXECUTED. Minute turned 10:09 to 10:10 centred; test
+  notification leaving with the card in place; no crash in the crash buffer.
+

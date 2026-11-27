@@ -21,9 +21,9 @@ import my.github.MrxSiN.pixellockscreenevolved.hook.HostPatch
  * Size tab: the picker has a switch there and no slider, so a "Clock size" row
  * is added, built from the picker's own slider layout so it looks like the one
  * in the Style tab and copying that slider's colours as the wallpaper changes
- * them. The Position tab ([PickerPositionTab]) shows its Adaptive switch
- * ([PickerPositionRows]) in the same slot, and says beside the preview that the
- * clock can be dragged ([PickerDragHint]). Either previews at once; Apply
+ * them. The Position tab ([PickerPositionTab]) shows its Adaptive switch and
+ * Rotation slider ([PickerPositionRows]) in the same slot, and says beside the
+ * preview that the clock can be dragged and twisted ([PickerDragHint]). Either previews at once; Apply
  * stores them through [PickerClockSettings]. [PickerSizeTab] lays the slot out
  * for the clock previewed and the tab open.
  */
@@ -77,12 +77,33 @@ internal class PickerClockSliders(
         sliders.onValueChange(size.slider) { value, fromUser -> if (fromUser) state.chooseSizeStep(value) }
         followColours(sliders, presetSlider, size.slider)
 
-        val position = positionTab?.let { PickerPositionRows(sheet, state, colors).view }
-        if (position != null) PickerDragHint(sheet, state, colors)
+        val position = positionTab?.let { PickerPositionRows(sheet, state, colors, sliders, presetSlider).view }
+        if (position != null) {
+            PickerDragHint(sheet, state, colors)
+            PickerGestureZone(sheet, state)
+        }
+        val adaptiveSize = PickerSwitchRow.inflate(sheet, ADAPTIVE_SIZE, ADAPTIVE_SIZE_DESCRIPTION)
         val rows = LinearLayout(context).apply {
             orientation = LinearLayout.VERTICAL
             tag = SIZE_LABEL
+            adaptiveSize?.let { (row, _) -> addView(row) }
             addView(size.row)
+        }
+        adaptiveSize?.let { (_, toggle) ->
+            // While the clock sizes itself, the slider only says what it falls back to where no subject is found.
+            fun dimSlider(adaptive: Boolean) {
+                size.row.alpha = if (adaptive) DIMMED else 1f
+                size.slider.isEnabled = !adaptive
+            }
+            val adaptive = state.shownSizeAdaptive()
+            toggle.isChecked = adaptive
+            dimSlider(adaptive)
+            val recolour = colors?.let { runCatching { it.follow(toggle) }.getOrNull() }
+            toggle.setOnCheckedChangeListener { _, checked ->
+                recolour?.invoke(checked)
+                dimSlider(checked)
+                state.chooseSizeAdaptive(checked)
+            }
         }
         var steps = 0
         val onStyle = { style: ClockStyle? ->
@@ -95,18 +116,23 @@ internal class PickerClockSliders(
                 sliders.configure(size.slider, 0f, last, 1f, (state.chosenSizeStep ?: storedSizeStep()).coerceAtMost(last))
             }
         }
-        PickerSizeTab(sizeContent, rows, position, largeSwitch, sliders, previewed, state, onStyle, logger)
+        PickerSizeTab(sizeContent, rows, position, largeSwitch, sliders, previewed, state, { positionTab?.isSizeSelected ?: true }, onStyle, logger)
     }
 
     /** The size the setting in effect stores, when it is one of this module's clocks. */
     private fun storedSizeStep(): Float =
         state.storedAxis(ClockAxes.SIZE_KEY)?.takeIf { state.storedClockId() in styles } ?: 0f
 
-    /** One of the Style tab's slider rows: its label and its stepped `Slider`. */
-    class SliderRow(val row: ViewGroup, val slider: View)
+    /** One of the Style tab's slider rows: the row, its label and its stepped `Slider`. */
+    data class SliderRow(val row: ViewGroup, val label: TextView, val slider: View)
 
     companion object {
         private const val SIZE_LABEL = "Clock size"
+        private const val ADAPTIVE_SIZE = "Adaptive size"
+        private const val ADAPTIVE_SIZE_DESCRIPTION = "Size the clock to your wallpaper's subject"
+
+        /** How strongly a control that does nothing just now is drawn, as Material draws a disabled one. */
+        private const val DIMMED = 0.38f
 
         /**
          * A copy of the Style tab's "Clock face width" row, labelled [label],
@@ -127,7 +153,7 @@ internal class PickerClockSliders(
             labelView.text = label
             labelView.contentDescription = label
             slider.contentDescription = label
-            return SliderRow(row, slider)
+            return SliderRow(row, labelView, slider)
         }
 
         /** Keeps [slider] in [source]'s colours, which the picker changes with the wallpaper, before each of its draws. */

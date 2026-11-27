@@ -16,9 +16,9 @@ import my.github.MrxSiN.pixellockscreenevolved.host.ConstraintSetEditor.Companio
  * where this module's clocks want it.
  *
  * Every large face of this module's writes its own date, where its design puts
- * it ([ClockFace.drawsDate]), so SystemUI's own row is hidden beside one. The
+ * it ([ClockFace.drawsDate]), so SystemUI's own row is hidden beside one. Most
  * small faces leave the date to SystemUI, which always writes its row under a
- * small clock.
+ * small clock; one that writes its own (iOS) has the row hidden too.
  *
  * With the large clock SystemUI leaves the card for the clock to place: it
  * gives it no top, and it drifts to the bottom of the screen. It is put below
@@ -47,7 +47,7 @@ class KeyguardSmartspacePlacement(
 ) : HostPatch {
 
     private val styleIds = styles.map { it.id }.toSet()
-    private val composed = ComposedSmartspacePlacement()
+    private val composed = ComposedSmartspacePlacement(SmartspaceCardCrop(hooks, logger))
 
     override fun install(classLoader: ClassLoader) {
         val (smartspace, clocks) = try {
@@ -71,7 +71,7 @@ class KeyguardSmartspacePlacement(
             hooks.after(composedCards) { element, _ ->
                 smartspace.composedView(requireNotNull(element))?.let(composed::followCard)
             }
-            ModuleClockFaces.onLargeAttached(composed::adoptCard)
+            ModuleClockFaces.onLargeAttached(composed::adopt)
         }
 
         val applyConstraints = smartspace.applyConstraints

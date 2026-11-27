@@ -126,7 +126,6 @@ internal class ClockPluginApi private constructor(private val classLoader: Class
     private val themeAodColor = themeType.getMethod("getAodColor", Context::class.java)
 
     private val previewType = load("$CLOCKS.ClockPreviewConfig")
-    private val previewClockTopMargin = previewType.getMethod("getClockTopMargin")
     private val previewStatusBarHeight = previewType.getMethod("getStatusBarHeight")
     private val previewSmallClockTopPadding =
         previewType.getMethod("getSmallClockTopPadding", Int::class.java)
@@ -265,10 +264,9 @@ internal class ClockPluginApi private constructor(private val classLoader: Class
         doze = themeAodColor.invoke(theme, context) as Int,
     )
 
-    fun previewTops(config: Any): PreviewTops = PreviewTops(
-        largeClock = previewClockTopMargin.invoke(config) as Int,
-        smallClock = previewSmallClockTopPadding.invoke(config, previewStatusBarHeight.invoke(config)) as Int,
-    )
+    /** Where the picker preview puts the top of the small clock, in pixels. */
+    fun previewSmallClockTop(config: Any): Int =
+        previewSmallClockTopPadding.invoke(config, previewStatusBarHeight.invoke(config)) as Int
 
     fun viewId(size: FaceSize): Int = when (size) {
         FaceSize.LARGE -> largeViewId
@@ -303,6 +301,3 @@ internal class ClockPluginApi private constructor(private val classLoader: Class
 
 /** The two colours a theme gives a clock: awake, and in always-on display. */
 internal data class ThemeColors(val normal: Int, val doze: Int)
-
-/** Where the picker preview puts the top of each clock size, in pixels. */
-internal data class PreviewTops(val largeClock: Int, val smallClock: Int)

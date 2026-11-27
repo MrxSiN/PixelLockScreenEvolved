@@ -4262,6 +4262,44 @@ class androidx.recyclerview.widget.RecyclerView$Adapter extends java.lang.Object
 class androidx.recyclerview.widget.RecyclerView$ItemDecoration extends java.lang.Object
   method getItemOffsets(android.graphics.Rect,android.view.View,androidx.recyclerview.widget.RecyclerView)
   method onDrawOver(android.graphics.Canvas,androidx.recyclerview.widget.RecyclerView)
+class androidx.recyclerview.widget.RecyclerView$ViewHolder extends java.lang.Object
+  field FULLUPDATE_PAYLOADS
+  field itemView
+  field mBindingAdapter
+  field mFlags
+  field mInChangeScrap
+  field mIsRecyclableCount
+  field mItemId
+  field mItemViewType
+  field mNestedRecyclerView
+  field mOldPosition
+  field mOwnerRecyclerView
+  field mPayloads
+  field mPendingAccessibilityState
+  field mPosition
+  field mPreLayoutPosition
+  field mScrapContainer
+  field mShadowedHolder
+  field mShadowingHolder
+  field mUnmodifiedPayloads
+  field mWasImportantForAccessibilityBeforeHidden
+  method addFlags(int)
+  method getLayoutPosition()
+  method getUnmodifiedPayloads()
+  method isAttachedToTransitionOverlay()
+  method isBound()
+  method isInvalid()
+  method isRecyclable()
+  method isRemoved()
+  method isScrap()
+  method isTmpDetached()
+  method isUpdated()
+  method offsetPosition(int,boolean)
+  method resetInternal()
+  method setIsRecyclable(boolean)
+  method shouldIgnore()
+  method toString()
+  method wasReturnedFromScrap()
 class com.android.customization.picker.clock.shared.model.ClockMetadataModel extends java.lang.Object
   field axisPresetConfig
   field clockId
@@ -4417,6 +4455,12 @@ class com.android.customization.picker.clock.ui.viewmodel.ClockPickerViewModel$i
   method invokeSuspend(java.lang.Object)
 class com.android.customization.picker.clock.ui.viewmodel.ClockPickerViewModel$tabs$1$1 extends java.lang.Object
   field $r8$classId
+  field this$0
+  method invoke()
+class com.android.customization.picker.clock.ui.viewmodel.ClockPickerViewModel$toOption$2$1 extends java.lang.Object
+  field $index
+  field $r8$classId
+  field $this_toOption
   field this$0
   method invoke()
 class com.android.customization.picker.common.ui.view.SingleRowListItemSpacing extends androidx.recyclerview.widget.RecyclerView$ItemDecoration

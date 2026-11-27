@@ -133,7 +133,8 @@ class DotClockStyle : ClockStyle {
         val DATE = DateLine.Look(skeleton = "EEEMMMd", sizeToShortSide = 0.034f, weight = 500, allCaps = true, letterSpacing = 0.25f)
         const val SMALLEST = 0.2f
         const val LARGEST = 0.32f
-        const val SMALL_HEIGHT = 0.1f
+        /** The small line's height against the short side: as tall as runs "00:00" across the text column. */
+        const val SMALL_HEIGHT = 0.19f
 
         /** Dot pitches between the hour and the minute: clear of the occlusion reading's line gap. */
         const val LINE_GAP_DOTS = 3f

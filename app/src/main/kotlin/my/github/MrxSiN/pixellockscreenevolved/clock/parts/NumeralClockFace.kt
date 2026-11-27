@@ -104,8 +104,13 @@ abstract class NumeralClockFace(
 class OneLineSmallFace(
     context: Context,
     cut: FlexCut,
-    /** Numeral height against the screen's short side; a style whose large face is bold may want more. */
-    numeralToShortSide: Float = NUMERAL_TO_SHORT_SIDE,
+    /**
+     * The tallest the numerals may stand, against the screen's short side. The line is as wide as the text
+     * column ([MAX_WIDTH]) lets it be up to this height, so beside notifications the time spans the column, as
+     * iOS's and Hyper's do, rather than standing small in the middle of empty space; a narrow cut reaches
+     * this height first.
+     */
+    numeralToShortSide: Float = FILL_HEIGHT,
     /** Space between the figures, in ems ([NumeralView.setTracking]), for a heavy, narrow cut. */
     tracking: Float = 0f,
 ) : NumeralClockFace(context, date = null) {
@@ -125,10 +130,13 @@ class OneLineSmallFace(
     override fun write(parts: TimeParts.Parts) = time.setText(parts.joined)
 
     companion object {
-        /** The height a Pixel small clock's figures stand at, which every style keeps unless it asks for more. */
-        const val NUMERAL_TO_SHORT_SIDE = 0.13f
+        /** The height a Pixel small clock's figures stand at, against the short side. */
+        const val PIXEL_NUMERAL_TO_SHORT_SIDE = 0.13f
 
-        /** Widest a small face may be, against the short side, so a heavy cut is never cut off. */
-        private const val MAX_WIDTH = 0.9f
+        /** The tallest a small face's numerals stand, against the short side. */
+        const val FILL_HEIGHT = 0.24f
+
+        /** As wide as a small face runs, against the short side: the lock screen's text column. */
+        const val MAX_WIDTH = 0.86f
     }
 }

@@ -7,8 +7,18 @@ ColorOS, OxygenOS and Nothing OS are trademarks of their owners. These names are
 only to identify the software this module extends and the design it imitates.
 
 The module draws its clocks with fonts already on the device (Roboto Flex and
-the system sans-serif). It does not redistribute any Google or Apple asset, and
-does not include SF Pro or any other font of theirs.
+the system sans-serif), except the iOS clock's time, set in Inter. It does not
+redistribute any Google or Apple asset, and does not include SF Pro or any other
+font of theirs.
+
+## Inter
+
+`app/src/main/assets/fonts/Inter.ttf` is Inter 4.001 by The Inter Project
+Authors, https://github.com/rsms/inter, Copyright 2020, licensed under the SIL
+Open Font License 1.1 (`app/src/main/assets/fonts/Inter-OFL.txt`). It is a
+subset of Google Fonts' `ofl/inter/Inter[opsz,wght].ttf`, keeping the figures,
+the colon and the capital I with both variation axes; the command that makes it
+is in `clock/ios/IosClockFont.kt`. Inter has no Reserved Font Name.
 
 ## BiRefNet_lite
 

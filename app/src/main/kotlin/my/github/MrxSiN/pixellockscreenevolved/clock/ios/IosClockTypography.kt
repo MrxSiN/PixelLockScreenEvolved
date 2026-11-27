@@ -31,15 +31,9 @@ internal object IosClockTypography {
      */
     const val DATE_TO_TIME_DP = 25f
 
-    /**
-     * Room added under the small face, so SystemUI's date row stands about as
-     * far below the time as the notifications stand below the row (82 px
-     * without it against about 100 px, on a Pixel 8 Pro); the band the scene
-     * lays the small clock out in grows by it
-     * ([my.github.MrxSiN.pixellockscreenevolved.host.KeyguardSmallClockBand]).
-     */
-    const val SMALL_BOTTOM_DP = 8f
+    /** Skeleton for "Tue Apr 1", as iOS 26 writes the date over its clock, localized by the platform. */
+    const val DATE_SKELETON = "EEEMMMd"
 
-    /** Skeleton for "Saturday, September 13", localized by the platform. */
-    const val DATE_SKELETON = "EEEEMMMMd"
+    /** Skeleton for "Sat 13", the date iOS writes beside an inline widget. */
+    const val DATE_WITH_WEATHER_SKELETON = "EEEd"
 }

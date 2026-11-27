@@ -116,6 +116,29 @@ internal class LockWallpaperFeed(
     /** How much the wallpaper dims its own photo, as by battery saver or dark theme, from 0 to 1. */
     fun dim(): Float = engine.get()?.let(dimOf) ?: 0f
 
+    /** The engine that last drew the lock screen photo, for the code replacing this one on a hot reload ([replay]). */
+    val currentEngine: Any? get() = engine.get()
+
+    private var api: LockWallpaperApi? = null
+
+    /**
+     * Hands the photo [engine] draws on as if SystemUI had just drawn it: for the code a hot reload brings
+     * in, which no draw reaches until the wallpaper changes, so the depth effect, and the clock sizes and
+     * places that follow its subject, stood without one until SystemUI restarted. The photo is read again
+     * from the wallpaper service, off the main thread; the same photo finds the subject its cache keeps.
+     */
+    fun replay(engine: Any) {
+        val api = api ?: return
+        if (!isLockScreen(api, engine)) return
+        Thread {
+            runCatching {
+                val context = (engine as WallpaperService.Engine).displayContext ?: return@Thread
+                val photo = api.photo(engine, context) ?: return@Thread
+                handlePhoto(api, engine, photo)
+            }.onFailure { logger.warn("The lock screen photo could not be read again after a reload", it) }
+        }.start()
+    }
+
     /** Hands the current photo on again the next time SystemUI draws it, as for a listener that could not use it. */
     fun forgetPhoto() {
         seenKey = null
@@ -129,6 +152,7 @@ internal class LockWallpaperFeed(
             return
         }
 
+        this.api = api
         zoomScales = api.zoomScales()
         dimOf = api::dim
 
@@ -151,27 +175,32 @@ internal class LockWallpaperFeed(
             val owner = requireNotNull(engine)
             if (!isLockScreen(api, owner)) return@after
             val photo = args.firstOrNull() as? Bitmap ?: return@after
-            val (width, height) = api.surfaceSize(owner) ?: return@after
-            if (photo.isRecycled || width <= 0 || height <= 0) return@after
-            // The same photo is redrawn as the screen wakes or the picker closes; only a new one is handed on.
-            val key = DepthCutout.keyOf(photo)
-            if (key == seenKey) return@after
-            seenKey = key
-            val context = (owner as WallpaperService.Engine).displayContext ?: return@after
-            this.engine = WeakReference(owner)
-            val screen = context.resources.displayMetrics
-            val newCrop = api.crop(owner, context, screen.widthPixels, screen.heightPixels)
-                ?.let { scaleCrop(it, photo.width, photo.height, width, height) }
-                ?: WallpaperPlacement.Crop(0, 0, width, height)
-            val engineZoom = api.zoom(owner)
-            val surface = WallpaperPlacement.Size(width, height)
-            listeners.forEach { it.onPhoto(photo, surface, key, context) }
-            main.post {
-                crop = newCrop
-                placementChanged()
-            }
-            postZoom(engineZoom)
+            handlePhoto(api, owner, photo)
         }
+    }
+
+    /** Hands [photo], as [owner] draws it, on to the listeners, unless it is the one handed on last. */
+    private fun handlePhoto(api: LockWallpaperApi, owner: Any, photo: Bitmap) {
+        val (width, height) = api.surfaceSize(owner) ?: return
+        if (photo.isRecycled || width <= 0 || height <= 0) return
+        // The same photo is redrawn as the screen wakes or the picker closes; only a new one is handed on.
+        val key = DepthCutout.keyOf(photo)
+        if (key == seenKey) return
+        seenKey = key
+        val context = (owner as WallpaperService.Engine).displayContext ?: return
+        this.engine = WeakReference(owner)
+        val screen = context.resources.displayMetrics
+        val newCrop = api.crop(owner, context, screen.widthPixels, screen.heightPixels)
+            ?.let { scaleCrop(it, photo.width, photo.height, width, height) }
+            ?: WallpaperPlacement.Crop(0, 0, width, height)
+        val engineZoom = api.zoom(owner)
+        val surface = WallpaperPlacement.Size(width, height)
+        listeners.forEach { it.onPhoto(photo, surface, key, context) }
+        main.post {
+            crop = newCrop
+            placementChanged()
+        }
+        postZoom(engineZoom)
     }
 
     /** The engine's latest zoom, waiting to be taken on the main thread ([applyZoom]). */

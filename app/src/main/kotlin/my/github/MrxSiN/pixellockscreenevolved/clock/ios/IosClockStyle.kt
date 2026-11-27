@@ -19,16 +19,15 @@ class IosClockStyle : ClockStyle {
     override val isResizable: Boolean = true
     override val isWidthAdjustable: Boolean = true
 
-    /** Four: past [IosClockScale.LARGEST_TO_STOCK] the stretched figures stop reading as the Pixel's. */
+    /** Four, from the iOS default clock to the tallest iOS 26 clock ([IosClockScale]). */
     override val sizeSteps: Int = 4
 
     /**
-     * The large face writes the date above the time. The small face leaves it
-     * out: SystemUI always shows its own date and weather line under a small
-     * clock, and the date would be written twice.
+     * Both faces are the iOS clock, date above the time: iOS keeps its clock
+     * as it is when notifications arrive. SystemUI's own date row is hidden
+     * beside it ([ClockFace.drawsDate]).
      */
-    override fun createFace(context: Context, size: FaceSize): ClockFace =
-        IosClockFace(context, showsInfo = size == FaceSize.LARGE)
+    override fun createFace(context: Context, size: FaceSize): ClockFace = IosClockFace(context)
 
     /** A fixed 9:41, the time every iOS product shot shows, set in the face's own type. */
     override fun createThumbnail(context: Context): Drawable = ClockThumbnail(context) { canvas, box, paint ->

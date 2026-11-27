@@ -31,13 +31,24 @@ internal object BeforeEachDraw {
         retired = true
     }
 
-    /** Runs [action] before each draw of [view]'s window. */
-    fun follow(view: View, action: () -> Unit) {
+    /**
+     * Runs [action] before each draw of [view]'s window. Once retired, [onRetired] runs once instead, before the
+     * view's next draw or as it is next attached, to undo what this copy left on the view: the new code cannot
+     * know of it, and the view may be detached as the code is replaced.
+     */
+    fun follow(view: View, onRetired: () -> Unit = {}, action: () -> Unit) {
         var observed: ViewTreeObserver? = null
+        var handedOver = false
+        fun handOver() {
+            if (handedOver) return
+            handedOver = true
+            onRetired()
+        }
         val beforeDraw = object : ViewTreeObserver.OnPreDrawListener {
             override fun onPreDraw(): Boolean {
                 if (retired) {
                     view.viewTreeObserver.takeIf { it.isAlive }?.removeOnPreDrawListener(this)
+                    handOver()
                     return true
                 }
                 action()
@@ -50,7 +61,7 @@ internal object BeforeEachDraw {
         }
         fun listen() {
             stop()
-            if (retired) return
+            if (retired) return handOver()
             observed = view.viewTreeObserver.also { it.addOnPreDrawListener(beforeDraw) }
         }
         view.addOnAttachStateChangeListener(object : View.OnAttachStateChangeListener {

@@ -55,6 +55,9 @@ internal object FlexClockNumerals {
         return "'wght' ${cut.weight}, 'wdth' ${cut.width}, 'ROND' 0, 'slnt' 0"
     }
 
+    /** The weight of the cut [width] of the way along the stops, for a font that has weights and no widths. */
+    fun weightFor(width: Float): Float = cutAt(width).weight
+
     /** The cut [width] of the way along the stops, between the two it falls between. */
     private fun cutAt(width: Float): Cut {
         val along = width.coerceIn(0f, 1f) * (CUTS.size - 1)

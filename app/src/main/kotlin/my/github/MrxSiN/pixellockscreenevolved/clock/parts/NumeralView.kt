@@ -49,6 +49,9 @@ class NumeralView(context: Context, private var cut: FlexCut) : View(context) {
     private var maxWidth = Float.MAX_VALUE
     private var maxStretch = 1f
 
+    /** Space between the figures, in ems ([setTracking]). */
+    private var tracking = 0f
+
     /** How much taller than the font designs them the numerals are drawn, from 1 ([fit]). */
     private var stretch = 1f
 
@@ -58,6 +61,15 @@ class NumeralView(context: Context, private var cut: FlexCut) : View(context) {
     /** How far an enter or charge animation holds the strokes toward the light cut, from 0 to 1. */
     private var lift = 0f
     private var pulse: android.animation.Animator? = null
+
+    /**
+     * Whether the always-on display traces the awake cut in [DozeInk]'s thin outline rather than
+     * thinning its strokes: for figures so narrow that the light cut, kept on their wide advances,
+     * would stand apart as hairlines. On by default for every cut narrower than [OUTLINE_BELOW_WIDTH]:
+     * Headline's and Cinema's figures, thinned to weight 200 at their bold advances, fell apart on the
+     * always-on display into widely spaced strokes.
+     */
+    var dozesAsOutline: Boolean = cut.width < OUTLINE_BELOW_WIDTH
 
     /** [Gravity.START], [Gravity.CENTER_HORIZONTAL] or [Gravity.END]. */
     var gravity: Int = Gravity.CENTER_HORIZONTAL
@@ -69,10 +81,10 @@ class NumeralView(context: Context, private var cut: FlexCut) : View(context) {
     fun setText(text: String) {
         if (this.text == text) return
         val before = this.text
-        val beforeWidth = paint.measureText(before)
+        val beforeWidth = widthOf(before)
         this.text = text
         size()
-        digits.show(before, text, glyphs(), shiftFor(paint.measureText(text) - beforeWidth))
+        digits.show(before, text, glyphs(), shiftFor(widthOf(text) - beforeWidth))
         requestLayout()
     }
 
@@ -109,8 +121,8 @@ class NumeralView(context: Context, private var cut: FlexCut) : View(context) {
      * wider than the advance it gives them, so set tight they run into each other.
      */
     fun setTracking(em: Float) {
-        if (paint.letterSpacing == em) return
-        paint.letterSpacing = em
+        if (tracking == em) return
+        tracking = em
         resize()
     }
 
@@ -123,11 +135,18 @@ class NumeralView(context: Context, private var cut: FlexCut) : View(context) {
         invalidate()
     }
 
-    /** Thins the strokes toward the always-on display's light cut, from 0 awake to 1 dozing. */
+    /** How opaque the awake fill is, from 0 to 1, without laying the line out again: for a fill that animates. */
+    fun setFill(fill: Float) {
+        ink.awakeFill = fill
+        invalidate()
+    }
+
+    /** Thins the strokes toward the always-on display's light cut, or its outline ([dozesAsOutline]), from 0 awake to 1 dozing. */
     fun setDoze(fraction: Float) {
         val next = fraction.coerceIn(0f, 1f)
         if (next == doze) return
         doze = next
+        if (dozesAsOutline) ink.outline = next
         restroke()
     }
 
@@ -156,7 +175,7 @@ class NumeralView(context: Context, private var cut: FlexCut) : View(context) {
     )
 
     override fun onMeasure(widthMeasureSpec: Int, heightMeasureSpec: Int) {
-        val width = ceil(paint.measureText(text)).toInt() + 2 * ink.inset
+        val width = ceil(widthOf(text)).toInt() + 2 * ink.inset
         val height = ceil(drawnHeight()).toInt() + 2 * ink.inset
         setMeasuredDimension(resolveSize(width, widthMeasureSpec), resolveSize(height, heightMeasureSpec))
     }
@@ -168,7 +187,7 @@ class NumeralView(context: Context, private var cut: FlexCut) : View(context) {
     }
 
     override fun onDraw(canvas: Canvas) {
-        val room = width - 2 * ink.inset - paint.measureText(text)
+        val room = width - 2 * ink.inset - widthOf(text)
         val start = when (horizontalGravity()) {
             Gravity.LEFT -> 0f
             Gravity.RIGHT -> room
@@ -179,6 +198,15 @@ class NumeralView(context: Context, private var cut: FlexCut) : View(context) {
         digits.draw(canvas, drawnHeight() * DigitRoll.RISE)
         canvas.restore()
     }
+
+    /**
+     * The space between figures, in pixels at the text size set now. Added here rather than through the paint's
+     * letter spacing, which Android measures and places differently, so the line is drawn exactly as wide as measured.
+     */
+    private fun spacing(): Float = tracking * paint.textSize
+
+    /** How wide [text] is set, the space between its figures included. */
+    private fun widthOf(text: String): Float = paint.measureText(text) + spacing() * max(0, text.length - 1)
 
     /** How tall the numerals are drawn, the stretch included. */
     private fun drawnHeight(): Float = numerals.height() * stretch
@@ -208,7 +236,7 @@ class NumeralView(context: Context, private var cut: FlexCut) : View(context) {
     private fun horizontalGravity(): Int = Gravity.getAbsoluteGravity(gravity, layoutDirection) and Gravity.HORIZONTAL_GRAVITY_MASK
 
     /** The cut the strokes are drawn in now: the awake cut, thinned as far as the doze or a pulse takes it. */
-    private fun shownCut(): FlexCut = cut.toward(cut.copy(weight = min(cut.weight, DOZE_WEIGHT)), max(doze, lift))
+    private fun shownCut(): FlexCut = cut.toward(cut.copy(weight = min(cut.weight, DOZE_WEIGHT)), max(if (dozesAsOutline) 0f else doze, lift))
 
     /** Sets the text size for [numeralHeight] and [maxWidth] in the awake cut, and lays the numerals out again at once. */
     private fun resize() {
@@ -226,7 +254,7 @@ class NumeralView(context: Context, private var cut: FlexCut) : View(context) {
         val numeralPerSize = numerals.height() / PROBE_SIZE
         // Every digit measured as the widest, so the line keeps one size whichever minute it shows.
         val widest = text.map { if (it.isDigit()) WIDE_DIGIT else it }.joinToString("")
-        val widthPerSize = paint.measureText(widest) / PROBE_SIZE
+        val widthPerSize = widthOf(widest) / PROBE_SIZE
         val fit = StretchFit.of(numeralHeight, maxWidth, numeralPerSize, widthPerSize, maxStretch)
         stretch = fit.stretch
         paint.textSize = fit.textSize.coerceAtLeast(1f)
@@ -244,8 +272,8 @@ class NumeralView(context: Context, private var cut: FlexCut) : View(context) {
         paint.fontVariationSettings = null
         paint.fontVariationSettings = cut.settings
         // Primitive arrays: this runs on every frame the strokes thin or fill.
-        val lefts = FloatArray(text.length) { paint.measureText(text, 0, it) }
         val advances = FloatArray(text.length) { paint.measureText(text, it, it + 1) }
+        val lefts = FloatArray(text.length) { paint.measureText(text, 0, it) + spacing() * it }
         paint.fontVariationSettings = shownCut().settings
         // Drawn from the baseline, so stretching about it leaves the line's own top where the draw expects it.
         stretching.setScale(1f, stretch)
@@ -269,6 +297,9 @@ class NumeralView(context: Context, private var cut: FlexCut) : View(context) {
 
         /** The always-on display's cut: light, so few pixels stay lit. */
         const val DOZE_WEIGHT = 200f
+
+        /** `wdth` below which a cut is condensed enough that the always-on display outlines it instead ([dozesAsOutline]). */
+        const val OUTLINE_BELOW_WIDTH = 60f
 
         /** As Google's clocks time their appearing and charging on the lock screen. */
         const val ENTER_MS = 833L
