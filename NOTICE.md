@@ -6,10 +6,14 @@ trademarks of Google LLC; iOS is a trademark of Apple Inc.; HyperOS, One UI,
 ColorOS, OxygenOS and Nothing OS are trademarks of their owners. These names are used
 only to identify the software this module extends and the design it imitates.
 
-The module draws its clocks with fonts already on the device (Roboto Flex and
-the system sans-serif), except the iOS clock's time, set in Inter. It does not
-redistribute any Google or Apple asset, and does not include SF Pro or any other
-font of theirs.
+The module uses device fonts (Roboto Flex and the system sans-serif) for the
+other clock styles.
+
+## AXS66Clock
+
+`app/src/main/assets/fonts/AXS66Clock.otf` is the iOS clock's default font.
+The file identifies Apple Inc. as the copyright holder (2015–2019) and
+refers to the applicable Apple OS Software License Agreement.
 
 ## Inter
 
@@ -17,8 +21,12 @@ font of theirs.
 Authors, https://github.com/rsms/inter, Copyright 2020, licensed under the SIL
 Open Font License 1.1 (`app/src/main/assets/fonts/Inter-OFL.txt`). It is a
 subset of Google Fonts' `ofl/inter/Inter[opsz,wght].ttf`, keeping the figures,
-the colon and the capital I with both variation axes; the command that makes it
-is in `clock/ios/IosClockFont.kt`. Inter has no Reserved Font Name.
+the colon and the capital I with both variation axes. Inter has no Reserved
+Font Name. It is the iOS clock's fallback font.
+
+```sh
+pyftsubset 'Inter[opsz,wght].ttf' --text='0123456789:I' --layout-features=pnum,tnum,kern,ss01,cv01 --output-file=Inter.ttf
+```
 
 ## BiRefNet_lite
 

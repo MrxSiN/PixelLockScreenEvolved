@@ -45,10 +45,11 @@ grep -q 'WIDTH_KEY = "PIXEL_LOCK_SCREEN_EVOLVED_WIDTH"' "$SRC/host/ClockAxes.kt"
 ! grep -qE '^import android' "$SRC/clock/ios/IosClockScale.kt"
 ! grep -qE '^import android' "$SRC/clock/parts/StretchFit.kt"
 
-# Clocks use the system's fonts, except the iOS clock's Inter subset, which ships
-# with its licence and is the only font bundled.
-[ "$(ls "$ROOT/app/src/main/assets/fonts")" = "$(printf 'Inter-OFL.txt
+# The iOS clock bundles AXS66Clock and an Inter subset with its licence.
+[ "$(ls "$ROOT/app/src/main/assets/fonts")" = "$(printf 'AXS66Clock.otf
+Inter-OFL.txt
 Inter.ttf')" ]
+grep -q 'app/src/main/assets/fonts/AXS66Clock.otf' "$ROOT/NOTICE.md"
 grep -q 'app/src/main/assets/fonts/Inter.ttf' "$ROOT/NOTICE.md"
 
 # The segmentation model ships with its licence, under GitHub's 100 MB file limit.

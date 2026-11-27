@@ -58,7 +58,7 @@ share the screen.
 
 | Style | Large face | Small face |
 |---|---|---|
-| **iOS** | The date over a time on one line, set in the Pixel clock's own font (Google Sans Flex Clock, the first clock in the picker), at one text size, so its width follows the figures as on iOS. 12-hour time without AM/PM or a leading zero; 24-hour time padded. | As on iOS, the same clock at its default size, date above; Pixel's own date row is hidden. |
+| **iOS** | The date over a time on one line, set in AXS66Clock at one text size so its width follows the figures. 12-hour time without AM/PM or a leading zero, and padded 24-hour time. | The same clock at its default size with the date above. |
 | **Hyper** | After HyperOS's magazine lock screen: outlined, condensed figures, the hour (in the wallpaper's accent) over the minute, running down the whole screen, with the date beside them as a narrow column and the weekday turned on its side in an accent pill. The photo shows through the outlines, and its subject can stand in front of them. | One condensed line. |
 | **Headline** | After HyperOS: the time, the weekday and the date as one condensed, heavy headline down the start of the screen, each line as wide as the block, the minute in the wallpaper's accent colour. | One condensed line. |
 | **Poster** | After HyperOS: the weekday and the date as a bold title across the top, which the photo's subject stands in front of, and a small serif time set to the end below it, in the accent colour. | A serif time. |
@@ -157,18 +157,13 @@ wakes.
 
 </details>
 
-The iOS clock is set in [Inter](https://github.com/rsms/inter) Display, the
-free look-alike of Apple's SF Pro (which Apple licenses only for its own
-platforms), bundled under the SIL Open Font License 1.1
-(`app/src/main/assets/fonts/Inter-OFL.txt`). The Clock face width slider picks
-its weight. Tall figures are drawn thin and thickened evenly, so their strokes
-stay even instead of the bars swelling as they stretch.
+The iOS clock uses AXS66Clock by default. Its `HGHT` axis draws tall figures,
+including the colon, and the Clock face width slider controls the weight.
+If the default font fails to load, the clock uses Inter Display.
 
 You can set it in a font of your own instead: put the file, named
 `pixel_lock_screen_evolved_clock_font`, in each host's files folder and
-restart it. Nothing is shipped; the file is yours to supply. A font with
-iOS 26's `HGHT` axis (`.SF Adaptive Soft Numeric`) draws its own tall figures,
-at `SOFT` 70 as iOS does.
+restart it.
 
 ```sh
 for d in /data/user_de/0/com.android.systemui /data/user/0/com.google.android.apps.wallpaper; do
