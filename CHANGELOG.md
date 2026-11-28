@@ -1,6 +1,6 @@
 # Changelog
 
-## Unreleased
+## 0.0.9 — 2026-11-28
 
 ### Added
 
@@ -16,6 +16,15 @@
 - Subject editor: hold-to-compare with the subject as found, tool-coloured
   brush ring, and a confirmation before **Reprocess wallpaper** throws a
   subject and its edits away.
+- **Subjects in front** on the Depth effect page: all subjects, or only the
+  main one.
+- **Depth map**: Depth Anything V2 Small (int8) runs beside BiRefNet, and the
+  clock can be set at a plane in the photo rather than behind one cut-out.
+- **Edit subject**: a brush over the photo, in a window SystemUI opens over
+  Wallpaper & style, to add to the subject or erase from it.
+- **Tilt motion**: the clock shifts with the phone's tilt.
+- The depth effect on Google's own clocks, and in Wallpaper & style's preview
+  of a photo before it is set.
 
 ### Changed
 
@@ -48,7 +57,6 @@
   blinked the dots over the lock screen.
 - Subject editor draws under the navigation bar (a strip of the screen behind
   showed there).
-
 - The iOS clock now defaults to AXS66Clock, bundled in the APK for both the
   lock screen and the picker. Inter remains the fallback and custom font
   overrides still take priority.
@@ -73,18 +81,7 @@
 - The guided filter needs 17 MB instead of 39 MB at 1024 px and runs in about
   three fifths of the time; the depth model runs only while the depth map is
   chosen; the patches of a host share one clock plugin lookup.
-
-### Added
-
-- **Subjects in front** on the Depth effect page: all subjects, or only the
-  main one.
-- **Depth map**: Depth Anything V2 Small (int8) runs beside BiRefNet, and the
-  clock can be set at a plane in the photo rather than behind one cut-out.
-- **Edit subject**: a brush over the photo, in a window SystemUI opens over
-  Wallpaper & style, to add to the subject or erase from it.
-- **Tilt motion**: the clock shifts with the phone's tilt.
-- The depth effect on Google's own clocks, and in Wallpaper & style's preview
-  of a photo before it is set.
+- Release builds default to versionCode 170.
 
 ### Fixed
 

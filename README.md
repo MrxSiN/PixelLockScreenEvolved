@@ -11,9 +11,9 @@
 [![Android](https://img.shields.io/badge/Android-17%20QPR1-3DDC84?logo=android&logoColor=fff&style=for-the-badge)](#install)
 [![Sponsor](https://img.shields.io/badge/Sponsor-%E2%9D%A4-EA4AAA?logo=githubsponsors&logoColor=fff&style=for-the-badge)](https://github.com/sponsors/MrxSiN)
 
-<img src="docs/screenshots/lockscreen-depth.png" width="240" alt="The depth effect: the wallpaper's subject in front of the iOS clock">
-<img src="docs/screenshots/ios-size-largest.png" width="240" alt="The iOS clock at its largest size">
-<img src="docs/screenshots/page-depth-effect.png" width="240" alt="The Depth effect page in Wallpaper & style">
+<img src="docs/screenshots/lock-ios.jpg" width="240" alt="The iOS clock behind the wallpaper's subject">
+<img src="docs/screenshots/lock-hyper.jpg" width="240" alt="The Hyper clock behind the wallpaper's subject">
+<img src="docs/screenshots/lock-cinema.jpg" width="240" alt="The Cinema clock behind the wallpaper's subject">
 
 </div>
 
@@ -26,7 +26,106 @@
 - **Double tap** an empty space on the lock screen to turn the screen off.
 - **Compatibility & diagnostics:** every host member checked on the phone before anything installs, per-feature fallbacks, and Safe Mode after repeated crashes.
 
-Every setting, with screenshots: [features](docs/features.md).
+Every setting in detail: [features](docs/features.md).
+
+## Screenshots
+
+Taken on a Pixel 8 Pro running Android 17 QPR1. Open a section to see it.
+
+<details>
+<summary><b>🕘 Clock styles</b> · eight lock screen looks, each with the subject in front</summary>
+<br>
+
+<table>
+<tr>
+<td align="center" valign="top" width="25%"><img src="docs/screenshots/lock-ios.jpg" width="200" alt="iOS: AXS66Clock on one line"><br><sub><b>iOS</b><br>AXS66Clock on one line</sub></td>
+<td align="center" valign="top" width="25%"><img src="docs/screenshots/lock-hyper.jpg" width="200" alt="Hyper: outlined figures down the screen"><br><sub><b>Hyper</b><br>outlined figures down the screen</sub></td>
+<td align="center" valign="top" width="25%"><img src="docs/screenshots/lock-headline.jpg" width="200" alt="Headline: time, weekday and date as one block"><br><sub><b>Headline</b><br>time, weekday and date as one block</sub></td>
+<td align="center" valign="top" width="25%"><img src="docs/screenshots/lock-poster.jpg" width="200" alt="Poster: a bold date title, a serif time"><br><sub><b>Poster</b><br>a bold date title, a serif time</sub></td>
+</tr>
+<tr>
+<td align="center" valign="top" width="25%"><img src="docs/screenshots/lock-one.jpg" width="200" alt="One: tall, light, hour over minute"><br><sub><b>One</b><br>tall, light, hour over minute</sub></td>
+<td align="center" valign="top" width="25%"><img src="docs/screenshots/lock-horizon.jpg" width="200" alt="Horizon: one wide hairline line"><br><sub><b>Horizon</b><br>one wide hairline line</sub></td>
+<td align="center" valign="top" width="25%"><img src="docs/screenshots/lock-dot.jpg" width="200" alt="Dot: a five-by-seven dot matrix"><br><sub><b>Dot</b><br>a five-by-seven dot matrix</sub></td>
+<td align="center" valign="top" width="25%"><img src="docs/screenshots/lock-cinema.jpg" width="200" alt="Cinema: towering condensed figures"><br><sub><b>Cinema</b><br>towering condensed figures</sub></td>
+</tr>
+</table>
+
+</details>
+
+<details>
+<summary><b>📐 Size, width and rotation</b> · the iOS clock across its controls</summary>
+<br>
+
+<table>
+<tr>
+<td align="center" valign="top" width="25%"><img src="docs/screenshots/ios-size-smallest.jpg" width="200" alt="Smallest size: Google's own clock height"><br><sub><b>Smallest size</b><br>Google's own clock height</sub></td>
+<td align="center" valign="top" width="25%"><img src="docs/screenshots/ios-size-largest.jpg" width="200" alt="Largest size: the tallest iOS 26 clock"><br><sub><b>Largest size</b><br>the tallest iOS 26 clock</sub></td>
+<td align="center" valign="top" width="25%"><img src="docs/screenshots/ios-width-narrowest.jpg" width="200" alt="Narrowest width: heavier figures as they narrow"><br><sub><b>Narrowest width</b><br>heavier figures as they narrow</sub></td>
+<td align="center" valign="top" width="25%"><img src="docs/screenshots/ios-rotated.jpg" width="200" alt="Turned: any angle up to 90°, still behind the subject"><br><sub><b>Turned</b><br>any angle up to 90°, still behind the subject</sub></td>
+</tr>
+</table>
+
+</details>
+
+<details>
+<summary><b>🎛️ Clock pages</b> · Wallpaper & style's own tabs</summary>
+<br>
+
+<table>
+<tr>
+<td align="center" valign="top" width="25%"><img src="docs/screenshots/picker-clock.png" width="200" alt="Style: every style and the width slider"><br><sub><b>Style</b><br>every style and the width slider</sub></td>
+<td align="center" valign="top" width="25%"><img src="docs/screenshots/picker-color.png" width="200" alt="Color: the theme or a colour of your own"><br><sub><b>Color</b><br>the theme or a colour of your own</sub></td>
+<td align="center" valign="top" width="25%"><img src="docs/screenshots/picker-size.png" width="200" alt="Size: size steps and adaptive size"><br><sub><b>Size</b><br>size steps and adaptive size</sub></td>
+<td align="center" valign="top" width="25%"><img src="docs/screenshots/picker-position.png" width="200" alt="Position: drag, snap and turn the clock"><br><sub><b>Position</b><br>drag, snap and turn the clock</sub></td>
+</tr>
+</table>
+
+</details>
+
+<details>
+<summary><b>🪄 Depth effect</b> · its page and the subject editor</summary>
+<br>
+
+<table>
+<tr>
+<td align="center" valign="top" width="25%"><img src="docs/screenshots/page-depth-effect.png" width="200" alt="Depth effect: subject, tilt, reprocess and edit"><br><sub><b>Depth effect</b><br>subject, tilt, reprocess and edit</sub></td>
+<td align="center" valign="top" width="25%"><img src="docs/screenshots/page-depth-effect-2.png" width="200" alt="Layout: depth map, readability and subjects"><br><sub><b>Layout</b><br>depth map, readability and subjects</sub></td>
+<td align="center" valign="top" width="25%"><img src="docs/screenshots/editor.jpg" width="200" alt="Edit subject: paint to add or erase"><br><sub><b>Edit subject</b><br>paint to add or erase</sub></td>
+<td align="center" valign="top" width="25%"><img src="docs/screenshots/editor-overlay.jpg" width="200" alt="Overlay: the subject tinted over the photo"><br><sub><b>Overlay</b><br>the subject tinted over the photo</sub></td>
+</tr>
+</table>
+
+</details>
+
+<details>
+<summary><b>🌙 Always-on display</b> · the photo kept when the screen is off</summary>
+<br>
+
+<table>
+<tr>
+<td align="center" valign="top" width="25%"><img src="docs/screenshots/aod-default.jpg" width="200" alt="Off: SystemUI's own black display"><br><sub><b>Off</b><br>SystemUI's own black display</sub></td>
+<td align="center" valign="top" width="25%"><img src="docs/screenshots/aod-color.jpg" width="200" alt="Color: your wallpaper, dimmed"><br><sub><b>Color</b><br>your wallpaper, dimmed</sub></td>
+<td align="center" valign="top" width="25%"><img src="docs/screenshots/aod-black-and-white.jpg" width="200" alt="Black & white: in greys, dimmed"><br><sub><b>Black & white</b><br>in greys, dimmed</sub></td>
+<td align="center" valign="top" width="25%"><img src="docs/screenshots/aod-dots.png" width="200" alt="Dots: only the subject, the fewest pixels lit"><br><sub><b>Dots</b><br>only the subject, the fewest pixels lit</sub></td>
+</tr>
+</table>
+
+</details>
+
+<details>
+<summary><b>⚙️ Settings and diagnostics</b> · everything is in Wallpaper & style</summary>
+<br>
+
+<table>
+<tr>
+<td align="center" valign="top" width="25%"><img src="docs/screenshots/picker-lock-screen.png" width="200" alt="Lock screen: the module's entries"><br><sub><b>Lock screen</b><br>the module's entries</sub></td>
+<td align="center" valign="top" width="25%"><img src="docs/screenshots/page-always-on-display.png" width="200" alt="Always-on display: appearance and dot size"><br><sub><b>Always-on display</b><br>appearance and dot size</sub></td>
+<td align="center" valign="top" width="25%"><img src="docs/screenshots/page-diagnostics.png" width="200" alt="Diagnostics: every feature checked on your build"><br><sub><b>Diagnostics</b><br>every feature checked on your build</sub></td>
+</tr>
+</table>
+
+</details>
 
 ## Install
 
