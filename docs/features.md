@@ -1,8 +1,9 @@
 # Features
 
 Every control is in Wallpaper & style. This page lists each feature and its
-settings; the [README](../README.md) has the short version, and the other
-pages in [docs](README.md) say how each works.
+settings; the [README](../README.md) has the short version and
+[screenshots](../README.md#screenshots) of each, and the other pages in
+[docs](README.md) say how each works.
 
 <details open>
 <summary><b>🕘 Eight clock styles</b></summary>
@@ -27,23 +28,6 @@ share the screen.
 The other styles are inspired by those systems' lock screens and drawn in the
 Pixel's own Roboto Flex; no font or artwork of theirs is bundled.
 
-<table>
-<tr>
-<td align="center"><img src="screenshots/style-ios.png" width="250"><br><sub><b>iOS</b></sub></td>
-<td align="center"><img src="screenshots/style-hyper.png" width="250"><br><sub><b>Hyper</b></sub></td>
-</tr>
-<tr>
-<td align="center"><img src="screenshots/style-headline.png" width="250"><br><sub><b>Headline</b></sub></td>
-<td align="center"><img src="screenshots/style-poster.png" width="250"><br><sub><b>Poster</b></sub></td>
-<td align="center"><img src="screenshots/style-one.png" width="250"><br><sub><b>One</b></sub></td>
-</tr>
-<tr>
-<td align="center"><img src="screenshots/style-horizon.png" width="250"><br><sub><b>Horizon</b></sub></td>
-<td align="center"><img src="screenshots/style-dot.png" width="250"><br><sub><b>Dot</b></sub></td>
-<td align="center"><img src="screenshots/style-cinema.png" width="250"><br><sub><b>Cinema</b>, behind the subject</sub></td>
-</tr>
-</table>
-
 Every large face writes its own date where its design puts it, so SystemUI's
 date and weather row is left out beside it rather than shown twice.
 
@@ -66,21 +50,6 @@ The iOS time is set at one text size, as on iOS, so "1:11" is narrower than
 sets only how tall, so a taller size stretches the figures upward rather than
 crowding the screen. Every pair of figures stands the same gap apart, and the
 sliders glide the preview to each step.
-
-<table>
-<tr>
-<td align="center"><img src="screenshots/ios-width-widest.png" width="250"><br><sub>iOS at the first width stop: <code>wght</code> 200, <code>wdth</code> 120</sub></td>
-<td align="center"><img src="screenshots/ios-width-narrowest.png" width="250"><br><sub>At the last width stop: <code>wght</code> 800, <code>wdth</code> 30</sub></td>
-</tr>
-<tr>
-<td align="center"><img src="screenshots/style-ios.png" width="250"><br><sub>The smallest size: Google's own clock height</sub></td>
-<td align="center"><img src="screenshots/ios-size-largest.png" width="250"><br><sub>The largest size, behind the depth effect's subject</sub></td>
-</tr>
-<tr>
-<td align="center"><img src="screenshots/page-size.png" width="250"><br><sub>Clock → Size</sub></td>
-<td></td>
-</tr>
-</table>
 
 </details>
 
@@ -105,12 +74,6 @@ so its corners never run under the status bar or onto the fingerprint sensor,
 and the depth effect and the card under the clock follow it. The always-on
 display shows the clock upright, and it turns into its tilt as the screen
 wakes.
-
-<table>
-<tr>
-<td align="center"><img src="screenshots/page-position.png" width="250"><br><sub>Clock → Position, Adaptive off</sub></td>
-</tr>
-</table>
 
 </details>
 
@@ -191,13 +154,6 @@ meanwhile — silent, with its icon in the status bar — then **Depth effect
 ready** for a few seconds. A photo already seen shows its effect at once. Live
 wallpapers are drawn by their own apps and have no depth effect.
 
-<table>
-<tr>
-<td align="center"><img src="screenshots/page-depth-effect.png" width="250"><br><sub>The Depth effect page</sub></td>
-<td align="center"><img src="screenshots/lockscreen-depth.png" width="250"><br><sub>The subject in front of the time, by the depth map</sub></td>
-</tr>
-</table>
-
 </details>
 
 <details open>
@@ -224,13 +180,6 @@ burn-in.
 With notifications, the rows are spaced as SystemUI spaces its own: a small
 module face is given the band the lock screen lays its own small clock out in,
 so the date row and the notifications below it keep their distances.
-
-<table>
-<tr>
-<td align="center"><img src="screenshots/page-always-on-display.png" width="250"><br><sub>The Always-on display page</sub></td>
-<td align="center"><img src="screenshots/aod-small-clock.png" width="250"><br><sub>Notifications on the always-on display</sub></td>
-</tr>
-</table>
 
 </details>
 
@@ -266,12 +215,6 @@ contract moved when it is not.
 | **Per-feature hooks** | A feature whose required contract is missing never installs its hooks. It switches itself off and logs why; clocks, the depth effect, the picker pages and smartspace placement each stand or fall alone. |
 | **Verified builds** | The Android builds each feature has been run on, so a snapshot from an unverified build reads as untested rather than broken. |
 | **Safe Mode** | Repeated crashes in a hooked process turn every hook off and post a notification, rather than leaving you with a lock screen or a picker you cannot use. Clearing it is one tap. |
-
-<table>
-<tr>
-<td align="center"><img src="screenshots/page-diagnostics.png" width="250"><br><sub>On Android 17 QPR1: every feature compatible</sub></td>
-</tr>
-</table>
 
 </details>
 
