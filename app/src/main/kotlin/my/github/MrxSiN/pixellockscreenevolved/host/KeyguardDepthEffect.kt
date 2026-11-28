@@ -59,6 +59,8 @@ internal class KeyguardDepthEffect(
     private val feed: LockWallpaperFeed,
     private val modulePackage: String,
     private val previews: KeyguardPreviewWallpapers,
+    /** SystemUI's reveal scrim, which the subject is shown through ([DepthLayer]); null where it cannot be read. */
+    private val scrimReveal: () -> ScrimReveal?,
     private val logger: Logger,
 ) : LockWallpaperFeed.Listener {
 
@@ -110,7 +112,7 @@ internal class KeyguardDepthEffect(
     fun track(clock: ClockControllerAdapter) {
         main.post {
             for (face in listOf(clock.largeFace, clock.smallFace)) {
-                add(face, DepthLayer(face, feed, overOtherWallpaper = { previews.showsOtherWallpaper(clock.controller) }))
+                add(face, DepthLayer(face, feed, scrimReveal, overOtherWallpaper = { previews.showsOtherWallpaper(clock.controller) }))
             }
         }
     }
@@ -123,7 +125,7 @@ internal class KeyguardDepthEffect(
         main.post {
             for (view in faces) {
                 if (shown.containsKey(view)) continue
-                add(view, DepthLayer(StockClockTarget(view), feed, overOtherWallpaper = { previews.showsOtherWallpaper(controller) }))
+                add(view, DepthLayer(StockClockTarget(view), feed, scrimReveal, overOtherWallpaper = { previews.showsOtherWallpaper(controller) }))
             }
         }
     }
@@ -272,10 +274,12 @@ internal class KeyguardDepthEffect(
                 sent,
                 careful,
                 wantsDepth,
+                // A mask kept without a depth map needs only the depth map, not the subject found again.
+                known = stored,
                 onMask = { mask, depth ->
                     worker.execute {
                         runCatching {
-                            cutouts.storeMask(key, mask)
+                            if (mask !== stored) cutouts.storeMask(key, mask)
                             depth?.let { cutouts.store(key, DepthCutout.Kind.DEPTH, it) }
                             publish(key, matteOf(cutouts, taken, mask, depth), grid)
                             progress.ready()

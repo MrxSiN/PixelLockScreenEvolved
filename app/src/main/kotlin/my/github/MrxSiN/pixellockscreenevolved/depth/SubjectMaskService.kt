@@ -27,7 +27,7 @@ import java.util.concurrent.Executors
  */
 class SubjectMaskService : Service() {
 
-    private class Request(val reply: Messenger, val id: Int, val photo: Bitmap, val careful: Boolean, val depth: Boolean)
+    private class Request(val reply: Messenger, val id: Int, val photo: Bitmap, val careful: Boolean, val depth: Boolean, val maskKnown: Boolean)
 
     private val executor = Executors.newSingleThreadExecutor()
     private val worker = NewestOnlyWorker<Request>(executor, ::segment) { fail(it.reply, it.id, SUPERSEDED) }
@@ -65,21 +65,27 @@ class SubjectMaskService : Service() {
         val photo = runCatching { message.data.getParcelable<Bitmap>(SubjectMaskContract.KEY_PHOTO) }.getOrNull()
             ?: return fail(reply, id, "no photo")
         val data = message.data
-        worker.submit(Request(reply, id, photo, data.getBoolean(SubjectMaskContract.KEY_CAREFUL), data.getBoolean(SubjectMaskContract.KEY_DEPTH)))
+        val depth = data.getBoolean(SubjectMaskContract.KEY_DEPTH)
+        // A known mask with no depth map wanted would ask for nothing, so it is taken as asking for the mask.
+        val maskKnown = depth && data.getBoolean(SubjectMaskContract.KEY_MASK_KNOWN)
+        worker.submit(Request(reply, id, photo, data.getBoolean(SubjectMaskContract.KEY_CAREFUL), depth, maskKnown))
     }
 
     private fun segment(request: Request) {
         val photo = request.photo
         val started = SystemClock.elapsedRealtime()
         runCatching {
-            val mask = (segmenter ?: SubjectSegmenter(assets).also { segmenter = it }).maskOf(photo, request.careful)
+            val mask = if (request.maskKnown) null else (segmenter ?: SubjectSegmenter(assets).also { segmenter = it }).maskOf(photo, request.careful)
             // The depth model is loaded and run only for a caller that lays the clock out by depth.
             val depth = if (!request.depth) null else runCatching { (estimator ?: DepthEstimator(assets).also { estimator = it }).depthOf(photo) }
-                .onFailure { Log.w(TAG, "Depth estimation failed; the mask is sent alone", it) }
+                .onFailure { Log.w(TAG, if (mask != null) "Depth estimation failed; the mask is sent alone" else "Depth estimation failed", it) }
                 .getOrNull()
+            // A request for the depth map alone that did not get one has nothing to send.
+            if (mask == null && depth == null) error("no depth map")
             Found(mask, depth)
         }.onSuccess { found ->
-            Log.i(TAG, "Found the subject${if (found.depth != null) " and depth" else ""} of a ${photo.width}x${photo.height} " +
+            val what = listOfNotNull("the subject".takeIf { found.mask != null }, "depth".takeIf { found.depth != null }).joinToString(" and ")
+            Log.i(TAG, "Found $what of a ${photo.width}x${photo.height} " +
                 "photo${if (request.careful) " carefully" else ""} in ${SystemClock.elapsedRealtime() - started} ms")
             send(request.reply, SubjectMaskContract.MASK, request.id, found.bundle())
         }.onFailure { error ->
@@ -88,9 +94,9 @@ class SubjectMaskService : Service() {
         }
     }
 
-    private class Found(val mask: Bitmap, val depth: Bitmap?) {
+    private class Found(val mask: Bitmap?, val depth: Bitmap?) {
         fun bundle() = Bundle().apply {
-            putParcelable(SubjectMaskContract.KEY_MASK, mask)
+            mask?.let { putParcelable(SubjectMaskContract.KEY_MASK, it) }
             depth?.let { putParcelable(SubjectMaskContract.KEY_DEPTH, it) }
         }
     }

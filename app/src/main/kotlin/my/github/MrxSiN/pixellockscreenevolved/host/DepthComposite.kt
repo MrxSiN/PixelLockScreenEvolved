@@ -10,12 +10,22 @@ import my.github.MrxSiN.pixellockscreenevolved.depth.GuidedFilter
  * unit tested. Every array is one value from 0 to 255 per pixel, row by row,
  * all the same size.
  *
- * With the depth map ([DepthLayers.DEPTH]) the clock is set at a plane in the
- * photo rather than behind one cut-out: the far side of the subject. Whatever
- * is at least as near as that plane stands in front of the clock even where
- * the mask missed it, a railing or a branch before the subject, and whatever
- * the mask took in that is well behind the plane, the sky between an arm and a
- * body, goes back behind it.
+ * With the depth map ([DepthLayers.DEPTH]) the depth decides two things the
+ * mask got wrong, as marks of the same kind as a person's edits ([depthEdits]):
+ * what is at least as near as the subject and touches it, a railing or a hand
+ * held out before it, stands in front even where the mask missed it, and what
+ * the mask took in, was unsure of and is far behind the subject, the sky between
+ * an arm and a body, goes back behind the clock. Each is decided outright, kept
+ * only where it is wider than [depthEdits]' band, and its edge then snapped to
+ * the photo's ([snapEdits]).
+ *
+ * The depth map is found at 518 px and its edges are soft, so along the
+ * subject's outline it reads the subject as partly the wall behind it, and the
+ * wall as partly the subject. Taken as it came, it cut a band out of the
+ * subject's hair and shoulders (4 624 px of a 1024 x 668 photo's subject on the
+ * test phone, the time showing through them), and took away a block of hair the
+ * mask was sure of that it could not tell from the wall: the mask is found at
+ * 1024 px and is the better judge of the outline wherever it is sure.
  */
 internal object DepthComposite {
 
@@ -26,17 +36,20 @@ internal object DepthComposite {
     private const val LEAST_SUBJECT = 0.005f
 
     /**
-     * The plane is this far behind the subject's median depth, in steps out of 255: its far side.
-     * The median, not a low percentile, since what the mask took in by mistake (sky between an arm
-     * and a body) is far and would drag a low percentile back to it.
+     * How much farther than the subject's median depth, in steps out of 255, a pixel the mask missed may be
+     * and still be added. The median, not a low percentile, since what the mask took in by mistake (sky
+     * between an arm and a body) is far and would drag a low percentile back to it.
      */
-    private const val FAR_SIDE = 25
+    private const val ADD_BEHIND = 10
 
-    /** The plane's soft edge, either side of it, in depth steps out of 255. */
-    private const val SOFTNESS = 10
+    /** How much farther than the subject's median depth a pixel of the mask may be before it is the background showing through. */
+    private const val REMOVE_BEHIND = 65
 
-    /** How far behind the plane a pixel of the mask is still kept: further, and it is the background showing through the subject. */
-    private const val BEHIND = 40
+    /** Mask alpha from which the mask is sure of a pixel, and the depth map does not take it away. */
+    private const val SURE = 250
+
+    /** A box mean from which every pixel of a window is marked, against float rounding. */
+    private const val WHOLE = 0.9999f
 
     /** How [edits] mark a pixel: left as found, made the subject's, or made the background's. */
     const val UNEDITED = 128
@@ -44,19 +57,21 @@ internal object DepthComposite {
     const val REMOVED = 0
 
     /**
-     * The mask [alpha] laid against [depth] (255 nearest), in place, or left as it was where the
-     * subject is too small to set a plane by; [alpha] is returned either way.
+     * What [depth] (255 nearest) changes of the mask [alpha], both [width] by [height], as marks laid over
+     * it with [applyEdits]: [ADDED] where a pixel the mask missed is about as near as the subject and
+     * reached from it through such pixels, [REMOVED] where a pixel of the mask is unsure and far behind it,
+     * [UNEDITED] elsewhere; null where the subject is too small to set a depth by. A change narrower than
+     * [band] pixels either side is the depth map's soft edge, not a thing in the photo, and is left out.
      */
-    fun combine(alpha: IntArray, depth: IntArray): IntArray {
-        require(alpha.size == depth.size) { "mask and depth must be one size" }
+    fun depthEdits(alpha: IntArray, depth: IntArray, width: Int, height: Int, band: Int): IntArray? {
+        require(alpha.size == depth.size && alpha.size == width * height) { "mask and depth must be width × height" }
         val histogram = IntArray(256)
         var solid = 0
         for (i in alpha.indices) if (alpha[i] >= SOLID) {
             histogram[depth[i]]++
             solid++
         }
-        if (solid < alpha.size * LEAST_SUBJECT) return alpha
-        // The subject's depths from far (0) to near (255): its median, less the far side.
+        if (solid < alpha.size * LEAST_SUBJECT) return null
         var seen = 0
         var median = 0
         while (median < 255) {
@@ -64,13 +79,52 @@ internal object DepthComposite {
             if (seen * 2 >= solid) break
             median++
         }
-        val plane = median - FAR_SIDE
+        val addFrom = median - ADD_BEHIND
+        val removeBelow = median - REMOVE_BEHIND
+        val marks = IntArray(alpha.size) { UNEDITED }
+        // From every pixel of the subject kept, out through its 4-neighbours as near as it: a near
+        // patch that does not touch the subject (the ground in a corner) stays behind the clock.
+        val reached = BooleanArray(alpha.size)
+        val stack = IntArray(alpha.size)
+        var top = 0
         for (i in alpha.indices) {
-            val near = ramp(depth[i], plane - SOFTNESS, plane + SOFTNESS)
-            val kept = ramp(depth[i], plane - BEHIND - SOFTNESS, plane - BEHIND + SOFTNESS)
-            alpha[i] = maxOf(alpha[i] * kept / 255, near)
+            if (alpha[i] in 1 until SURE && depth[i] < removeBelow) marks[i] = REMOVED
+            else if (alpha[i] >= SOLID) {
+                reached[i] = true
+                stack[top++] = i
+            }
         }
-        return alpha
+        fun reach(n: Int) {
+            if (reached[n] || depth[n] < addFrom) return
+            reached[n] = true
+            stack[top++] = n
+            if (alpha[n] < SOLID) marks[n] = ADDED
+        }
+        while (top > 0) {
+            val i = stack[--top]
+            val x = i % width
+            if (x > 0) reach(i - 1)
+            if (x < width - 1) reach(i + 1)
+            if (i >= width) reach(i - width)
+            if (i + width < alpha.size) reach(i + width)
+        }
+        keepWide(marks, REMOVED, width, height, band)
+        keepWide(marks, ADDED, width, height, band)
+        return marks
+    }
+
+    /**
+     * Clears every [mark] in [marks] that no square [radius] pixels either side fits wholly inside (a
+     * morphological opening), in place: bands and slivers narrower than the square go, and what is wider
+     * keeps its shape.
+     */
+    private fun keepWide(marks: IntArray, mark: Int, width: Int, height: Int, radius: Int) {
+        if (radius <= 0 || mark !in marks) return
+        val inside = FloatArray(marks.size) { if (marks[it] == mark) 1f else 0f }
+        val core = GuidedFilter.boxMean(inside, width, height, radius)
+        for (i in core.indices) core[i] = if (core[i] >= WHOLE) 1f else 0f
+        val opened = GuidedFilter.boxMean(core, width, height, radius)
+        for (i in marks.indices) if (marks[i] == mark && opened[i] <= 0f) marks[i] = UNEDITED
     }
 
     /** [alpha] with a person's [edits] laid over it, in place. */
@@ -105,13 +159,5 @@ internal object DepthComposite {
             alpha[i] = (alpha[i] + (snapped - alpha[i]) * weight + 0.5f).toInt().coerceIn(0, 255)
         }
         return alpha
-    }
-
-    /** 0 at and below [from], 255 at and above [to], eased between. */
-    private fun ramp(value: Int, from: Int, to: Int): Int {
-        if (value <= from) return 0
-        if (value >= to) return 255
-        val t = (value - from).toFloat() / (to - from)
-        return (t * t * (3f - 2f * t) * 255f + 0.5f).toInt()
     }
 }

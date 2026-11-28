@@ -214,7 +214,9 @@ class PixelLockScreenEvolvedModule : XposedModule() {
                 val wallpaperFeed = LockWallpaperFeed(hooks, logger)
                 loaded.wallpaperFeed = wallpaperFeed
                 val aodWallpaper = KeyguardAodWallpaper(hooksFor(Feature.AOD_WALLPAPER), wallpaperFeed, logger)
-                val depthEffect = KeyguardDepthEffect(wallpaperFeed, moduleApplicationInfo.packageName, previewWallpapers, logger)
+                // The subject follows the reveal scrim the always-on wallpaper reads, where that patch is on.
+                val scrimReveal = { aodWallpaper.reveal.takeIf { aod } }
+                val depthEffect = KeyguardDepthEffect(wallpaperFeed, moduleApplicationInfo.packageName, previewWallpapers, scrimReveal, logger)
                 if (aod) wallpaperFeed.addListener(aodWallpaper)
                 if (depth) {
                     wallpaperFeed.addListener(depthEffect)

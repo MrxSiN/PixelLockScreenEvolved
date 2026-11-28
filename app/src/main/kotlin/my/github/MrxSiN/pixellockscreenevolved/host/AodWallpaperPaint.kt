@@ -11,6 +11,7 @@ import android.graphics.Shader
 import android.util.TypedValue
 
 import kotlin.math.cos
+import kotlin.math.hypot
 import kotlin.math.roundToInt
 import kotlin.math.sin
 
@@ -52,6 +53,7 @@ internal class AodWallpaperPaint(private val resources: Resources) {
     fun draw(canvas: Canvas, look: AodWallpaperLook, width: Int, height: Int, placed: WallpaperPlacement.Placed, progress: Float = 1f) {
         shader.setFloatUniform("progress", progress.coerceIn(0f, 1f))
         shader.setFloatUniform("origin", width / 2f, height / 2f)
+        shader.setFloatUniform("leadScale", LEAD / (hypot(width / 2f, height / 2f) + 1f))
         paint(canvas, look, width, height, placed, whole)
     }
 
@@ -70,6 +72,7 @@ internal class AodWallpaperPaint(private val resources: Resources) {
         shader.setFloatUniform("cell", cell)
         shader.setFloatUniform("progress", 1f)
         shader.setFloatUniform("origin", width / 2f, height / 2f)
+        shader.setFloatUniform("leadScale", LEAD / (hypot(width / 2f, height / 2f) + 1f))
         canvas.drawRect(0f, 0f, width, height, whole)
     }
 
@@ -122,6 +125,9 @@ internal class AodWallpaperPaint(private val resources: Resources) {
          */
         const val BRIGHTNESS = 0.25f
 
+        /** How far behind the middle of the screen its corners turn from photo to dots, as a share of the way. */
+        const val LEAD = 0.4f
+
         /** Pixels the dot grid steps across and down each minute; prime to the cell, so every offset comes round. */
         const val DOT_STEP_X = 7
         const val DOT_STEP_Y = 4
@@ -148,6 +154,7 @@ internal class AodWallpaperPaint(private val resources: Resources) {
             uniform float2 shift;
             uniform float progress;
             uniform float2 origin;
+            uniform float leadScale;
 
             half lightness(half3 c) { return dot(c, half3(0.2126, 0.7152, 0.0722)); }
 
@@ -162,8 +169,7 @@ internal class AodWallpaperPaint(private val resources: Resources) {
                     if (hasSubject > 0.5) light *= float(subject.eval(centre).a);
                     // How far this cell has gone from the photo to its dot: the middle of the screen leads,
                     // the corners follow within the last part of the way.
-                    float reach = length(origin) + 1.0;
-                    float lead = distance(centre, origin) / reach * 0.4;
+                    float lead = distance(centre, origin) * leadScale;
                     float t = smoothstep(0.0, 1.0, clamp((progress - lead) / 0.6, 0.0, 1.0));
                     // Dots are lit nearly as brightly as the clock beside them, a little under it so the
                     // two still tell apart: the always-on display holds greys unsteadily and dimmed dots

@@ -16,9 +16,6 @@ internal interface DepthTarget {
     /** The part of [view] the subject stands in front of, and must leave readable. */
     val depthView: View
 
-    /** How far the clock has come in as it changes size, from 0 to 1. */
-    val arrival: Float
-
     /** How far into the always-on display, from 0 awake to 1 dozing. */
     val dozeFraction: Float
 
@@ -46,7 +43,6 @@ internal interface DepthTarget {
 internal class StockClockTarget(override val view: View) : DepthTarget {
 
     override val depthView: View get() = view
-    override val arrival: Float get() = 1f
     override val dozeFraction: Float get() = if ((view.display?.state ?: Display.STATE_ON) == Display.STATE_ON) 0f else 1f
     override val timeChanging: Boolean get() = false
     override val timeChanges: Int get() = (System.currentTimeMillis() / MINUTE_MS).toInt()

@@ -41,6 +41,8 @@ internal class SubjectMaskClient(
         val onFailed: () -> Unit,
         val careful: Boolean,
         val depth: Boolean,
+        /** The photo's mask, kept already, where only its depth map is asked for. */
+        val known: Bitmap?,
         var attempts: Int = 0,
     )
 
@@ -64,10 +66,19 @@ internal class SubjectMaskClient(
     /**
      * Asks for [photo]'s subject mask, looked for twice over where [careful]
      * ([SubjectMaskContract.KEY_CAREFUL]), and its depth map too where [depth]; [onMask] hears
-     * them, or [onFailed] that they were given up, on the main thread. Call on the main thread.
+     * them, or [onFailed] that they were given up, on the main thread. Where the mask is [known]
+     * already and the depth map is wanted, only the depth map is asked for
+     * ([SubjectMaskContract.KEY_MASK_KNOWN]) and [onMask] hears it with [known]. Call on the main thread.
      */
-    fun request(photo: Bitmap, careful: Boolean, depth: Boolean, onMask: (mask: Bitmap, depth: Bitmap?) -> Unit, onFailed: () -> Unit) {
-        pending = Pending(++requestId, photo, onMask, onFailed, careful, depth)
+    fun request(
+        photo: Bitmap,
+        careful: Boolean,
+        depth: Boolean,
+        onMask: (mask: Bitmap, depth: Bitmap?) -> Unit,
+        onFailed: () -> Unit,
+        known: Bitmap? = null,
+    ) {
+        pending = Pending(++requestId, photo, onMask, onFailed, careful, depth, known.takeIf { depth })
         if (service != null) send(requireNotNull(pending)) else bind()
     }
 
@@ -89,6 +100,7 @@ internal class SubjectMaskClient(
                 putParcelable(SubjectMaskContract.KEY_PHOTO, request.photo)
                 putBoolean(SubjectMaskContract.KEY_CAREFUL, request.careful)
                 putBoolean(SubjectMaskContract.KEY_DEPTH, request.depth)
+                putBoolean(SubjectMaskContract.KEY_MASK_KNOWN, request.known != null)
             }
             replyTo = replies
         }
@@ -100,10 +112,11 @@ internal class SubjectMaskClient(
         when (message.what) {
             SubjectMaskContract.MASK -> {
                 @Suppress("DEPRECATION")
-                val mask = message.data.getParcelable<Bitmap>(SubjectMaskContract.KEY_MASK)
+                val mask = message.data.getParcelable<Bitmap>(SubjectMaskContract.KEY_MASK) ?: request.known
                     ?: return retry(request, "empty mask")
                 @Suppress("DEPRECATION")
                 val depth = message.data.getParcelable<Bitmap>(SubjectMaskContract.KEY_DEPTH)
+                if (request.known != null && depth == null) return retry(request, "empty depth map")
                 pending = null
                 unbind()
                 request.onMask(mask, depth)

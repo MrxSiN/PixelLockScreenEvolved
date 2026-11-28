@@ -11,7 +11,6 @@ import java.util.zip.CRC32
 import kotlin.math.max
 import kotlin.math.roundToInt
 
-import my.github.MrxSiN.pixellockscreenevolved.depth.GuidedFilter
 import my.github.MrxSiN.pixellockscreenevolved.depth.SubjectMaskContract
 
 /**
@@ -58,30 +57,40 @@ internal class DepthCutout(cacheDirectory: File) {
         photo: Bitmap? = null,
         edits: Bitmap? = null,
     ): Bitmap {
-        val alpha = composedAlpha(mask, mainOnly, depth, photo)
+        // The photo's luma, 4 MB at 1024 px, is read once however many steps snap to it.
+        var guide: FloatArray? = null
+        val guideOnce = { source: Bitmap -> guide ?: guideOf(source).also { guide = it } }
+        val alpha = composedAlpha(mask, mainOnly, depth, photo, guideOnce)
         edits?.let {
             val marks = alphaOf(it, mask.width, mask.height)
             DepthComposite.applyEdits(alpha, marks)
             // The brush's round edge is snapped to the photo's own edges where a stroke ran past them.
             if (photo != null && photo.width == mask.width && photo.height == mask.height) {
-                DepthComposite.snapEdits(alpha, marks, guideOf(photo), mask.width, mask.height, guideRadius(mask.width, mask.height), GUIDE_EPSILON)
+                DepthComposite.snapEdits(alpha, marks, guideOnce(photo), mask.width, mask.height, guideRadius(mask.width, mask.height), GUIDE_EPSILON)
             }
         }
         return stretch(alpha, mask.width, mask.height, surface)
     }
 
     /** [mask]'s alpha as [matte] lays it out before any edits, one value from 0 to 255 per pixel at the mask's size. */
-    fun composedAlpha(mask: Bitmap, mainOnly: Boolean, depth: Bitmap?, photo: Bitmap?): IntArray {
+    fun composedAlpha(
+        mask: Bitmap,
+        mainOnly: Boolean,
+        depth: Bitmap?,
+        photo: Bitmap?,
+        guide: (Bitmap) -> FloatArray = ::guideOf,
+    ): IntArray {
         val width = mask.width
         val height = mask.height
         val alpha = alphaOf(mask, width, height)
         for (i in alpha.indices) alpha[i] = (alpha[i] - HAZE).coerceAtLeast(0) * OPAQUE / (OPAQUE - HAZE)
         if (mainOnly) SubjectComponents.mainOnly(alpha, width, height)
         if (depth != null && photo != null && photo.width == width && photo.height == height) {
-            DepthComposite.combine(alpha, alphaOf(depth, width, height))
-            // The depth map is coarser than the mask; its edge is snapped to the photo's as the mask's was.
-            val refined = GuidedFilter.apply(guideOf(photo), FloatArray(alpha.size) { alpha[it] / OPAQUE.toFloat() }, width, height, guideRadius(width, height), GUIDE_EPSILON)
-            for (i in alpha.indices) alpha[i] = (refined[i] * OPAQUE + 0.5f).toInt()
+            DepthComposite.depthEdits(alpha, alphaOf(depth, width, height), width, height, guideRadius(width, height) / 2)?.let { marks ->
+                DepthComposite.applyEdits(alpha, marks)
+                // The depth map is coarser than the mask: only the edges it changed are snapped to the photo's, so the mask's own are not softened again.
+                DepthComposite.snapEdits(alpha, marks, guide(photo), width, height, guideRadius(width, height), GUIDE_EPSILON)
+            }
         }
         return alpha
     }

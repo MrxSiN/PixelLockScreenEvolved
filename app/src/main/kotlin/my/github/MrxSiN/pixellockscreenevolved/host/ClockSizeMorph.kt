@@ -17,8 +17,8 @@ import my.github.MrxSiN.pixellockscreenevolved.motion.SystemMotion
  * frame the face being shown is laid out, its time is moved and scaled back
  * over the time just left and then carried into its own place on a spring
  * that sets off from rest, so it neither jumps at the start nor crawls at the
- * end, while the rest of that face (the large face's date, and the depth
- * effect's subject beside it) fades in around it ([ClockFaceAdapter.arrival]).
+ * end, while the rest of that face (the large face's date) fades in around it.
+ * The depth effect's subject is not faded: the time slides behind it ([DepthLayer]).
  */
 internal class ClockSizeMorph {
 
@@ -64,7 +64,6 @@ internal class ClockSizeMorph {
             time.scaleX = lerp(fromScaleX, 1f, progress)
             time.scaleY = lerp(fromScaleY, 1f, progress)
             for (view in around) view.alpha = faded
-            to.arrival = faded
         }
         show(0f, 0f)
         running = MOVE.animator(

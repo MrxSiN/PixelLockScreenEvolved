@@ -302,8 +302,11 @@ internal class PickerDotDensity(private val rows: PickerRows) {
             val handleX = xOf(position)
             val left = start - radius
             val right = end + radius
-            val (filledFrom, filledTo) = if (isRtl) handleX + gap to right else left to handleX - gap
-            val (emptyFrom, emptyTo) = if (isRtl) left to handleX - gap else handleX + gap to right
+            // Plain values rather than pairs: this draws every frame of a drag, and a pair of floats boxes both.
+            val filledFrom = if (isRtl) handleX + gap else left
+            val filledTo = if (isRtl) right else handleX - gap
+            val emptyFrom = if (isRtl) left else handleX + gap
+            val emptyTo = if (isRtl) handleX - gap else right
 
             paint.color = inactive
             if (emptyTo > emptyFrom) {

@@ -3,11 +3,9 @@ package my.github.MrxSiN.pixellockscreenevolved.depth
 import android.content.res.AssetManager
 import android.graphics.Bitmap
 
-import java.io.FileInputStream
 import java.nio.ByteBuffer
 import java.nio.ByteOrder
 import java.nio.FloatBuffer
-import java.nio.channels.FileChannel
 
 import kotlin.math.max
 import kotlin.math.roundToInt
@@ -31,7 +29,7 @@ import ai.onnxruntime.OrtSession
 internal class DepthEstimator(assets: AssetManager) : AutoCloseable {
 
     private val environment = OrtEnvironment.getEnvironment()
-    private val session: OrtSession = environment.createSession(map(assets), OrtSession.SessionOptions().apply { setMemoryPatternOptimization(false) })
+    private val session: OrtSession = environment.createSession(SubjectSegmenter.map(assets, MODEL_PATH), SubjectSegmenter.sessionOptions())
     private val inputName = session.inputNames.first()
 
     /** An `ALPHA_8` bitmap, at the size the model worked at, whose alpha is how near each pixel is: 255 nearest. */
@@ -58,11 +56,6 @@ internal class DepthEstimator(assets: AssetManager) : AutoCloseable {
         const val MODEL_PATH = "models/depth_anything_v2_small.onnx"
         const val ALPHA_SHIFT = 24
 
-        fun map(assets: AssetManager): ByteBuffer = assets.openFd(MODEL_PATH).use { file ->
-            FileInputStream(file.fileDescriptor).channel.use { channel ->
-                channel.map(FileChannel.MapMode.READ_ONLY, file.startOffset, file.length)
-            }
-        }
     }
 }
 

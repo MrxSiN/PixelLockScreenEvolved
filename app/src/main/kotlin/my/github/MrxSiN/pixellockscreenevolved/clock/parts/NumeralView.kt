@@ -38,7 +38,15 @@ import kotlin.math.min
  */
 class NumeralView(context: Context, private var cut: FlexCut) : View(context) {
 
+    /** In the awake cut, always: it measures and places the line. */
     private val paint = Paint(Paint.ANTI_ALIAS_FLAG).apply { typeface = FlexCut.typeface }
+
+    /**
+     * In the cut the strokes are drawn in now ([shownCut]). A paint of its own, so neither is switched to the
+     * other's cut and back on every step of a doze: each switch builds a new varied typeface, and four lines doing
+     * three each took Headline's doze to 14 ms a step on the lock screen's main thread (MEASURED with atrace).
+     */
+    private val strokePaint = Paint(Paint.ANTI_ALIAS_FLAG).apply { typeface = FlexCut.typeface }
     private val ink = DozeInk(context)
     private val digits = DigitRoll(this, ink)
     private val numerals = Rect()
@@ -61,6 +69,15 @@ class NumeralView(context: Context, private var cut: FlexCut) : View(context) {
     /** How far an enter or charge animation holds the strokes toward the light cut, from 0 to 1. */
     private var lift = 0f
     private var pulse: android.animation.Animator? = null
+
+    /** The awake and the light cut's glyphs for the text and size set now ([glyphs]); null until asked for again. */
+    private var ends: Pair<List<DigitRoll.Glyph>, List<DigitRoll.Glyph>>? = null
+
+    /**
+     * The glyphs between [ends], their paths written over on each step of a doze or a pulse rather than made
+     * anew; built with the ends, so a list a minute's roll still holds is never written over.
+     */
+    private var tweened: List<DigitRoll.Glyph>? = null
 
     /**
      * Whether the always-on display traces the awake cut in [DozeInk]'s thin outline rather than
@@ -145,9 +162,11 @@ class NumeralView(context: Context, private var cut: FlexCut) : View(context) {
     fun setDoze(fraction: Float) {
         val next = fraction.coerceIn(0f, 1f)
         if (next == doze) return
+        val before = thinned()
         doze = next
         if (dozesAsOutline) ink.outline = next
-        restroke()
+        // An outlined cut keeps its strokes through the doze; only the ink changes, and the glyphs stand.
+        if (thinned() != before) restroke() else invalidate()
     }
 
     /** Grows the strokes from the light cut to the awake one, as the lock screen appears. */
@@ -235,8 +254,14 @@ class NumeralView(context: Context, private var cut: FlexCut) : View(context) {
 
     private fun horizontalGravity(): Int = Gravity.getAbsoluteGravity(gravity, layoutDirection) and Gravity.HORIZONTAL_GRAVITY_MASK
 
+    /** How far the strokes are thinned toward the light cut now, by the doze or a pulse, from 0 to 1. */
+    private fun thinned(): Float = max(if (dozesAsOutline) 0f else doze, lift)
+
+    /** The light cut the strokes thin toward. */
+    private fun lightCut(): FlexCut = cut.copy(weight = min(cut.weight, DOZE_WEIGHT))
+
     /** The cut the strokes are drawn in now: the awake cut, thinned as far as the doze or a pulse takes it. */
-    private fun shownCut(): FlexCut = cut.toward(cut.copy(weight = min(cut.weight, DOZE_WEIGHT)), max(if (dozesAsOutline) 0f else doze, lift))
+    private fun shownCut(): FlexCut = cut.toward(lightCut(), thinned())
 
     /** Sets the text size for [numeralHeight] and [maxWidth] in the awake cut, and lays the numerals out again at once. */
     private fun resize() {
@@ -247,6 +272,8 @@ class NumeralView(context: Context, private var cut: FlexCut) : View(context) {
 
     /** Sets the text size for [numeralHeight] and [maxWidth] in the awake cut. */
     private fun size() {
+        ends = null
+        tweened = null
         paint.fontVariationSettings = null
         paint.fontVariationSettings = cut.settings
         paint.textSize = PROBE_SIZE
@@ -267,26 +294,44 @@ class NumeralView(context: Context, private var cut: FlexCut) : View(context) {
         invalidate()
     }
 
-    /** The glyphs of [text] in the cut shown now, placed by the awake cut's advances so nothing shifts. */
+    /**
+     * The glyphs of [text] in the cut shown now. Between the awake and the light cut they are the two cuts'
+     * outlines interpolated: a variable font's outlines share one structure at every weight, and building a
+     * varied typeface and its glyphs for each step of a doze or a pulse kept the lock screen's main thread
+     * from drawing every frame (One's doze cost 3.6 ms a step, MEASURED with atrace). Where the outlines do
+     * not interpolate, the shown cut is set as it was.
+     */
     private fun glyphs(): List<DigitRoll.Glyph> {
-        paint.fontVariationSettings = null
-        paint.fontVariationSettings = cut.settings
-        // Primitive arrays: this runs on every frame the strokes thin or fill.
+        // Both ends are built as the text or size changes, once a minute, so a doze never starts with building them.
+        val (awake, light) = ends ?: (glyphsIn(cut) to glyphsIn(lightCut())).also { ends = it }
+        val t = thinned()
+        if (t <= 0f) return awake
+        if (t >= 1f) return light
+        val glyphs = tweened ?: List(awake.size) { DigitRoll.Glyph(Path(), awake[it].left) }.also { tweened = it }
+        for (i in awake.indices) {
+            // The weight is this path's share, not the other's (MEASURED: at 0.98 it gave the awake outline).
+            if (!awake[i].path.interpolate(light[i].path, 1f - t, glyphs[i].path)) return glyphsIn(shownCut())
+        }
+        return glyphs
+    }
+
+    /** The glyphs of [text] in [shown], placed by the awake cut's advances so nothing shifts. */
+    private fun glyphsIn(shown: FlexCut): List<DigitRoll.Glyph> {
         val advances = FloatArray(text.length) { paint.measureText(text, it, it + 1) }
         val lefts = FloatArray(text.length) { paint.measureText(text, 0, it) + spacing() * it }
-        paint.fontVariationSettings = shownCut().settings
+        strokePaint.textSize = paint.textSize
+        // Set only when it changes: Paint builds a typeface for each new setting and keeps it while it holds.
+        strokePaint.fontVariationSettings = shown.settings
         // Drawn from the baseline, so stretching about it leaves the line's own top where the draw expects it.
         stretching.setScale(1f, stretch)
         val glyphs = text.indices.map { index ->
             val path = Path()
             // A thinner glyph is centred in the awake one's advance, so the line keeps its rhythm as it thins.
-            val offset = (advances[index] - paint.measureText(text, index, index + 1)) / 2
-            paint.getTextPath(text, index, index + 1, lefts[index] + offset, 0f, path)
+            val offset = (advances[index] - strokePaint.measureText(text, index, index + 1)) / 2
+            strokePaint.getTextPath(text, index, index + 1, lefts[index] + offset, 0f, path)
             if (stretch != 1f) path.transform(stretching)
             DigitRoll.Glyph(path, lefts[index])
         }
-        paint.fontVariationSettings = null
-        paint.fontVariationSettings = cut.settings
         return glyphs
     }
 

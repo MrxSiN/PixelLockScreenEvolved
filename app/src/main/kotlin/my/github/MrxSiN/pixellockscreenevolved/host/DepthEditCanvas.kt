@@ -40,7 +40,7 @@ internal class DepthEditCanvas(
     private val photo: Bitmap,
     private val edits: SubjectEdits,
     /** The subject as found, before any edits, one value from 0 to 255 per pixel of [photo]. */
-    found: IntArray,
+    private val found: IntArray,
     /** The part of [photo] the lock screen shows, in its pixels, or null where it is not known. */
     private val frame: RectF?,
     private val palette: EditorPalette,
@@ -98,10 +98,22 @@ internal class DepthEditCanvas(
 
     private val density = resources.displayMetrics.density
     private val mask = Bitmap.createBitmap(photo.width, photo.height, Bitmap.Config.ALPHA_8)
-    private val original = Bitmap.createBitmap(photo.width, photo.height, Bitmap.Config.ALPHA_8).apply {
-        setPixels(IntArray(found.size) { found[it] shl 24 }, 0, photo.width, 0, 0, photo.width, photo.height)
-    }
     private val row = IntArray(photo.width)
+
+    /**
+     * The subject as found, drawn while compare is held: made the first time it is, a row at a time, so an
+     * editor never compared holds no second mask, and none opens with a photo-sized array of colours.
+     */
+    private var original: Bitmap? = null
+
+    private fun original(): Bitmap = original ?: Bitmap.createBitmap(photo.width, photo.height, Bitmap.Config.ALPHA_8).also { made ->
+        val width = photo.width
+        for (y in 0 until photo.height) {
+            for (x in 0 until width) row[x] = found[y * width + x] shl 24
+            made.setPixels(row, 0, width, 0, y, width, 1)
+        }
+        original = made
+    }
 
     // Where the photo is: its pixels scaled by [scale], its top left corner at ([tx], [ty]).
     private var scale = 1f
@@ -211,7 +223,7 @@ internal class DepthEditCanvas(
     fun release() {
         settling?.cancel()
         mask.recycle()
-        original.recycle()
+        original?.recycle()
     }
 
     private val homeScale: Float
@@ -280,7 +292,7 @@ internal class DepthEditCanvas(
 
     /** The photo through [matrix], with the subject shown as [look] asks. */
     private fun drawPhoto(canvas: Canvas, matrix: Matrix) {
-        val mask = if (comparing) original else mask
+        val mask = if (comparing) original() else mask
         when (look) {
             Look.PHOTO -> canvas.drawBitmap(photo, matrix, plain)
             Look.OVERLAY -> {

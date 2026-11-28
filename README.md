@@ -4,394 +4,84 @@
 
 # Pixel Lock Screen Evolved
 
-**The lock screen clocks and depth effect the Android 17 Pixel does not ship — picked where you already choose one.**
-
-Wallpaper & style → **Clock** → iOS, Hyper, Headline, Poster, One, Horizon, Dot or Cinema, beside Google's own.
-
-<br>
+**The lock screen clocks and depth effect the Android 17 Pixel does not ship, picked where you already choose one.**
 
 [![Release](https://img.shields.io/github/v/release/MrxSiN/PixelLockScreenEvolved?include_prereleases&color=5B3DF5&label=release&style=for-the-badge)](https://github.com/MrxSiN/PixelLockScreenEvolved/releases)
 [![Downloads](https://img.shields.io/github/downloads/MrxSiN/PixelLockScreenEvolved/total?color=3DDC84&logo=android&logoColor=fff&style=for-the-badge)](https://github.com/MrxSiN/PixelLockScreenEvolved/releases)
-[![Android](https://img.shields.io/badge/Android-17%20QPR1-3DDC84?logo=android&logoColor=fff&style=for-the-badge)](https://developer.android.com)
-[![Licence](https://img.shields.io/github/license/MrxSiN/PixelLockScreenEvolved?color=5B3DF5&style=for-the-badge)](LICENSE)
+[![Android](https://img.shields.io/badge/Android-17%20QPR1-3DDC84?logo=android&logoColor=fff&style=for-the-badge)](#install)
+[![Sponsor](https://img.shields.io/badge/Sponsor-%E2%9D%A4-EA4AAA?logo=githubsponsors&logoColor=fff&style=for-the-badge)](https://github.com/sponsors/MrxSiN)
+
+<img src="docs/screenshots/lockscreen-depth.png" width="240" alt="The depth effect: the wallpaper's subject in front of the iOS clock">
+<img src="docs/screenshots/ios-size-largest.png" width="240" alt="The iOS clock at its largest size">
+<img src="docs/screenshots/page-depth-effect.png" width="240" alt="The Depth effect page in Wallpaper & style">
 
 </div>
-
----
-
-> [!NOTE]
-> **v0.0.8 is fully compatible with the latest Android release: Android 17 QPR1
-> (November 2026, `CP4A.261105.040.A1`), tested on a Pixel 8 Pro.** QPR1 moved the
-> lock screen into a Compose scene and dropped a number of older clock APIs;
-> every feature in this module runs on that scene, and the compatibility report
-> in Wallpaper & style shows each hook it depends on resolving on your own build.
-
-## Why it works this way
-
-Most lock screen modules draw a clock over SystemUI's and hide the real one.
-This one does not. Its clocks are added to SystemUI's own clock registry, the
-same place Google's clocks come from, so SystemUI lays them out, dims them for
-the always-on display, moves them for burn-in and previews them itself — and
-Wallpaper & style lists them, previews them and stores the choice as it does
-for any clock.
-
-|  | |
-|---|---|
-| 🎯 **Native** | Chosen, previewed and applied in Wallpaper & style. No settings app, no second preview. |
-| 🌗 **Everywhere a clock is** | The lock screen, the picker preview and the always-on display, following the wallpaper's colours. |
-| 🔙 **Leaves nothing behind** | Nothing is written but the clock choice the picker itself stores. Disabling the module falls back to the default clock. |
-| 🧩 **One contract** | A clock style knows nothing of SystemUI; `host/` adapts any `ClockStyle` to SystemUI's clock plugin interfaces. |
-| 🛟 **Fails softly** | Every hook belongs to one feature. A feature whose host API moved switches itself off and says so; the rest keep working. Repeated crashes turn on Safe Mode rather than leaving you with a lock screen you cannot use. |
-
----
 
 ## Features
 
-<details open>
-<summary><b>🕘 Five clock styles</b></summary>
-<br>
+- **Eight clock styles** in Wallpaper & style → **Clock**, beside Google's own: iOS, Hyper, Headline, Poster, One, Horizon, Dot and Cinema, each with Google's Style, Color and Size tabs and its own small face.
+- **Clock width, size and position:** the iOS width cuts, a size slider for every style, adaptive size, and a Position tab to drag the clock, snap it or turn it up to 90°.
+- **Depth effect:** the photo's subject stands in front of the time, found on the device. Optionally refined by a depth map, editable with a brush, and the time comes forward when it would be hard to read. It works with Google's clocks too.
+- **Always-on display:** keep the lock screen photo, in colour, greys or sparse dots of a size you choose.
+- **Double tap** an empty space on the lock screen to turn the screen off.
+- **Compatibility & diagnostics:** every host member checked on the phone before anything installs, per-feature fallbacks, and Safe Mode after repeated crashes.
 
-Each is a full Wallpaper & style clock, with Google's own **Style**, **Color**
-and **Size** tabs (and a **Position** tab for the clocks that can move), its own
-thumbnail in the clock list, and its own small face for when notifications
-share the screen.
-
-| Style | Large face | Small face |
-|---|---|---|
-| **iOS** | The date over a time on one line, set in AXS66Clock at one text size so its width follows the figures. 12-hour time without AM/PM or a leading zero, and padded 24-hour time. | The same clock at its default size with the date above. |
-| **Hyper** | After HyperOS's magazine lock screen: outlined, condensed figures, the hour (in the wallpaper's accent) over the minute, running down the whole screen, with the date beside them as a narrow column and the weekday turned on its side in an accent pill. The photo shows through the outlines, and its subject can stand in front of them. | One condensed line. |
-| **Headline** | After HyperOS: the time, the weekday and the date as one condensed, heavy headline down the start of the screen, each line as wide as the block, the minute in the wallpaper's accent colour. | One condensed line. |
-| **Poster** | After HyperOS: the weekday and the date as a bold title across the top, which the photo's subject stands in front of, and a small serif time set to the end below it, in the accent colour. | A serif time. |
-| **One** | After One UI: tall, light, slightly narrow figures, hour over minute, centred under the date. | One line. |
-| **Horizon** | After ColorOS and OxygenOS: one wide hairline line of time, the date and weather under it. | One line. |
-| **Dot** | After Nothing OS: a five-by-seven dot matrix, hour over minute, with a spaced capital date. The dots shrink on the always-on display. | One dot-matrix line. |
-| **Cinema** | Towering condensed figures side by side, stretched taller than the font, with a credit-line date: made to stand behind the depth effect's subject. | One line. |
-
-The other styles are inspired by those systems' lock screens and drawn in the
-Pixel's own Roboto Flex; no font or artwork of theirs is bundled.
-
-<table>
-<tr>
-<td align="center"><img src="docs/screenshots/style-ios.png" width="250"><br><sub><b>iOS</b></sub></td>
-<td align="center"><img src="docs/screenshots/style-hyper.png" width="250"><br><sub><b>Hyper</b></sub></td>
-</tr>
-<tr>
-<td align="center"><img src="docs/screenshots/style-headline.png" width="250"><br><sub><b>Headline</b></sub></td>
-<td align="center"><img src="docs/screenshots/style-poster.png" width="250"><br><sub><b>Poster</b></sub></td>
-<td align="center"><img src="docs/screenshots/style-one.png" width="250"><br><sub><b>One</b></sub></td>
-</tr>
-<tr>
-<td align="center"><img src="docs/screenshots/style-horizon.png" width="250"><br><sub><b>Horizon</b></sub></td>
-<td align="center"><img src="docs/screenshots/style-dot.png" width="250"><br><sub><b>Dot</b></sub></td>
-<td align="center"><img src="docs/screenshots/style-cinema.png" width="250"><br><sub><b>Cinema</b>, behind the subject</sub></td>
-</tr>
-</table>
-
-Every large face writes its own date where its design puts it, so SystemUI's
-date and weather row is left out beside it rather than shown twice.
-
-</details>
-
-<details open>
-<summary><b>📐 Clock face width and size</b></summary>
-<br>
-
-The picker's own two sliders, in the tabs Google puts them in. Every style has
-the size slider; the iOS clock has the width slider as well.
-
-| Control | Where | What it does |
-|---|---|---|
-| **Clock face width** (iOS) | Clock → Style | The same seven cuts Google's flex clock steps through, read from its own presets: `wght` 200 at `wdth` 120 through to `wght` 800 at `wdth` 30, widest and lightest first. The numerals grow heavier as they narrow, so every stop keeps about the same ink on screen. |
-| **Clock size** | Clock → Size | In place of the Large switch. Four steps for iOS, from the iOS default clock ("9:41" 0.45 of the screen's width, figures 0.18) to the tallest iOS 26 clock (0.70 wide, 0.68 tall), measured on Apple's own Lock Screen guide screenshots; six for the other styles. Moving the slider alone enables Apply. |
-
-The iOS time is set at one text size, as on iOS, so "1:11" is narrower than
-"12:59": the width cut sets how heavy the figures are, and the size
-sets only how tall, so a taller size stretches the figures upward rather than
-crowding the screen. Every pair of figures stands the same gap apart, and the
-sliders glide the preview to each step.
-
-<table>
-<tr>
-<td align="center"><img src="docs/screenshots/ios-width-widest.png" width="250"><br><sub>iOS at the first width stop: <code>wght</code> 200, <code>wdth</code> 120</sub></td>
-<td align="center"><img src="docs/screenshots/ios-width-narrowest.png" width="250"><br><sub>At the last width stop: <code>wght</code> 800, <code>wdth</code> 30</sub></td>
-</tr>
-<tr>
-<td align="center"><img src="docs/screenshots/style-ios.png" width="250"><br><sub>The smallest size: Google's own clock height</sub></td>
-<td align="center"><img src="docs/screenshots/ios-size-largest.png" width="250"><br><sub>The largest size, behind the depth effect's subject</sub></td>
-</tr>
-<tr>
-<td align="center"><img src="docs/screenshots/page-size.png" width="250"><br><sub>Clock → Size</sub></td>
-<td></td>
-</tr>
-</table>
-
-</details>
-
-<details open>
-<summary><b>📍 Clock position</b></summary>
-<br>
-
-Clock → **Position**, the last tab. With **Adaptive position** on, the clock
-stands where it hides least of the wallpaper's subject. Off, drag the clock in
-the preview itself: it follows the finger, snaps to the top, the quarters and
-the bottom, and keeps clear of the fingerprint sensor and the smartspace card.
-A hint beside the preview says so. Apply stores the place as a share of the
-screen, so it holds at every resolution.
-
-**Rotation** turns the clock up to 90° either way: twist it with two fingers
-anywhere around the preview (the empty sides too, not just on the clock), or
-use the Rotation slider under Adaptive position. One finger anywhere there
-drags the clock. The turn pulls
-gently onto upright, 15°, 30°, 45° and on its side, with a tick; a double tap,
-or **Reset** beside the Rotation label, stands the clock upright again. A turned clock is placed by the box it covers,
-so its corners never run under the status bar or onto the fingerprint sensor,
-and the depth effect and the card under the clock follow it. The always-on
-display shows the clock upright, and it turns into its tilt as the screen
-wakes.
-
-<table>
-<tr>
-<td align="center"><img src="docs/screenshots/page-position.png" width="250"><br><sub>Clock → Position, Adaptive off</sub></td>
-</tr>
-</table>
-
-</details>
-
-### iOS clock font
-
-SystemUI and Wallpaper & style load AXS66Clock from the module APK by
-default. Its `HGHT` axis draws tall figures and positions the colon, and the
-**Clock face width** slider controls the weight. Inter Display is the fallback.
-
-To use a custom font, place it in each host's files folder as
-`pixel_lock_screen_evolved_clock_font` and restart both hosts. Existing
-overrides take priority. To switch back to the bundled font, move the override
-files out of those folders and restart both hosts.
-
-```sh
-for d in /data/user_de/0/com.android.systemui /data/user/0/com.google.android.apps.wallpaper; do
-  cp /data/local/tmp/pixel_lock_screen_evolved_clock_font $d/files/
-  chown $(stat -c %u $d):$(stat -c %u $d) $d/files/pixel_lock_screen_evolved_clock_font
-  chcon $(ls -dZ $d/files | cut -d" " -f1) $d/files/pixel_lock_screen_evolved_clock_font
-done
-```
-
-
-<details open>
-<summary><b>📐 Adaptive size</b></summary>
-<br>
-
-Clock → **Size** → **Adaptive size**, for every style of this module's. The
-large clock grows down to the wallpaper's subject: the subject's top edge in
-the clock's columns lands near the foot of the time, so the subject stands in
-front of the bottom of the digits and the rest reads clear, as the depth effect
-is made for. It works from the depth effect's own cut-out, so it needs the depth
-effect on; without a subject, or with the subject too high to leave room, the
-Clock size slider (dimmed while Adaptive size is on) decides. As on iOS, every
-figure is stretched to the same height. The
-picker's preview shows what the lock screen chose.
-
-</details>
-
-<details open>
-<summary><b>🪄 Depth effect</b></summary>
-<br>
-
-The subject of a photo wallpaper in front of the large clock, as on iOS: the
-time goes behind the subject, and nothing else on the lock screen does. Where
-the subject would leave the time hard to read, the time comes forward: the
-clock weighs how much ink is hidden, each digit, the hour and the minute
-apart, how thin the clock's strokes are, its contrast against the wallpaper
-under it and your high-contrast text and font size settings, and does not
-flip back and forth at the edge of that line. The lock screen tab of Wallpaper & style shows the effect
-too; the preview of a photo not yet set does not.
-
-Wallpaper & style → Lock screen, at the bottom:
-
-| Setting | Where | What it does |
-|---|---|---|
-| **Depth effect** | Its switch, or its page | Finds the subject of the lock screen photo on the device and draws it over the time, placed exactly where the window manager puts the wallpaper and following its scroll, zoom and dimming. |
-| **Reprocess wallpaper** / **Try again** | Depth effect page | Shows whether the subject was found, and looks again, more carefully (the photo and its mirror image, averaged), when the outline came out wrong or none was found. No app data needs clearing. |
-| **Clock and subject**: Balanced, Readability first or Depth first | Depth effect page | How soon the time comes forward: as above; sooner, for small or thin clocks; or never, the subject always in front. |
-| **Subjects in front**: All subjects or Main subject only | Depth effect page | With several subjects in the photo, whether all stand in front or only the largest. Applied to the mask already found, without looking again. |
-| **In front of the clock**: Subject or Depth map | Depth effect page | The subject alone, or everything as near as the subject by the photo's depth map (Depth Anything V2 Small, on the device): a railing before someone stands in front too, and the sky between an arm and a body goes back behind the clock. |
-| **Edit subject** | Depth effect page | Paint over the photo to add to the subject or erase from it. Kept until the subject is found again. |
-| **Tilt motion** | Depth effect page | The clock shifts a little against the photo as you tilt the phone. Off by default; the sensor runs only while the lock screen shows. |
-
-The effect also works with Google's own clocks, and in Wallpaper & style's
-preview of a photo before you set it.
-
-The subject's outline is snapped to the photo's own edges (a guided filter over
-the model's answer), so hair and shoulders hold their shape rather than a soft
-halo.
-
-The subject is found once per photo, by the module's own app, with
-BiRefNet_lite on ONNX Runtime; nothing leaves the device. It takes about 12
-seconds on a Pixel 8 Pro, and a **Preparing depth effect** notification shows
-meanwhile — silent, with its icon in the status bar — then **Depth effect
-ready** for a few seconds. A photo already seen shows its effect at once. Live
-wallpapers are drawn by their own apps and have no depth effect.
-
-<table>
-<tr>
-<td align="center"><img src="docs/screenshots/page-depth-effect.png" width="250"><br><sub>The Depth effect page</sub></td>
-<td align="center"><img src="docs/screenshots/style-cinema.png" width="250"><br><sub>The subject in front of the time</sub></td>
-</tr>
-</table>
-
-</details>
-
-<details open>
-<summary><b>🌙 Always-on display</b></summary>
-<br>
-
-Wallpaper & style → Lock screen → **Always-on display**:
-
-| Setting | What it does |
-|---|---|
-| **Show lock screen wallpaper** | Keeps the lock screen photo on the always-on display, dimmed, as on iOS. It needs **Always show time and info** on, and uses more battery than a black always-on display. |
-| **Appearance**: Color, Black & white or Dots | One of three: the photo dimmed; dimmed in greys; or sparse dots on black, only the photo's subject where the depth effect found one, about 4% of pixels lit, for the least power. Each dot is lit nearly as brightly as the clock beside it, since the always-on display holds greys unsteadily. |
-
-Going to sleep, the numerals thin along the font's weight axis rather than
-fading, so few pixels stay lit; the iOS clock stays filled, as on iOS. The
-time comes out in front of the depth effect's subject first and only then gives
-its place back to SystemUI's fingerprint-aware clock region, so nothing crosses
-the subject midway. Everything shifts a little every minute, the photo on a
-small circle and the dots through their grid, so no pixel stays lit, against
-burn-in.
-
-With notifications, the rows are spaced as SystemUI spaces its own: a small
-module face is given the band the lock screen lays its own small clock out in,
-so the date row and the notifications below it keep their distances.
-
-<table>
-<tr>
-<td align="center"><img src="docs/screenshots/page-always-on-display.png" width="250"><br><sub>The Always-on display page</sub></td>
-<td align="center"><img src="docs/screenshots/aod-small-clock.png" width="250"><br><sub>Notifications on the always-on display</sub></td>
-</tr>
-</table>
-
-</details>
-
-<details open>
-<summary><b>👆 Double tap to turn off screen</b></summary>
-<br>
-
-Double tap an empty space on the lock screen to turn the screen off: the
-screen goes dark as a circle closing on your finger, the reverse of a tap on
-the always-on display, then shows the always-on display as usual. It is Google's own
-gesture, which SystemUI already carries unfinished: the module only switches
-it on from the stock `double_tap_to_sleep` setting. Taps on notifications,
-media, smartspace, shortcuts or the fingerprint area stay theirs, and the
-gesture is off while TalkBack's touch exploration is on. The switch sits in
-**Wallpaper & style → Lock screen**; on a build where SystemUI turns the
-gesture on itself, the module stays out of its way.
-
-</details>
-
-<details open>
-<summary><b>🩺 Compatibility, diagnostics and Safe Mode</b></summary>
-<br>
-
-Wallpaper & style → Lock screen → **Compatibility & diagnostics**.
-
-Every host class, method and field the module needs is declared up front, one
-list per feature. On startup each is looked for and the result published as a
-snapshot; the dialog shows, per feature, whether it is running, and which
-contract moved when it is not.
-
-| | |
-|---|---|
-| **Per-feature hooks** | A feature whose required contract is missing never installs its hooks. It switches itself off and logs why; clocks, the depth effect, the picker pages and smartspace placement each stand or fall alone. |
-| **Verified builds** | The Android builds each feature has been run on, so a snapshot from an unverified build reads as untested rather than broken. |
-| **Safe Mode** | Repeated crashes in a hooked process turn every hook off and post a notification, rather than leaving you with a lock screen or a picker you cannot use. Clearing it is one tap. |
-
-<table>
-<tr>
-<td align="center"><img src="docs/screenshots/page-diagnostics.png" width="250"><br><sub>On Android 17 QPR1: every feature compatible</sub></td>
-</tr>
-</table>
-
-</details>
-
----
-
-## Supported versions
-
-| Build | Android | Device | Status |
-|---|---|---|---|
-| `CP4A.261105.040.A1` | 17 QPR1 (November 2026) | Pixel 8 Pro | Verified; every contract checked in CI, three renamed members located with DexKit |
-| `CP3A.261005.005` | 17 QPR1 (October 2026) | Pixel 8 Pro | Verified; every contract checked in CI |
-| `CP3A.260905.009` | 17 QPR1 (September 2026) | Pixel 8 Pro | Verified; recorded before the double tap contracts |
-| `CP2A.260805.005` | 17 (August 2026) | Pixel 8 Pro | Verified before build descriptions were recorded |
-
-Any other build still runs: each feature is checked against the host on start.
-A host member that monthly builds tend to rename (a numbered Kotlin lambda, a
-rewritten method) is found again by what it is, with DexKit, once per build.
-A feature whose host API moved beyond that switches itself off and says so in
-**Compatibility & diagnostics** while the rest keep working.
-
-Known limits:
-
-- Live wallpapers are drawn by their own apps, so they have no depth effect.
-- Finding a subject takes about 12 seconds per new photo, once.
-
-## Requirements
-
-| | |
-|---|---|
-| **Android** | 17 QPR1 (API 37) on a Pixel |
-| **Apps** | System UI (`com.android.systemui`) and Wallpaper & style (`com.google.android.apps.wallpaper`) |
-| **Framework** | [Vector](https://github.com/JingMatrix/Vector) v2.2+, or any framework implementing libxposed API 102+ |
-| **Root** | Only what the framework itself needs |
-
-Built against the modern [libxposed API](https://github.com/libxposed/api)
-(`io.github.libxposed:api`), not the legacy `de.robv.android.xposed` bridge.
+Every setting, with screenshots: [features](docs/features.md).
 
 ## Install
 
-```
-1. Install the APK from Releases
-2. Enable Pixel Lock Screen Evolved in your Xposed manager
-3. Restart System UI and force-stop Wallpaper & style once
-4. Wallpaper & style → Clock → choose a clock (iOS, Hyper, One, Horizon, Dot or Cinema) → Apply
-5. Optional: Wallpaper & style → Lock screen → Depth effect
-```
+1. Get the APK from [Releases](https://github.com/MrxSiN/PixelLockScreenEvolved/releases).
+2. Enable it in [Vector](https://github.com/JingMatrix/Vector) or any framework implementing libxposed API 102. Its scope (System UI and Wallpaper & style) is set for you.
+3. Restart System UI and force-stop Wallpaper & style once.
+4. Wallpaper & style → **Clock** → choose a clock → Apply. Optionally, Lock screen → **Depth effect**.
 
-The module declares a **static scope**, so there is nothing to pick. It has no
-icon in the app drawer and no screen of its own: every control is in Wallpaper
-& style.
+Needs a Pixel on Android 17 QPR1 (API 37), and root for the framework. The module has no icon or screen of its own: every control is in Wallpaper & style.
 
-## Recovery
+## Compatibility
 
-- **Crash loop:** three crashes of System UI or Wallpaper & style within a
-  minute turn on Safe Mode, which holds the module's features off in that
-  process and posts a notification. Restore them from the notification or from
-  **Compatibility & diagnostics** once the cause is fixed.
-- **One feature misbehaving:** a feature whose hooks keep failing stops alone;
-  the compatibility page shows it as faulted.
-- **Anything else:** disable the module in your Xposed manager and restart
-  System UI. The lock screen falls back to the default clock; nothing else was
-  written but the clock choice the picker itself stores.
+| Build | Android | Status |
+|---|---|---|
+| `CP4A.261105.040.A1` | 17 QPR1, November 2026 | ✅ Verified; every contract checked in CI, three renamed members found with DexKit |
+| `CP3A.261005.005` | 17 QPR1, October 2026 | ✅ Verified |
+| `CP3A.260905.009` | 17 QPR1, September 2026 | ✅ Verified |
+| `CP2A.260805.005` | 17, August 2026 | ✅ Verified |
 
-## Under the hood
+Tested on a Pixel 8 Pro with Vector 2.2. Monthly builds rename SystemUI's internal members. The module finds them again by what they are, and switches a feature off rather than guess when it can't; the rest keep working. History: [changelog](CHANGELOG.md).
 
-Clocks are added to SystemUI's own clock registry, so the system lays them out,
-themes and previews them. Every host member a feature needs is declared as a
-contract, checked on the phone before anything installs, and checked in CI
-against a recorded description of each verified Pixel build.
+## Known limits
 
-- [Architecture](docs/architecture.md): the clock registry path, contracts and
-  host compatibility tests, package layout, building
-- [Android 17 QPR1](docs/android-17-qpr1.md): the Compose lock screen port
-- [Depth effect](docs/depth-effect.md): segmentation, job coalescing and the
-  exported service's threat model
-- `HOOK_NOTES.md`: every host signature and how it was verified
+- Live wallpapers are drawn by their own apps, so they have no depth effect.
+- Finding a new photo's subject takes about 12 seconds, once (about 23 with the depth map).
+- Every feature is checked on one phone, a Pixel 8 Pro.
 
----
+## Troubleshooting
 
-<div align="center">
+| Problem | Try |
+|---|---|
+| A clock or the depth effect is missing | Wallpaper & style → Lock screen → **Compatibility & diagnostics** shows which feature is off and why. |
+| The subject's outline is wrong | Depth effect → **Reprocess wallpaper**, or **Edit subject** to paint it. |
+| System UI keeps crashing | Safe Mode turns the module off after three crashes in a minute; restore it from its notification once the cause is fixed. |
+| Anything else | Disable the module and restart System UI: the lock screen falls back to the default clock. |
 
-**GNU General Public License v3.0** · see [`LICENSE`](LICENSE) and [`NOTICE.md`](NOTICE.md)
+More: [recovery](docs/features.md#recovery).
 
-</div>
+## How it works
+
+Most lock screen modules draw a clock over SystemUI's and hide the real one. This one adds its clocks to SystemUI's own clock registry, so SystemUI lays them out, dims them for the always-on display, moves them for burn-in and previews them itself, and Wallpaper & style lists and stores them like any clock. Every host member a feature needs is declared as a contract, checked before anything installs, and checked in CI against each verified Pixel build. The depth effect's models run in the module's own app, on the device.
+
+[Architecture](docs/architecture.md) · [depth effect](docs/depth-effect.md) · [all docs](docs/README.md) · [`HOOK_NOTES.md`](HOOK_NOTES.md)
+
+## Support
+
+If the module is useful to you, you can [sponsor its development](https://github.com/sponsors/MrxSiN).
+
+## Credits and license
+
+[libxposed](https://github.com/libxposed/api), [Vector](https://github.com/JingMatrix/Vector),
+[DexKit](https://github.com/LuckyPray/DexKit), [ONNX Runtime](https://onnxruntime.ai),
+[BiRefNet](https://github.com/ZhengPeng7/BiRefNet) (MIT),
+[Depth Anything V2](https://github.com/DepthAnything/Depth-Anything-V2) (Apache 2.0),
+[Inter](https://github.com/rsms/inter) (OFL 1.1) and AXS66Clock, distributed with permission.
+
+GPL-3.0. See [LICENSE](LICENSE) and [NOTICE](NOTICE.md).
+This project is not affiliated with Google or Apple.

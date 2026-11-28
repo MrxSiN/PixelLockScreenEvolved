@@ -1,7 +1,7 @@
 package my.github.MrxSiN.pixellockscreenevolved.host
 
 import org.junit.Assert.assertEquals
-import org.junit.Assert.assertSame
+import org.junit.Assert.assertNull
 import org.junit.Assert.assertTrue
 import org.junit.Test
 
@@ -9,24 +9,65 @@ import my.github.MrxSiN.pixellockscreenevolved.depth.DepthInput
 
 class DepthCompositeTest {
 
-    /** Ten pixels: a subject at depth 150 (pixels 2 to 6), a railing in front at 220 the mask missed, sky at 20 inside the mask. */
-    private val alpha = intArrayOf(0, 0, 255, 255, 255, 255, 255, 0, 0, 0)
-    private val depth = intArrayOf(20, 220, 150, 150, 20, 150, 150, 20, 90, 140)
+    /**
+     * Ten pixels in a row: a subject at depth 150 (pixels 2 to 6), a railing in front at 220 the mask
+     * missed, sky at 20 the mask took in unsure of it, and at pixel 9 something as near as the subject
+     * that does not touch it.
+     */
+    private val alpha = intArrayOf(0, 0, 255, 255, 200, 255, 255, 0, 0, 0)
+    private val depth = intArrayOf(20, 220, 150, 150, 20, 150, 150, 20, 90, 150)
+
+    private fun combined(alpha: IntArray, depth: IntArray, width: Int = alpha.size, band: Int = 0): IntArray? =
+        DepthComposite.depthEdits(alpha, depth, width, alpha.size / width, band)?.let { DepthComposite.applyEdits(alpha.copyOf(), it) }
 
     @Test
-    fun whatIsAsNearAsTheSubjectStandsInFrontAndWhatIsFarBehindGoesBack() {
-        val combined = DepthComposite.combine(alpha.copyOf(), depth)
+    fun whatIsAsNearAsTheSubjectAndTouchesItStandsInFrontAndWhatIsFarBehindGoesBack() {
+        val combined = combined(alpha, depth)!!
         assertEquals("the railing the mask missed", 255, combined[1])
         assertEquals("the subject", 255, combined[2])
         assertEquals("the sky between an arm and a body", 0, combined[4])
         assertEquals("the background", 0, combined[0])
-        assertEquals("far enough behind the plane", 0, combined[8])
+        assertEquals("far behind", 0, combined[8])
+        assertEquals("as near, but apart from the subject", 0, combined[9])
+    }
+
+    @Test
+    fun aWallJustBehindTheSubjectStaysBehindTheClock() {
+        // A 4x4 subject at 150 against a wall at 125 that fills the rest of an 8x8 photo.
+        val width = 8
+        val alpha = IntArray(64) { if (it % width in 2..5 && it / width in 2..5) 255 else 0 }
+        val depth = IntArray(64) { if (alpha[it] > 0) 150 else 125 }
+        assertTrue(combined(alpha, depth, width)!!.withIndex().all { (i, a) -> a == alpha[i] })
     }
 
     @Test
     fun withoutASubjectTheDepthMapSetsNoPlane() {
-        val none = IntArray(10)
-        assertSame(none, DepthComposite.combine(none, depth))
+        assertNull(DepthComposite.depthEdits(IntArray(10), depth, 10, 1, band = 0))
+    }
+
+    @Test
+    fun whatTheMaskIsSureOfStaysWhateverTheDepthSays() {
+        val sure = alpha.copyOf().also { it[4] = 255 }
+        assertEquals(255, combined(sure, depth)!![4])
+    }
+
+    @Test
+    fun theDepthMapsSoftEdgeIsLeftOutAndWhatIsWiderKept() {
+        // A 20x20 photo: a subject at 150 in columns 6 to 13; the depth map's soft edge reads one column
+        // either side of it as near, and a railing four columns wide stands in front at 220, touching it.
+        val width = 20
+        val alpha = IntArray(400) { if (it % width in 6..13) 255 else 0 }
+        val depth = IntArray(400) {
+            when (it % width) {
+                in 6..13 -> 150
+                5, 14 -> 150
+                in 0..3 -> if (it / width in 8..11) 220 else 20
+                else -> if (it / width in 8..11 && it % width == 4) 220 else 20
+            }
+        }
+        val out = combined(alpha, depth, width, band = 1)!!
+        assertEquals("the soft edge beside the subject stays behind", 0, out[2 * width + 14])
+        assertEquals("the railing stands in front", 255, out[9 * width + 2])
     }
 
     @Test

@@ -32,6 +32,6 @@ class AodProgressTest {
 
     @Test
     fun withoutTheScrimItFollowsTheDoze() {
-        assertEquals(0.4f, aodProgress(doze = 0.4f, revealed = null, previous = 0f), 1e-6f)
+        assertEquals(0.4f, aodProgress(doze = 0.4f, revealed = Float.NaN, previous = 0f), 1e-6f)
     }
 }
