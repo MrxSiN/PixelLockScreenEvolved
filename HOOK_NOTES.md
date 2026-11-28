@@ -351,7 +351,8 @@ The move runs on `ExpressiveSpring.DEFAULT_SPATIAL` (damping 0.8, stiffness
 380) and the fade on `DEFAULT_EFFECTS` (1, 1600). With Material's emphasized
 decelerate over 500ms, a screen recording showed 69% of the resize in the
 first 25ms and the rest crawling; the spring starts from rest and settles in
-about 440ms. `ClockFaceAdapter.arrival` carries the fade to the depth layer.
+about 440ms. The depth effect's subject is not faded with it: the time slides
+behind the subject whole (`host/DepthLayer.kt`).
 
 ## Compatibility checks and Safe Mode
 
@@ -558,6 +559,41 @@ removed. The copy had a worse flaw on the composed lock screen: the scene fades
 the clock per drawn element rather than as a group, so a half-faded copy let
 the digits show through as the display woke or a screen saver ended.
 
+Erasing whole while the scrim was dark showed the subject as holes in the time
+over the black; erasing by the doze fraction instead could not follow the
+scrim either, since on `CP4A.261105.040.A1` the doze jumps to 1 the moment the
+screen goes off while the scrim takes about 400 ms to darken (so the time came
+in front in one frame). Since 2026-11-28 the depth layer reads the scrim as the
+always-on wallpaper does (`host/ScrimReveal.kt`, the scrim of the face's own
+window): none erased while `revealAmount` is 0, all of it at 1, and between,
+the subject drawn into a `saveLayer` composited `DST_OUT`, less the scrim's
+darkness drawn `DST_OUT` (`ScrimReveal.drawDarkness`), so the time is cut only
+where the photo shows. The darkness is drawn as the scrim's own `onDraw` lays
+it: `startColorAlpha` flat, then the gradient shader through the gradient
+paint's own colour filter. The shader alone is not the darkness: the filter
+multiplies it by `revealGradientEndColorAlpha`, and without it the time was
+cut over black for most of a wake. Painted as a strip on the scrim and set
+beside the photo in a screen recording, the darkness drawn so matched the
+photo's own light within 0.03 once the lock screen's constant 20% dim was
+taken out (2026-11-28). The scrim fills its window from the origin, so its
+pixels are taken as the window's; read through `ViewBounds.toWindow` (the
+Compose holder path), the darkness landed elsewhere and the cut led the photo.
+
+The cut's layer is put down with its alpha doubled (a colour matrix on the
+layer's paint): the time is seen over the subject only where the photo is
+under half up. Cut in step with the photo's light, white digits lingered at
+half strength over the dark subject for some 130 ms of each wake. Checked
+frame by frame on screen recordings (2026-11-28) with the reveal amount drawn
+into each frame: for a wake key (`LiftReveal`) and the power button
+(`PowerButtonReveal`), waking, the time is whole while the photo is dark and
+the subject cuts it within three frames of the photo showing; going to sleep,
+the subject stays in front while the photo dims and the time comes back over
+about four frames as it goes dark. The depth layer redraws on every frame of a
+reveal and stops when it ends (none at rest, logged on the device). Where the
+always-on wallpaper patch is off, the doze times it (`AodClockMotion`). The
+always-on wallpaper still keeps itself by the shader alone (`DST_IN`), as
+before.
+
 ## Depth effect notification
 
 The module's app has no activity, so it cannot be granted `POST_NOTIFICATIONS`;
@@ -597,7 +633,20 @@ below the composed lock-screen elements, so the clock, smartspace and unlock
 affordances stay above the custom wallpaper. Adding a child beside the Compose
 root no longer works on Android 17 QPR1: Compose draws its opaque AOD surface
 over that child, while `AndroidViewsHandler` only draws registered interop
-views. The drawing's alpha is the clock's doze fraction. It uses one AGSL
+views. How far in it is (`aodProgress`) is how dark the scrim is
+(`1 - revealAmount`), once the clock dozes or the wallpaper was showing; not the
+doze fraction, which on `CP4A.261105.040.A1` jumps to 1 the moment the screen
+goes off (logged: doze 1.0 from the first frame while `revealAmount` eases from
+1 to 0 over ~470 ms), so following it blinked the finished, opaque dots over the
+lock screen, and drops to 0 at once on a fingerprint unlock. The layer is then kept only where
+the scrim is dark, by drawing the scrim's own `gradientPaint` over it with
+`DST_IN` after `onDraw` has placed it, so it leaves in the reveal's shape (the
+ripple from the sensor, a tap's circle, the lift). Read on `CP4A.261105.040.A1`
+from `onDraw`'s bytecode: with `revealGradientWidth` or `revealGradientHeight`
+at 0, or `revealAmount` 0, the scrim is dark all over; otherwise it draws
+`startColorAlpha` and then `gradientPaint` over the whole view. All four fields
+are optional contracts; without them the layer fades with the doze as before.
+It uses one AGSL
 `RuntimeShader`: the photo, through a `BitmapShader` placed as
 `WallpaperPlacement` places the wallpaper, multiplied by the brightness, made
 grey, or sampled at each dot cell's middle (5dp) to light a disc whose radius
@@ -856,9 +905,14 @@ com.android.systemui.shared.clocks.ClockRegistry
   ClockController createCurrentClock(Context)
 com.android.systemui.plugins.keyguard.ui.clocks.ClockController
   ClockFaceController getLargeClock()
+  ClockFaceController getSmallClock()
 com.android.systemui.plugins.keyguard.ui.clocks.ClockFaceController
   View getView()
 ```
+
+Both faces get the subject in front: the small one shows beside notifications
+(`getSmallClock`, an optional contract; a build without it keeps the large
+face only).
 
 `createCurrentClock` builds whichever clock is chosen, this module's or one of
 Google's. `host/KeyguardStockClockDepth.kt` reads its result (a result hook,

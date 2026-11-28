@@ -75,19 +75,27 @@ internal class SubjectSegmenter(assets: AssetManager) : AutoCloseable {
         session.close()
     }
 
-    private companion object {
-        const val MODEL_PATH = "models/birefnet_lite.onnx"
-        const val SIDE = SubjectInput.SIDE
+    companion object {
+        private const val MODEL_PATH = "models/birefnet_lite.onnx"
+        private const val SIDE = SubjectInput.SIDE
 
         /**
          * Without memory pattern planning: with it, the second run of a session
          * (the mirror image of a careful look, or a retry) allocated its planned
          * block on top of the arena the first run had grown, and peaked at
          * 4.4 GB instead of 2.3 GB, no faster (measured with scripts/bench-segmentation-ab.sh).
+         *
+         * On half the cores: ONNX Runtime takes one thread per core by default, and the service runs at
+         * SystemUI's own foreground level while a request is open, so a look of 20 s or more left the
+         * phone's own UI fighting for every core and stuttering throughout.
          */
-        fun sessionOptions() = OrtSession.SessionOptions().apply { setMemoryPatternOptimization(false) }
+        // ponytail: half the cores is a guess at the split; measure jank vs. look time per device if it matters.
+        internal fun sessionOptions() = OrtSession.SessionOptions().apply {
+            setMemoryPatternOptimization(false)
+            setIntraOpNumThreads((Runtime.getRuntime().availableProcessors() / 2).coerceAtLeast(1))
+        }
 
-        fun map(assets: AssetManager, path: String): ByteBuffer = assets.openFd(path).use { file ->
+        internal fun map(assets: AssetManager, path: String): ByteBuffer = assets.openFd(path).use { file ->
             FileInputStream(file.fileDescriptor).channel.use { channel ->
                 channel.map(FileChannel.MapMode.READ_ONLY, file.startOffset, file.length)
             }

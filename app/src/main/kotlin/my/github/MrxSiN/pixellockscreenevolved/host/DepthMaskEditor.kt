@@ -72,11 +72,16 @@ internal class DepthMaskEditor(
     private var root: FrameLayout? = null
     private var closing = false
     private val emphasized = PathInterpolator(0.2f, 0f, 0f, 1f)
+    private val accelerated = PathInterpolator(0.3f, 0f, 0.8f, 0.15f)
 
     private lateinit var undo: View
     private lateinit var redo: View
     private lateinit var zoomChip: TextView
     private lateinit var hint: TextView
+    private lateinit var badge: TextView
+    private lateinit var header: View
+    private lateinit var dock: View
+    private lateinit var backdrop: View
     private var confirm: View? = null
 
     /** Opens the editor over whatever is on screen. */
@@ -93,10 +98,13 @@ internal class DepthMaskEditor(
                 WindowManager.LayoutParams.MATCH_PARENT,
                 type,
                 WindowManager.LayoutParams.FLAG_LAYOUT_IN_SCREEN,
-                PixelFormat.OPAQUE,
+                // Translucent, so the editor's entrance and exit show Wallpaper & style beneath, not black.
+                PixelFormat.TRANSLUCENT,
             ).apply {
                 title = "PixelLockScreenEvolvedDepthEditor"
                 layoutInDisplayCutoutMode = WindowManager.LayoutParams.LAYOUT_IN_DISPLAY_CUTOUT_MODE_ALWAYS
+                // Under the navigation bar too: the window is translucent, so a strip left out showed what is behind it.
+                fitInsetsTypes = 0
             }
             val shown = runCatching { manager.addView(view, params) }
                 .onFailure { logger.warn("The subject editor could not open as window type $type", it) }
@@ -111,20 +119,40 @@ internal class DepthMaskEditor(
         }
     }
 
+    /**
+     * Brings the editor in: the backdrop fades up, the photo grows into place, then the bar drops
+     * in from the top and the tools rise from the bottom, a beat apart, on the system's emphasized
+     * curve. [close] plays it back the other way.
+     */
     private fun enter(view: FrameLayout) {
-        view.alpha = 0f
-        view.animate().alpha(1f).setDuration(ENTER_MS).setInterpolator(emphasized).start()
+        backdrop.alpha = 0f
+        backdrop.animate().alpha(1f).setDuration(ENTER_MS).setInterpolator(emphasized).start()
+        canvas.alpha = 0f
         canvas.scaleX = ENTER_SCALE
         canvas.scaleY = ENTER_SCALE
-        canvas.animate().scaleX(1f).scaleY(1f).setDuration(ENTER_MS).setInterpolator(emphasized).start()
-        hint.postDelayed({ hint.animate().alpha(0f).setDuration(FADE_MS).start() }, HINT_MS)
+        canvas.animate().alpha(1f).scaleX(1f).scaleY(1f).setDuration(ENTER_MS).setInterpolator(emphasized).start()
+        slideIn(header, -dp(SLIDE_DP).toFloat(), STAGGER_MS)
+        slideIn(dock, dp(SLIDE_DP * 3).toFloat(), STAGGER_MS * 2)
+        view.postDelayed({ if (!closing) hint.animate().alpha(0f).setDuration(FADE_MS).start() }, HINT_MS)
     }
 
+    private fun slideIn(view: View, from: Float, delay: Long) {
+        view.alpha = 0f
+        view.translationY = from
+        view.animate().alpha(1f).translationY(0f).setStartDelay(delay).setDuration(ENTER_MS).setInterpolator(emphasized).start()
+    }
+
+    /** Takes the editor away as [enter] brought it, reversed and quicker, then removes its window. */
     private fun close() {
         if (closing) return
         closing = true
         val view = root ?: return
-        view.animate().alpha(0f).setDuration(FADE_MS).withEndAction {
+        canvas.isEnabled = false
+        confirm?.animate()?.alpha(0f)?.setDuration(FADE_MS)?.start()
+        header.animate().alpha(0f).translationY(-dp(SLIDE_DP).toFloat()).setStartDelay(0).setDuration(EXIT_MS).setInterpolator(accelerated).start()
+        dock.animate().alpha(0f).translationY(dock.height.toFloat() + dp(SLIDE_DP)).setStartDelay(0).setDuration(EXIT_MS).setInterpolator(accelerated).start()
+        canvas.animate().alpha(0f).scaleX(EXIT_SCALE).scaleY(EXIT_SCALE).setDuration(EXIT_MS).setInterpolator(accelerated).start()
+        backdrop.animate().alpha(0f).setStartDelay(EXIT_MS / 3).setDuration(EXIT_MS).setInterpolator(accelerated).withEndAction {
             runCatching { windows?.removeView(view) }
             root = null
             canvas.release()
@@ -145,8 +173,9 @@ internal class DepthMaskEditor(
     }
 
     private fun layout(): FrameLayout {
-        canvas = DepthEditCanvas(context, photo, edits, frame, palette).apply {
+        canvas = DepthEditCanvas(context, photo, edits, found, frame, palette).apply {
             brushRadius = brushOf(DEFAULT_BRUSH)
+            brushColor = toolColor(0)
             onTwoFingerTap = { this@DepthMaskEditor.edits.undo(); historyChanged() }
             onStroke = ::historyChanged
             onZoom = ::zoomChanged
@@ -157,6 +186,11 @@ internal class DepthMaskEditor(
             listOf("Subject", "Overlay", "Photo"), icons = null, selected = 0, compact = true,
         ) { canvas.look = DepthEditCanvas.Look.entries[it] }
         hint = pill("Pinch to zoom  ·  two fingers to move  ·  two-finger tap to undo")
+        badge = pill("Showing the subject as found").apply {
+            setTextColor(palette.onAccent)
+            background = rounded(palette.accent, dp(20).toFloat())
+            alpha = 0f
+        }
         zoomChip = pill("").apply {
             setCompoundDrawablesRelative(icon(EditorIcon.Glyph.FIT, palette.onSurface, 18), null, null, null)
             compoundDrawablePadding = dp(8)
@@ -165,24 +199,31 @@ internal class DepthMaskEditor(
             setOnClickListener { canvas.home() }
             contentDescription = "Fit the lock screen"
         }
-        val dock = dock()
+        dock = dock()
 
         val column = LinearLayout(context).apply {
             orientation = LinearLayout.VERTICAL
             gravity = Gravity.CENTER_HORIZONTAL
             addView(top, LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT))
             addView(looks, LinearLayout.LayoutParams(ViewGroup.LayoutParams.WRAP_CONTENT, ViewGroup.LayoutParams.WRAP_CONTENT).apply { topMargin = dp(4) })
-            addView(hint, LinearLayout.LayoutParams(ViewGroup.LayoutParams.WRAP_CONTENT, ViewGroup.LayoutParams.WRAP_CONTENT).apply { topMargin = dp(12) })
+            addView(FrameLayout(context).apply {
+                addView(hint, FrameLayout.LayoutParams(ViewGroup.LayoutParams.WRAP_CONTENT, ViewGroup.LayoutParams.WRAP_CONTENT, Gravity.CENTER))
+                addView(badge, FrameLayout.LayoutParams(ViewGroup.LayoutParams.WRAP_CONTENT, ViewGroup.LayoutParams.WRAP_CONTENT, Gravity.CENTER))
+            }, LinearLayout.LayoutParams(ViewGroup.LayoutParams.WRAP_CONTENT, ViewGroup.LayoutParams.WRAP_CONTENT).apply { topMargin = dp(12) })
             // The photo under the bars is not painted through them, and darkened so they read over it.
             isClickable = true
             background = GradientDrawable(GradientDrawable.Orientation.TOP_BOTTOM, intArrayOf(Color.argb(BAR_SCRIM, 0, 0, 0), Color.TRANSPARENT))
         }
-
-        return FrameLayout(context).apply {
+        header = column
+        backdrop = FrameLayout(context).apply {
             setBackgroundColor(Color.BLACK)
-            isFocusableInTouchMode = true
             addView(Backdrop(context), match())
             addView(View(context).apply { setBackgroundColor(Color.argb(BACKDROP_SCRIM, 0, 0, 0)) }, match())
+        }
+
+        return FrameLayout(context).apply {
+            isFocusableInTouchMode = true
+            addView(backdrop, match())
             addView(canvas, match())
             addView(column, FrameLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT, Gravity.TOP))
             addView(zoomChip, FrameLayout.LayoutParams(ViewGroup.LayoutParams.WRAP_CONTENT, ViewGroup.LayoutParams.WRAP_CONTENT, Gravity.BOTTOM or Gravity.CENTER_HORIZONTAL))
@@ -210,7 +251,9 @@ internal class DepthMaskEditor(
     }
 
     private fun topBar(): View {
-        val close = iconButton(EditorIcon.Glyph.CLOSE, "Close") { leave() }
+        val close = iconButton(EditorIcon.Glyph.CLOSE, "Close") { leave() }.apply {
+            background = rounded(palette.glass, dp(24).toFloat())
+        }
         val titles = LinearLayout(context).apply {
             orientation = LinearLayout.VERTICAL
             addView(text("Edit subject", 20f, palette.onSurface, palette.title))
@@ -218,22 +261,30 @@ internal class DepthMaskEditor(
         }
         undo = iconButton(EditorIcon.Glyph.UNDO, "Undo") { edits.undo(); historyChanged() }
         redo = iconButton(EditorIcon.Glyph.REDO, "Redo") { edits.redo(); historyChanged() }
-        val save = text("Save", 15f, palette.onAccent, palette.medium).apply {
+        val history = LinearLayout(context).apply {
+            orientation = LinearLayout.HORIZONTAL
+            background = rounded(palette.glass, dp(24).toFloat())
+            addView(undo)
+            addView(redo)
+        }
+        val save = text("Done", 15f, palette.onAccent, palette.medium).apply {
             gravity = Gravity.CENTER
-            setPadding(dp(20), 0, dp(20), 0)
-            minHeight = dp(40)
-            background = rounded(palette.accent, dp(20).toFloat())
+            setPadding(dp(14), 0, dp(18), 0)
+            minHeight = dp(44)
+            setCompoundDrawablesRelative(icon(EditorIcon.Glyph.CHECK, palette.onAccent, 18), null, null, null)
+            compoundDrawablePadding = dp(6)
+            background = rounded(palette.accent, dp(22).toFloat())
+            contentDescription = "Save and close"
             setOnClickListener { save() }
         }
         return LinearLayout(context).apply {
             orientation = LinearLayout.HORIZONTAL
             gravity = Gravity.CENTER_VERTICAL
-            setPadding(dp(8), dp(8), dp(12), dp(4))
+            setPadding(dp(12), dp(8), dp(12), dp(4))
             addView(close)
-            addView(titles, LinearLayout.LayoutParams(0, ViewGroup.LayoutParams.WRAP_CONTENT, 1f).apply { marginStart = dp(4) })
-            addView(undo)
-            addView(redo)
-            addView(save, LinearLayout.LayoutParams(ViewGroup.LayoutParams.WRAP_CONTENT, dp(40)).apply { marginStart = dp(8) })
+            addView(titles, LinearLayout.LayoutParams(0, ViewGroup.LayoutParams.WRAP_CONTENT, 1f).apply { marginStart = dp(12) })
+            addView(history)
+            addView(save, LinearLayout.LayoutParams(ViewGroup.LayoutParams.WRAP_CONTENT, dp(44)).apply { marginStart = dp(8) })
         }
     }
 
@@ -243,35 +294,46 @@ internal class DepthMaskEditor(
             listOf("Add", "Erase", "Restore"),
             icons = listOf(EditorIcon.Glyph.ADD, EditorIcon.Glyph.ERASE, EditorIcon.Glyph.RESTORE),
             selected = 0, compact = false,
-        ) { canvas.mark = TOOL_MARKS[it] }
+        ) {
+            canvas.mark = TOOL_MARKS[it]
+            canvas.brushColor = toolColor(it)
+        }
         val slider = BrushSlider(context, palette, DEFAULT_BRUSH).apply {
             onChange = { canvas.brushRadius = brushOf(it) }
             onHold = { canvas.showsBrush = it }
             contentDescription = "Brush size"
         }
-        val reset = text("Reset", 14f, palette.accent, palette.medium).apply {
-            gravity = Gravity.CENTER
-            setPadding(dp(14), 0, dp(14), 0)
-            minHeight = dp(40)
-            background = rounded(Color.TRANSPARENT, dp(20).toFloat()).apply { setStroke(dp(1), palette.outline) }
-            setOnClickListener {
-                edits.reset()
-                historyChanged()
-                it.performHapticFeedback(HapticFeedbackConstants.LONG_PRESS)
+        val compare = iconButton(EditorIcon.Glyph.COMPARE, "Hold to see the subject as found") { comparing(!canvas.comparing) }.apply {
+            background = rounded(palette.surfaceHighest, dp(24).toFloat())
+            setOnTouchListener { view, event ->
+                when (event.actionMasked) {
+                    MotionEvent.ACTION_DOWN -> {
+                        view.performHapticFeedback(HapticFeedbackConstants.CLOCK_TICK)
+                        comparing(true)
+                    }
+                    MotionEvent.ACTION_UP, MotionEvent.ACTION_CANCEL -> comparing(false)
+                }
+                true
             }
         }
+        val reset = iconButton(EditorIcon.Glyph.RESET, "Reset all edits") {
+            edits.reset()
+            historyChanged()
+            flash("Edits cleared  ·  Undo brings them back")
+        }.apply { background = rounded(palette.surfaceHighest, dp(24).toFloat()) }
         val sizeRow = LinearLayout(context).apply {
             orientation = LinearLayout.HORIZONTAL
             gravity = Gravity.CENTER_VERTICAL
             addView(Dot(context, dp(3).toFloat(), palette.onSurfaceVariant), LinearLayout.LayoutParams(dp(20), dp(20)))
             addView(slider, LinearLayout.LayoutParams(0, dp(44), 1f))
             addView(Dot(context, dp(8).toFloat(), palette.onSurfaceVariant), LinearLayout.LayoutParams(dp(20), dp(20)))
-            addView(reset, LinearLayout.LayoutParams(ViewGroup.LayoutParams.WRAP_CONTENT, dp(40)).apply { marginStart = dp(12) })
+            addView(compare, LinearLayout.LayoutParams(dp(48), dp(48)).apply { marginStart = dp(8) })
+            addView(reset, LinearLayout.LayoutParams(dp(48), dp(48)).apply { marginStart = dp(8) })
         }
         return LinearLayout(context).apply {
             orientation = LinearLayout.VERTICAL
             setPadding(dp(12), dp(12), dp(12), dp(8))
-            background = rounded(palette.surfaceHigh, dp(32).toFloat())
+            background = rounded(palette.glass, dp(32).toFloat())
             elevation = dp(6).toFloat()
             addView(tools, LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT))
             addView(sizeRow, LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT).apply {
@@ -288,6 +350,28 @@ internal class DepthMaskEditor(
         undo.alpha = if (edits.canUndo) 1f else DISABLED_ALPHA
         redo.isEnabled = edits.canRedo
         redo.alpha = if (edits.canRedo) 1f else DISABLED_ALPHA
+    }
+
+    /** Shows the subject as found, before any edits, while [on], and says so. */
+    private fun comparing(on: Boolean) {
+        canvas.comparing = on
+        badge.animate().alpha(if (on) 1f else 0f).setDuration(FADE_MS).start()
+        if (on) hint.animate().alpha(0f).setStartDelay(0).setDuration(FADE_MS).start()
+    }
+
+    /** Says [message] for a moment where the gesture hint shows. */
+    private fun flash(message: String) {
+        hint.text = message
+        hint.animate().cancel()
+        hint.alpha = 1f
+        hint.animate().alpha(0f).setStartDelay(FLASH_MS).setDuration(FADE_MS).start()
+    }
+
+    /** The brush's colour for the tool at [index]: Add in the accent, Erase in the error colour, Restore plain. */
+    private fun toolColor(index: Int): Int = when (TOOL_MARKS[index]) {
+        DepthComposite.ADDED -> palette.accent
+        DepthComposite.REMOVED -> palette.error
+        else -> palette.onSurface
     }
 
     private fun zoomChanged(zoom: Float) {
@@ -548,9 +632,14 @@ internal class DepthMaskEditor(
         const val DISABLED_ALPHA = 0.38f
         const val ENTER_SCALE = 0.94f
         const val PRESS_SCALE = 0.92f
-        const val ENTER_MS = 350L
+        const val EXIT_SCALE = 0.96f
+        const val ENTER_MS = 400L
+        const val EXIT_MS = 220L
+        const val STAGGER_MS = 50L
+        const val SLIDE_DP = 32
         const val FADE_MS = 180L
         const val HINT_MS = 4_000L
+        const val FLASH_MS = 2_200L
 
         /** An overlay window first; SystemUI's own panel type where an overlay is refused. */
         val WINDOW_TYPES = intArrayOf(WindowManager.LayoutParams.TYPE_APPLICATION_OVERLAY, TYPE_STATUS_BAR_SUB_PANEL)
@@ -566,6 +655,10 @@ internal class EditorPalette(context: Context) {
     val overlay = context.getColor(android.R.color.system_accent3_500)
     val surfaceHigh = context.getColor(android.R.color.system_neutral1_800)
     val surfaceHighest = context.getColor(android.R.color.system_neutral1_700)
+
+    /** The bars' and the dock's surface: the high surface, a little see-through over the photo. */
+    val glass = surfaceHigh and 0x00FFFFFF or (GLASS_ALPHA shl 24)
+    val error = context.getColor(android.R.color.system_error_200)
     val onSurface = context.getColor(android.R.color.system_neutral1_50)
     val onSurfaceVariant = context.getColor(android.R.color.system_neutral2_200)
     val outline = context.getColor(android.R.color.system_neutral2_500)
@@ -579,6 +672,7 @@ internal class EditorPalette(context: Context) {
         const val TEXT_FAMILY = "google-sans-text"
         const val TITLE_FAMILY = "google-sans"
         const val MEDIUM = 500
+        const val GLASS_ALPHA = 0xE6
     }
 }
 

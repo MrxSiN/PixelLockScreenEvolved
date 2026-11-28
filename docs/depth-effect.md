@@ -73,14 +73,38 @@ The service also runs Depth Anything V2 Small (int8, 27 MB, from
 photo, at 518 px on its long side in whole 14 px patches, and sends back how
 near each pixel is, stretched between its 2nd and 98th percentiles. It is kept
 beside the mask (`.depth`). With **In front of the clock: Depth map**
-(`DepthLayers`), `host/DepthComposite` sets the clock at a plane in the photo:
-the subject's median depth less 25 steps out of 255. Whatever is at least as
-near stands in front even where the mask missed it, and what the mask took in
-that is 40 steps or more behind the plane (sky between an arm and a body) goes
-back behind the clock. The coarser result is snapped to the photo's edges with
-the same guided filter. The depth model is loaded and run only while the depth
+(`DepthLayers`), `host/DepthComposite.depthEdits` turns the depth into marks
+of the same kind as a person's edits. A pixel the mask missed is added where it
+is at most 10 steps out of 255 farther than the subject's median depth and is
+reached from the subject through such pixels (4-neighbours), so a railing or a
+hand held out stands in front, and a near patch elsewhere (the ground in a
+corner) or a wall just behind the subject does not. A pixel of the mask is
+removed only where the mask is unsure of it (alpha under 250) and it is 65
+steps or more behind the median (sky between an arm and a body). Either change
+is kept only where it is wider than a band of the guided filter's radius / 2
+(4 px at 1024; a morphological opening), and only the edges the depth changed
+are snapped to the photo with `snapEdits`, as brushed edits are.
+
+The depth map is found at 518 px and its edges are soft, so along the outline
+it reads the subject as partly the wall and the wall as partly the subject.
+Taken as it came (2026-11-28, before these two rules), it cut a band out of the
+test photo's hair, cap and shoulders, 4 624 px of a 1024 x 668 photo, where the
+time then showed through, and took away a block of hair the mask was sure of
+(alpha 255) that it could not tell from the wall (depth 89 against the wall's
+69 and the subject's median 201). With the rules, that photo's subject is the
+mask as found: nothing added or removed (computed offline from the phone's own
+mask, depth map and wallpaper), and the lock screen shows the time behind a
+clean outline (checked on the device). Before that (to 2026-11-27) a soft ramp
+about a plane 25 steps behind the median added anything that near anywhere in
+the photo, left the time half erased in blotches where a wall or the ground
+stood near the plane, and ran the whole mask through the guided filter a second
+time, softening its edges. The depth model is loaded and run only while the depth
 map is chosen (`KEY_DEPTH` on the request); a mask kept without a depth map is
-looked at again once it is wanted. A careful look with both models took 20 s on the test
+asked for once it is wanted, alone: the request says the mask is known
+(`SubjectMaskContract.KEY_MASK_KNOWN`) and the service runs only the depth
+model. MEASURED 2026-11-28: choosing the depth map for a photo whose mask was
+kept without one took 1 402 ms (1024x668), where both models had taken about
+23 s. A careful look with both models took 20 s on the test
 phone (MEASURED once, warm); a plain look at a 460 x 1024 preview photo
 11.9 s.
 
@@ -100,6 +124,19 @@ MEASURED on the Pixel 8 Pro, `CP4A.261105.040.A1`, 2026-11-25:
   the desk JVM, the output the same to 1.2e-7. In SystemUI, laying the subject
   out by depth reads its guide a row at a time, as Rec. 601 luma, rather than
   the photo's colours whole and an sRGB power function per pixel.
+- **Threads.** Both ONNX sessions run on half the cores
+  (`SubjectSegmenter.sessionOptions`); ONNX Runtime took one per core, and at
+  SystemUI's foreground level a look left the phone's UI stuttering. MEASURED
+  2026-11-28: a careful look with the depth map took 23 468 ms (1024x668,
+  the service at about 410% CPU); SystemUI's frames while the shade was
+  opened and closed five times during it: 1.82% janky, 95th percentile 19 ms,
+  against 5.86% and 27 ms with no look running.
+- **Each frame of a reveal** the scrim's reveal is read as a primitive (NaN
+  where it cannot be read), so neither the depth layer nor the always-on
+  wallpaper boxes a float per frame, and a thinning numeral line interpolates
+  into paths it keeps while its text holds rather than making new ones. One's
+  doze step peaked at 0.2 ms after this, against 0.7 ms (MEASURED with atrace,
+  2026-11-28).
 - **Startup.** Every patch of a host shares one `ClockPluginApi`
   (`ClockPluginApi.of`); SystemUI's hooks installed in 19 to 23 ms over four
   cold starts, against 21 to 30 ms before.
@@ -139,9 +176,30 @@ with the mask when the subject is found again. Checked on the device
 (CP4A.261105.040.A1, 2026-11-27): pinch, pan, two-finger tap undo, loupe,
 fit-back, discard, and a saved band erasing the time with **Depth first**.
 
-The subject stands only in front of large faces. With a notification on the
-lock screen SystemUI shows the small face, which for the iOS style is drawn
-nearly as large, and no subject stands in front of it.
+The subject stands in front of the small face too, the one SystemUI shows
+beside notifications, for this module's clocks and Google's alike: each face
+gets its own layer, weighed for readability on its own. Only the large face
+follows the tilt.
+
+The editor's look (2026-11-27): glass bars over the photo, undo and redo
+grouped, **Done** with a check; the brush's ring is drawn in its tool's colour
+(Add the accent, Erase the error colour, Restore white); holding the compare
+button shows the subject as found, before any edits; reset is an icon and says
+that Undo brings the edits back. It comes in with the backdrop fading up, the
+photo growing into place and the bars sliding in a beat apart, and leaves the
+same way reversed, over a translucent window so Wallpaper & style shows through
+as it goes (the window was opaque, so the old fade went to black and cut).
+
+Brushed edits are snapped to the photo's own edges when the matte is laid out
+(`DepthComposite.snapEdits`): within the guided filter's radius (the photo's
+long side / 128) of a stroke's edge, the alpha eases toward itself run through
+the guided filter on the photo's luma, so a stroke that runs a few pixels past
+a shoulder is pulled back to it. Deep inside a stroke, and away from any, it is
+left as painted. A stroke that overshoots by more than the radius keeps its
+edge.
+
+**Reprocess wallpaper** asks first while a subject is found, since it throws
+that subject and any edits away.
 
 ### Tilt motion
 
@@ -197,6 +255,41 @@ of 1.3 or more takes Readability first's bars. The bar is 0.05 lower for
 keeping the subject in front than for bringing it there, so the answer holds
 at the edge. **Depth first** always stands the subject in front. The previous
 rule was one bar, 50% of the ink.
+
+When the answer changes, the subject eases in front of the time or away from
+it over about 0.6 s on a critically damped spring (it was a third of a
+second, which read as a blink). As the clock changes size the subject is not
+faded with the face's date: the time is carried across whole and slides
+behind the subject as behind something really in front of it. Fading it in
+showed the time through a half-erased subject, then sank it behind.
+Between the lock screen and the always-on display the subject is cut from the
+time only where the photo is seen through SystemUI's reveal scrim
+(`host/ScrimReveal.kt`): it sweeps in with the photo on a wake and away with it
+going to sleep, in the scrim's own shape, and the time is never cut over the
+black. The cut runs ahead of the photo's light (twice its alpha), so the time
+is seen over the subject only while the photo there is under half up: in step
+with it, white digits lingered at half strength over the dark subject. Checked
+frame by frame on screen recordings (2026-11-28), for the wake key and the
+power button: waking, the time is whole while the photo is dark and goes behind
+the subject within three frames of the photo showing; going to sleep, the
+subject stays in front while the photo dims and the time comes back over about
+four frames as it goes dark. `HOOK_NOTES.md` has how the scrim is read. Before, the
+cut was timed by the doze: it showed as holes in the time over the black, and
+going to sleep, where the doze jumps to 1 at once, the time came in front in a
+frame. Where the scrim cannot be read (the always-on wallpaper patch off), the
+doze still times it (`AodClockMotion`): the subject and the time
+trade places over the first 30% of the move, whichever way it goes:
+going to sleep the time comes out in front before the photo
+has dimmed, and waking the subject is back in front before the photo has come
+up, so the time slides into its place behind it. One order both ways left one
+of them wrong: with the trade at the start of the doze, waking slid the time in
+over the subject and sank it behind after; at its end, going to sleep showed
+the time cut by a subject already fading to black. Checked on the device
+(2026-11-28): waking, by screen recording, the subject is cut from the time
+while the screen is still dark; going to sleep, by screencap in a loop (the
+recorder stops as the display dozes), the time is whole over the subject in
+the first dimmed frame. A move that turns back midway (woken while going to
+sleep) changes order at once, a jump of the subject in or out.
 
 ## The segmentation service
 

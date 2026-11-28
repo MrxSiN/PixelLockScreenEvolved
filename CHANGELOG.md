@@ -2,7 +2,52 @@
 
 ## Unreleased
 
+### Added
+
+- Depth effect: the subject now stands in front of the small clock shown beside
+  notifications, for module and Google clocks.
+- Depth effect: brushed subject edits snap to the photo's own edges.
+- Always-on display: **Dot size**, a seven-stop slider (3 to 9 dp cells,
+  Standard is the old 5 dp) under the Dots appearance, with a live preview of
+  your own wallpaper drawn by the always-on display's own shader at the size it
+  will be on screen. The preview follows every stop dragged across; the setting
+  (secure `pixel_lock_screen_evolved_aod_dot_density`) is kept on release and
+  the always-on display follows it live.
+- Subject editor: hold-to-compare with the subject as found, tool-coloured
+  brush ring, and a confirmation before **Reprocess wallpaper** throws a
+  subject and its edits away.
+
 ### Changed
+
+- Depth map: the depth only adds what is about as near as the subject and
+  touches it, and only removes what the subject model was unsure of; changes
+  narrower than a few pixels (the depth model's soft edge) are left out, and
+  only the edges it changed are snapped to the photo. It used to cut a band out
+  of the subject's hair and shoulders, stand walls just behind the subject in
+  front, and leave the time half erased in blotches.
+- Depth map: choosing it for a photo whose subject was already found runs only
+  the depth model (about 1.4 s instead of 23 s; `SubjectMaskContract.KEY_MASK_KNOWN`).
+- The segmentation service runs its models on half the phone's cores, so the
+  phone stays smooth while a subject is found (UI jank 1.8% during a look
+  against 5.9% idle, measured), at no measured cost in time.
+- Waking from and going to the always-on display, the subject leaves and joins
+  the time with the photo itself, in the shape of SystemUI's reveal, rather
+  than by the doze: the time is never cut over black, never pops in front, and
+  slides into place behind the subject.
+- Changing clock size, the time slides behind the subject rather than showing
+  through a half-faded one; when the time comes forward or goes back for
+  readability, it eases over about 0.6 s.
+- Subject editor redesigned (glass bars, grouped history, Done) with a
+  choreographed entrance and a matching exit; its window is translucent so the
+  exit reveals Wallpaper & style instead of cutting from black.
+- Always-on Dots: on the way in and out the dots grow from the photo itself and
+  shrink back into it, cell by cell from the middle of the screen, and the
+  layer leaves with the scrim's own reveal, so a fingerprint unlock from the
+  always-on display no longer drops the dots in one frame. The way in follows
+  the scrim rather than the clock's doze, which jumps to 1 at screen off and
+  blinked the dots over the lock screen.
+- Subject editor draws under the navigation bar (a strip of the screen behind
+  showed there).
 
 - The iOS clock now defaults to AXS66Clock, bundled in the APK for both the
   lock screen and the picker. Inter remains the fallback and custom font
@@ -43,6 +88,11 @@
 
 ### Fixed
 
+- Waking from the always-on display, module clocks moved in steps: each doze
+  step rebuilt every numeral line's glyphs and typefaces on SystemUI's main
+  thread (Headline 13.8 ms a step), so SystemUI drew one frame in three or
+  four. Doze steps now cost 0.7 ms or less, and the wake draws at 120 Hz for
+  every style at every size.
 - The segmentation service ran on the little cores alone whenever the phone
   was not in use (`background` cpuset), so a new wallpaper's subject took 60 to
   90 s; bound `BIND_IMPORTANT`, it takes 20 to 25 s.

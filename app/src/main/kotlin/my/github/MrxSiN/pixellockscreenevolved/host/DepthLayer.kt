@@ -3,6 +3,8 @@ package my.github.MrxSiN.pixellockscreenevolved.host
 import android.graphics.Bitmap
 import android.graphics.Canvas
 import android.graphics.ColorFilter
+import android.graphics.ColorMatrix
+import android.graphics.ColorMatrixColorFilter
 import android.graphics.Matrix
 import android.graphics.Paint
 import android.graphics.PixelFormat
@@ -19,7 +21,7 @@ import kotlin.math.abs
 import my.github.MrxSiN.pixellockscreenevolved.motion.SystemMotion
 
 /**
- * The subject of the lock screen photo, standing in front of one large clock face.
+ * The subject of the lock screen photo, standing in front of one clock face, large or small.
  *
  * The subject is not drawn: its shape is erased from the face's time, so the
  * photo itself shows through where the subject stands. The cut-out is placed
@@ -29,9 +31,8 @@ import my.github.MrxSiN.pixellockscreenevolved.motion.SystemMotion
  * read ([TimeOcclusion]: too much of its ink, any one digit, the hour or the
  * minute, weighed by how thin the clock is, its contrast against the wallpaper
  * and the person's accessibility settings), the time stays in front of it
- * instead, as on iOS. Before each frame it follows the face: erased only as far
- * as the face has come in while the clock changes size, and not at all in a
- * preview of another wallpaper, where the photo behind it is not this one. It
+ * instead, as on iOS. Before each frame it follows the face, and erases
+ * nothing in a preview of another wallpaper, where the photo behind it is not this one. It
  * stays through an unlock: whatever the app coming up behind the keyguard does
  * to the wallpaper shows through it as it shows around it.
  *
@@ -54,6 +55,8 @@ import my.github.MrxSiN.pixellockscreenevolved.motion.SystemMotion
 internal class DepthLayer(
     private val face: DepthTarget,
     private val feed: LockWallpaperFeed,
+    /** SystemUI's reveal scrim: the subject is cut from the time only where the photo shows through it. */
+    private val scrimReveal: () -> ScrimReveal?,
     private val overOtherWallpaper: () -> Boolean,
 ) {
 
@@ -77,12 +80,17 @@ internal class DepthLayer(
     private var easedAt = 0L
     private var tiltShift = 0f
 
+    /** The doze fraction last seen, and whether it was falling: the display waking rather than going to sleep. */
+    private var lastDoze = 0f
+    private var waking = false
+
     // Scratch for the work done before each frame, on the main thread.
     private val faceToWindow = Matrix()
     private val timeInFace = RectF()
     private val subjectToView = Matrix()
     private val windowToView = Matrix()
     private val viewToSubject = Matrix()
+    private val windowToFace = Matrix()
     private val timeOnSubject = RectF()
 
     // The sizes the subject is placed with, kept while they hold, so a draw allocates none ([LockWallpaperFeed.place]).
@@ -212,10 +220,33 @@ internal class DepthLayer(
         follow(if (face.followsMotion && !previewing && face.dozeFraction == 0f) MotionParallax.offsetFor(faceView) else 0f)
 
         val time = ViewBounds.inAncestor(faceView, face.depthView, timeInFace, beforeDraw = true)
-        // None on the always-on display, where the time is drawn in outline and nothing goes over it. The
-        // time comes out in front of the subject before SystemUI moves it to its AOD region, and goes
-        // back behind it only once it has moved back ([AodClockMotion]).
-        val shown = face.arrival * AodClockMotion.subjectInFront(face.dozeFraction)
+        // The subject is cut from the time only where the photo is seen: none on the always-on display, where
+        // SystemUI's scrim hides the photo and the time is drawn in outline, and between, only where the scrim's
+        // reveal has swept it away, cut in and out with the photo in the scrim's own shape ([Eraser]). Timed by the
+        // doze instead, the cut showed as holes in the time over the black, and on going to sleep, where the doze
+        // jumps to 1 at once, the time came in front in one frame. Where the scrim cannot be read, the doze
+        // times it ([AodClockMotion]). While the clock changes size the subject is not faded with the face's
+        // other parts: the time is carried across whole, and slides behind the subject as it would behind
+        // something really in front of it, rather than showing through a half-erased subject and then sinking
+        // behind it.
+        val doze = face.dozeFraction
+        if (doze != lastDoze) {
+            waking = doze < lastDoze
+            lastDoze = doze
+        }
+        val reveal = scrimReveal()
+        val scrim = reveal?.scrimFor(faceView)
+        // NaN where there is no scrim to read: kept a primitive, as this runs before every frame.
+        val revealed = if (scrim == null) Float.NaN else reveal.amountOrNaN(scrim)
+        val shown = when {
+            revealed.isNaN() -> AodClockMotion.subjectInFront(doze, waking)
+            revealed <= 0f -> 0f
+            else -> 1f
+        }
+        val sweeping = if (revealed > 0f && revealed < 1f) scrim else null
+        if (sweeping != null || eraser.scrim != null) faceView.invalidate()
+        eraser.scrim = sweeping
+        eraser.reveal = reveal
         val readable = if (shown > 0f) leavesTimeReadable(picture, time) else timeReadable
         val strength = shown * inFront(readable)
         if (strength <= 0f) {
@@ -347,6 +378,10 @@ internal class DepthLayer(
         var strength = 0f
         val time = RectF()
 
+        /** SystemUI's reveal scrim while its reveal is under way, the subject cut only where it is clear; else null. */
+        var scrim: View? = null
+        var reveal: ScrimReveal? = null
+
         /** Whether the subject has been erased at all, so [erasedAt] holds a place. */
         var erased = false
             private set
@@ -360,7 +395,28 @@ internal class DepthLayer(
             if (strength <= 0f) return
             val saved = canvas.save()
             canvas.clipRect(time)
-            drawSubject(canvas, faceView, ERASE.apply { alpha = (strength * OPAQUE).toInt() })
+            val sweeping = scrim
+            val sweep = reveal
+            if (sweeping == null || sweep == null) {
+                drawSubject(canvas, faceView, ERASE.apply { alpha = (strength * OPAQUE).toInt() })
+            } else {
+                // The subject, in a layer erased from the face as it is put down, less wherever the scrim is still
+                // dark; dark all over, the photo is not seen and nothing is cut. The layer is put down with its
+                // alpha doubled ([SWEEP]): the time is seen over the subject only where the photo is less than half
+                // up. Cut in step with the photo's own light, white digits lingered at half strength over the dark
+                // subject for some 130 ms of each wake, while the subject itself already read as all there.
+                val layer = canvas.saveLayer(time, SWEEP.apply { alpha = (strength * OPAQUE).toInt() })
+                drawSubject(canvas, faceView, SUBJECT)
+                // The scrim fills its window from its origin, so its pixels are the window's.
+                canvas.concat(ViewBounds.fromWindow(faceView, windowToFace))
+                val drawn = try {
+                    sweep.drawDarkness(sweeping, canvas, WHERE_DARK)
+                } catch (_: ReflectiveOperationException) {
+                    false
+                }
+                if (!drawn) canvas.drawColor(0, PorterDuff.Mode.CLEAR)
+                canvas.restoreToCount(layer)
+            }
             canvas.restoreToCount(saved)
         }
 
@@ -375,8 +431,8 @@ internal class DepthLayer(
     private companion object {
         const val OPAQUE = 255
 
-        /** How firmly the subject eases in front of the time or out from it: settled in about a third of a second. */
-        const val IN_FRONT_STIFFNESS = 256f
+        /** How firmly the subject eases in front of the time or out from it: settled in about 0.6 s, slow enough to read as a settle rather than a blink. */
+        const val IN_FRONT_STIFFNESS = 100f
         const val LONGEST_EASING_STEP_SECONDS = 0.1f
         const val SETTLED = 0.002f
         const val MS_PER_SECOND = 1000f
@@ -388,5 +444,18 @@ internal class DepthLayer(
         const val LARGE_FONT_SCALE = 1.3f
 
         val ERASE = Paint(Paint.FILTER_BITMAP_FLAG).apply { xfermode = PorterDuffXfermode(PorterDuff.Mode.DST_OUT) }
+        val SUBJECT = Paint(Paint.FILTER_BITMAP_FLAG)
+
+        /** How much faster than the photo's light the cut comes and goes while the reveal scrim sweeps ([Eraser]). */
+        const val SWEEP_CONTRAST = 2f
+
+        /** Puts the subject's layer down while the scrim sweeps: erased from the face, its alpha [SWEEP_CONTRAST] times over. */
+        val SWEEP = Paint().apply {
+            xfermode = PorterDuffXfermode(PorterDuff.Mode.DST_OUT)
+            colorFilter = ColorMatrixColorFilter(ColorMatrix().apply { setScale(1f, 1f, 1f, SWEEP_CONTRAST) })
+        }
+
+        /** Clears the subject's layer where SystemUI's scrim is dark ([ScrimReveal.drawDarkness]). */
+        val WHERE_DARK = Paint().apply { xfermode = PorterDuffXfermode(PorterDuff.Mode.DST_OUT) }
     }
 }

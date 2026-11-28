@@ -124,6 +124,26 @@ constraints give it, before every draw, to the same share of its own parent.
   the lock screen hidden, or on the first placement of a face.
 - The preview glides on the same spring as the slider steps.
 
+### Waking from the always-on display
+
+SystemUI hands a clock its doze fraction once per frame of its main thread,
+and a module face's whole move between the always-on position and its awake
+place follows it (`AodClockMotion`), so the move is only as smooth as that
+thread. Each doze step used to rebuild every numeral line's glyphs in three
+newly varied typefaces (`NumeralView`). Headline's doze took 13.8 ms a step
+and One's 3.6 ms, SystemUI's main thread drew one frame in three or four, and
+the clock held still for several frames, then jumped. Now a cut that turns to
+an outline on the always-on display (Headline, Cinema) keeps its glyphs through
+the doze, the glyphs are stroked through a paint of their own so the measuring
+paint never switches cut, and a cut that thins (One and the rest) interpolates
+its awake and light outlines (`Path.interpolate`) built once per minute.
+
+MEASURED with atrace on the Pixel 8 Pro (`CP4A.261105.040.A1`, 2026-11-28),
+waking with each of the module's eight faces at sizes 0 and 3: the large
+face's doze step is at most 0.7 ms (median 0.1 ms or less), and SystemUI's
+main thread drew 56 to 62 of the 60 to 63 frames of the wake at 120 Hz. Before,
+with Headline at size 3: 13.8 ms a step, about 15 of 63 frames.
+
 ## Contracts and failure
 
 | Feature | Host | Required | Optional |

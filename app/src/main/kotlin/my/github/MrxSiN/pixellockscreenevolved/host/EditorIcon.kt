@@ -14,7 +14,7 @@ import android.graphics.drawable.Drawable
  */
 internal class EditorIcon(private val glyph: Glyph, color: Int) : Drawable() {
 
-    enum class Glyph { CLOSE, UNDO, REDO, ADD, ERASE, RESTORE, FIT }
+    enum class Glyph { CLOSE, UNDO, REDO, ADD, ERASE, RESTORE, FIT, CHECK, COMPARE, RESET }
 
     private val paint = Paint(Paint.ANTI_ALIAS_FLAG).apply {
         style = Paint.Style.STROKE
@@ -48,6 +48,21 @@ internal class EditorIcon(private val glyph: Glyph, color: Int) : Drawable() {
             Glyph.RESTORE -> {
                 arcTo(RectF(4.5f, 4.5f, 19.5f, 19.5f), -60f, -290f, true)
                 moveTo(16.5f, 3.5f); lineTo(16f, 6.8f); lineTo(19.3f, 7.3f)
+            }
+            Glyph.CHECK -> {
+                moveTo(5f, 12.5f); lineTo(9.5f, 17f); lineTo(19f, 7.5f)
+            }
+            Glyph.COMPARE -> {
+                // A frame split down the middle, its left half filled in by strokes: before and after.
+                addRoundRect(RectF(4f, 5f, 20f, 19f), 2.5f, 2.5f, Path.Direction.CW)
+                moveTo(12f, 3f); lineTo(12f, 21f)
+                moveTo(7f, 9f); lineTo(9f, 9f)
+                moveTo(7f, 12f); lineTo(9f, 12f)
+                moveTo(7f, 15f); lineTo(9f, 15f)
+            }
+            Glyph.RESET -> {
+                arcTo(RectF(5f, 5f, 19f, 19f), 200f, 290f, true)
+                moveTo(4.5f, 6f); lineTo(5.6f, 10f); lineTo(9.5f, 8.8f)
             }
             Glyph.FIT -> {
                 moveTo(4f, 9f); lineTo(4f, 4f); lineTo(9f, 4f)

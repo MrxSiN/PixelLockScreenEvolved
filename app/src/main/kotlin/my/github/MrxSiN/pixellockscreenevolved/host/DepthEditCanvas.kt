@@ -31,13 +31,16 @@ import kotlin.math.min
  * a pinch zooms about the fingers, two fingers drag it, and a quick two-finger tap undoes. A
  * stroke a second finger joins soon after it began is taken back, so starting a pinch never
  * paints. While a finger paints, a loupe shows what it covers. It opens fitted to [frame], the
- * part of the photo the lock screen shows, when that is known.
+ * part of the photo the lock screen shows, when that is known. Held [comparing], it shows the
+ * subject as found, before any edits, so a person can see what they changed.
  */
 @SuppressLint("ViewConstructor")
 internal class DepthEditCanvas(
     context: Context,
     private val photo: Bitmap,
     private val edits: SubjectEdits,
+    /** The subject as found, before any edits, one value from 0 to 255 per pixel of [photo]. */
+    private val found: IntArray,
     /** The part of [photo] the lock screen shows, in its pixels, or null where it is not known. */
     private val frame: RectF?,
     private val palette: EditorPalette,
@@ -54,6 +57,21 @@ internal class DepthEditCanvas(
 
     /** The mark a stroke leaves ([DepthComposite]). */
     var mark = DepthComposite.ADDED
+
+    /** The colour of the brush's ring, so the tool in hand reads at a glance. */
+    var brushColor = Color.WHITE
+        set(value) {
+            field = value
+            ringLight.color = value
+            invalidate()
+        }
+
+    /** Shows the subject as found instead of as edited, while a person holds the compare button. */
+    var comparing = false
+        set(value) {
+            field = value
+            invalidate()
+        }
 
     /** The brush's radius on screen, in pixels. */
     var brushRadius = 0f
@@ -81,6 +99,21 @@ internal class DepthEditCanvas(
     private val density = resources.displayMetrics.density
     private val mask = Bitmap.createBitmap(photo.width, photo.height, Bitmap.Config.ALPHA_8)
     private val row = IntArray(photo.width)
+
+    /**
+     * The subject as found, drawn while compare is held: made the first time it is, a row at a time, so an
+     * editor never compared holds no second mask, and none opens with a photo-sized array of colours.
+     */
+    private var original: Bitmap? = null
+
+    private fun original(): Bitmap = original ?: Bitmap.createBitmap(photo.width, photo.height, Bitmap.Config.ALPHA_8).also { made ->
+        val width = photo.width
+        for (y in 0 until photo.height) {
+            for (x in 0 until width) row[x] = found[y * width + x] shl 24
+            made.setPixels(row, 0, width, 0, y, width, 1)
+        }
+        original = made
+    }
 
     // Where the photo is: its pixels scaled by [scale], its top left corner at ([tx], [ty]).
     private var scale = 1f
@@ -190,6 +223,7 @@ internal class DepthEditCanvas(
     fun release() {
         settling?.cancel()
         mask.recycle()
+        original?.recycle()
     }
 
     private val homeScale: Float
@@ -258,6 +292,7 @@ internal class DepthEditCanvas(
 
     /** The photo through [matrix], with the subject shown as [look] asks. */
     private fun drawPhoto(canvas: Canvas, matrix: Matrix) {
+        val mask = if (comparing) original() else mask
         when (look) {
             Look.PHOTO -> canvas.drawBitmap(photo, matrix, plain)
             Look.OVERLAY -> {

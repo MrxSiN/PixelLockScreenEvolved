@@ -59,6 +59,8 @@ internal class KeyguardDepthEffect(
     private val feed: LockWallpaperFeed,
     private val modulePackage: String,
     private val previews: KeyguardPreviewWallpapers,
+    /** SystemUI's reveal scrim, which the subject is shown through ([DepthLayer]); null where it cannot be read. */
+    private val scrimReveal: () -> ScrimReveal?,
     private val logger: Logger,
 ) : LockWallpaperFeed.Listener {
 
@@ -103,39 +105,36 @@ internal class KeyguardDepthEffect(
         subjectListeners.forEach { it(subject, at) }
     }
 
-    /** Draws the subject in front of a clock SystemUI built, once there is one. */
+    /**
+     * Draws the subject in front of a clock SystemUI built, once there is one: in front of both its
+     * faces, the small one shown beside notifications as well as the large one.
+     */
     fun track(clock: ClockControllerAdapter) {
         main.post {
-            val layer = DepthLayer(
-                face = clock.largeFace,
-                feed = feed,
-                overOtherWallpaper = { previews.showsOtherWallpaper(clock.controller) },
-            )
-            add(clock, layer)
+            for (face in listOf(clock.largeFace, clock.smallFace)) {
+                add(face, DepthLayer(face, feed, scrimReveal, overOtherWallpaper = { previews.showsOtherWallpaper(clock.controller) }))
+            }
         }
     }
 
     /**
      * Draws the subject in front of a clock of Google's own SystemUI built, held as [controller]:
-     * its large face, [large], is all of it ([StockClockTarget]).
+     * each of its faces' views, [faces], is all of that face ([StockClockTarget]).
      */
-    fun trackStock(controller: Any, large: View) {
+    fun trackStock(controller: Any, faces: List<View>) {
         main.post {
-            if (shown.containsKey(controller)) return@post
-            val layer = DepthLayer(
-                face = StockClockTarget(large),
-                feed = feed,
-                overOtherWallpaper = { previews.showsOtherWallpaper(controller) },
-            )
-            add(controller, layer)
+            for (view in faces) {
+                if (shown.containsKey(view)) continue
+                add(view, DepthLayer(StockClockTarget(view), feed, scrimReveal, overOtherWallpaper = { previews.showsOtherWallpaper(controller) }))
+            }
         }
     }
 
-    private fun add(clock: Any, layer: DepthLayer) {
+    private fun add(face: Any, layer: DepthLayer) {
         // Its settings, requests and previews are followed from the first clock, not only from the first
         // photo: after a hot reload no photo is handed on until the wallpaper changes.
         watch(layer.context)
-        shown[clock] = layer
+        shown[face] = layer
         layer.setEnabled(enabled)
         layer.show(cutout, luma)
         layer.showPreview(preview)
@@ -275,10 +274,12 @@ internal class KeyguardDepthEffect(
                 sent,
                 careful,
                 wantsDepth,
+                // A mask kept without a depth map needs only the depth map, not the subject found again.
+                known = stored,
                 onMask = { mask, depth ->
                     worker.execute {
                         runCatching {
-                            cutouts.storeMask(key, mask)
+                            if (mask !== stored) cutouts.storeMask(key, mask)
                             depth?.let { cutouts.store(key, DepthCutout.Kind.DEPTH, it) }
                             publish(key, matteOf(cutouts, taken, mask, depth), grid)
                             progress.ready()

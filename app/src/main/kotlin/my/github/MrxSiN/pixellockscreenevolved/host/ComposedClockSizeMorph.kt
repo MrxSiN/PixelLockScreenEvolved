@@ -106,7 +106,6 @@ internal class ComposedClockSizeMorph {
          */
         private fun apply() {
             for (view in around) view.alpha = faded
-            to.arrival = faded
             val parent = time.parent as? View ?: return
             val width = time.width.toFloat()
             val height = time.height.toFloat()
@@ -144,7 +143,6 @@ internal class ComposedClockSizeMorph {
             time.rotation = 0f
             time.resetPivot()
             for (view in around) view.alpha = 1f
-            to.arrival = 1f
             // Hidden only while the scene fades it out, a tenth of a second, well inside the morph: the scene can show
             // the same view again without attaching it anew, and kept hidden, a clock went missing.
             from.view.transitionAlpha = 1f

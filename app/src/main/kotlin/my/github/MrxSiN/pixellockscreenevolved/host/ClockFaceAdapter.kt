@@ -46,11 +46,6 @@ internal class ClockFaceAdapter(
     override var timeChanges = 0
         private set
 
-    /**
-     * How far the parts of the face around its time have come in, from 0 to 1,
-     * as the clock changes size; the time itself is carried across instead.
-     */
-    override var arrival = 1f
 
     /** How far the face has gone into the always-on display, from 0 awake to 1 dozing. */
     override var dozeFraction = 0f

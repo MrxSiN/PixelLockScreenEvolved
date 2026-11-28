@@ -4,7 +4,7 @@ import android.view.Display
 import android.view.View
 
 /**
- * A large clock the photo's subject can stand in front of ([DepthLayer]): one of
+ * A clock face, large or small, the photo's subject can stand in front of ([DepthLayer]): one of
  * this module's faces ([ClockFaceAdapter]), or a clock of Google's own
  * ([StockClockTarget]).
  */
@@ -15,9 +15,6 @@ internal interface DepthTarget {
 
     /** The part of [view] the subject stands in front of, and must leave readable. */
     val depthView: View
-
-    /** How far the clock has come in as it changes size, from 0 to 1. */
-    val arrival: Float
 
     /** How far into the always-on display, from 0 awake to 1 dozing. */
     val dozeFraction: Float
@@ -36,7 +33,7 @@ internal interface DepthTarget {
 }
 
 /**
- * One of Google's own large clocks, which SystemUI built and the module only
+ * One of Google's own clock faces, which SystemUI built and the module only
  * looks at: its view is all of it, its time changes every minute, it is either
  * awake or on the always-on display, and its colour is not known. It is not
  * moved: SystemUI places and animates it. Whether it dozes is read from its
@@ -46,7 +43,6 @@ internal interface DepthTarget {
 internal class StockClockTarget(override val view: View) : DepthTarget {
 
     override val depthView: View get() = view
-    override val arrival: Float get() = 1f
     override val dozeFraction: Float get() = if ((view.display?.state ?: Display.STATE_ON) == Display.STATE_ON) 0f else 1f
     override val timeChanging: Boolean get() = false
     override val timeChanges: Int get() = (System.currentTimeMillis() / MINUTE_MS).toInt()
